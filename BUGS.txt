@@ -1,0 +1,8 @@
+Blue Lizard somehow was possessed while Slugcat had no possessions at all.
+    Fixed? Needs Playtest
+
+While running away from a White Lizard, TargetCursor was tremendously offset, about a screen to the left of Slugcat's position.
+    Fixed? Needs Playtest
+
+Whenever crossing a shortcut in a StoryGameSession, Slugcat's PossessionTime is decreased to a fixed value, then replenishes over time once the scug is realized again.
+    Fixed? Needs Playtest
