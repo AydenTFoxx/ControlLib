@@ -1,8 +1,21 @@
 Blue Lizard somehow was possessed while Slugcat had no possessions at all.
     Fixed? Needs Playtest
+    Fixed! Or so I hope.
 
 While running away from a White Lizard, TargetCursor was tremendously offset, about a screen to the left of Slugcat's position.
     Fixed? Needs Playtest
+    Fixed!
 
 Whenever crossing a shortcut in a StoryGameSession, Slugcat's PossessionTime is decreased to a fixed value, then replenishes over time once the scug is realized again.
     Fixed? Needs Playtest
+    Fixed!
+
+Slugcat can start a possession (and use TargetCursor) while having negative PossessionTime (or was it PossessionCooldown?)
+    Fixed!
+
+TODO: Disable MindBlast unconditionally when in a Rain Meadow lobby;
+      Alternatively force-disable it on Meadow mode, and set its value to the host's, false by default.
+
+Invoking MindBlast, then triggering TargetCursor and releasing it without possessing anyone causes the player to be unable to use TargetCursor, and attempting to invoke MindBlast again creates it at the previous position.
+
+TargetCursor is still offset from the player's position, frequently after changing rooms. Starting a possession fixes the issue.

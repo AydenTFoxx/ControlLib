@@ -1,7 +1,9 @@
+using ControlLib.Telekinetics;
 using ModLib;
 using ModLib.Meadow;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
+using UnityEngine;
 
 namespace ControlLib.Possession;
 
@@ -17,7 +19,9 @@ public static class PossessionHooks
     {
         IL.Creature.Update += Extras.WrapILHook(UpdatePossessedCreatureILHook);
 
-        On.Creature.Die += RemovePossessionHook;
+        On.AbstractWorldEntity.Destroy += PreventPlayerDestructionHook;
+
+        On.Creature.Die += CreatureDeathHook;
 
         On.Player.AddFood += AddPossessionTimeHook;
         On.Player.Destroy += DisposePossessionManagerHook;
@@ -31,7 +35,9 @@ public static class PossessionHooks
     {
         IL.Creature.Update -= Extras.WrapILHook(UpdatePossessedCreatureILHook);
 
-        On.Creature.Die -= RemovePossessionHook;
+        On.AbstractWorldEntity.Destroy -= PreventPlayerDestructionHook;
+
+        On.Creature.Die -= CreatureDeathHook;
 
         On.Player.AddFood -= AddPossessionTimeHook;
         On.Player.Destroy -= DisposePossessionManagerHook;
@@ -54,10 +60,29 @@ public static class PossessionHooks
     }
 
     /// <summary>
+    /// Removes any possession this creature had before death.
+    /// </summary>
+    private static void CreatureDeathHook(On.Creature.orig_Die orig, Creature self)
+    {
+        if (self is Player player && DeathProtection.TryGetProtection(player, out _)) return;
+
+        orig.Invoke(self);
+
+        if ((!Extras.IsMeadowEnabled || MeadowUtils.IsMine(self))
+            && self.TryGetPossession(out Player possessor)
+            && possessor.TryGetPossessionManager(out PossessionManager manager))
+        {
+            manager.StopPossession(self);
+        }
+    }
+
+    /// <summary>
     /// Disposes of the player's PossessionManager when Slugcat is destroyed.
     /// </summary>
     private static void DisposePossessionManagerHook(On.Player.orig_Destroy orig, Player self)
     {
+        if (TrySaveFromDestruction(self)) return;
+
         orig.Invoke(self);
 
         if (self.TryGetPossessionManager(out PossessionManager myManager))
@@ -67,19 +92,15 @@ public static class PossessionHooks
     }
 
     /// <summary>
-    /// Removes any possession this creature had before death.
+    /// Prevents the player's abstract representation from being destroyed while death-immune.
     /// </summary>
-    private static void RemovePossessionHook(On.Creature.orig_Die orig, Creature self)
+    private static void PreventPlayerDestructionHook(On.AbstractWorldEntity.orig_Destroy orig, AbstractWorldEntity self)
     {
+        if (self is AbstractCreature abstractCreature
+            && abstractCreature.realizedCreature is Player player
+            && DeathProtection.TryGetProtection(player, out _)) return;
+
         orig.Invoke(self);
-
-        if (Extras.IsMeadowEnabled && !MeadowUtils.IsMine(self)) return;
-
-        if (self.TryGetPossession(out Player possessor)
-            && possessor.TryGetPossessionManager(out PossessionManager manager))
-        {
-            manager.StopPossession(self);
-        }
     }
 
     /// <summary>
@@ -112,12 +133,50 @@ public static class PossessionHooks
 
         c.GotoNext(
             MoveType.After,
-            x => x.MatchLdsfld(typeof(ModManager).GetField(nameof(ModManager.MSC))),
+            static x => x.MatchLdsfld(typeof(ModManager).GetField(nameof(ModManager.MSC))),
             x => x.MatchBrfalse(out target)
         ).MoveAfterLabels();
 
+        // Target: if (ModManager.MSC) { this.SafariControlInputUpdate(0); }
+        //                           ^ HERE (Append)
+
         c.Emit(OpCodes.Ldarg_0).Emit(OpCodes.Ldc_I4_0).EmitDelegate(UpdateCreaturePossession);
         c.Emit(OpCodes.Brtrue, target);
+
+        // Result: if (ModManager.MSC && !UpdateCreaturePossession(this, false)) { this.SafariControlInputUpdate(0); }
+    }
+
+    /// <summary>
+    /// Attempts to save the player from being destroyed with <see cref="Player.Destroy"/>.
+    /// Most often occurs with death pits, but should also work for Leviathan bites and the likes.
+    /// </summary>
+    /// <param name="player">The player to be saved.</param>
+    /// <returns><c>true</c> if the player has been saved (in this method call or another), <c>false</c> otherwise.</returns>
+    private static bool TrySaveFromDestruction(Player player)
+    {
+        if (player.room is null
+            || !DeathProtection.TryGetProtection(player, out DeathProtection protection)
+            || !protection.SafePos.HasValue) return false;
+
+        if (protection.SaveCooldown > 0) return true;
+
+        Vector2 revivePos = player.room.MiddleOfTile(protection.SafePos.Value);
+
+        player.SuperHardSetPosition(revivePos);
+
+        Vector2 bodyVel = new(0f, 8f + player.room.gravity);
+        foreach (BodyChunk bodyChunk in player.bodyChunks)
+        {
+            bodyChunk.vel = bodyVel;
+        }
+
+        player.room.AddObject(new KarmicShockwave(player, revivePos, 80, 48, 64));
+        player.room.AddObject(new Explosion.ExplosionLight(revivePos, 180f * protection.Power, 1f, 80, RainWorld.GoldRGB));
+
+        player.room.PlaySound(SoundID.SB_A14, player.mainBodyChunk, false, 1f, 1.25f + (Random.value * 0.5f));
+
+        Main.Logger?.LogInfo($"{player} was saved from destruction!");
+        return true;
     }
 
     /// <summary>

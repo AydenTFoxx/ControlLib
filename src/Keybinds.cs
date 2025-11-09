@@ -1,6 +1,6 @@
 using System;
-using System.IO;
 using ImprovedInput;
+using ModLib;
 using ModLib.Input;
 using UnityEngine;
 
@@ -26,19 +26,20 @@ public static class Keybinds
         POSSESS = Keybind.Register("Possess", KeyCode.V, KeyCode.Joystick1Button0);
         MIND_BLAST = Keybind.Register("Mind Blast", KeyCode.B, KeyCode.Joystick1Button1);
 
-        ToggleMindBlast(Options.MIND_BLAST.Value);
+        ToggleMindBlast(Options.KINETIC_ABILITIES.Value && Options.MIND_BLAST.Value);
     }
 
     public static void ToggleMindBlast(bool enable)
     {
+        if (!Extras.IsIICEnabled) return;
+
         try
         {
             ImprovedInputAccess.ToggleMindBlast(enable);
         }
         catch (Exception ex)
         {
-            if (ex is not FileNotFoundException)
-                Main.Logger?.LogError($"Failed to toggle Mind Blast option: {ex}");
+            Main.Logger?.LogError($"Failed to toggle Mind Blast option: {ex}");
         }
     }
 

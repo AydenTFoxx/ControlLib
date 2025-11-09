@@ -6,11 +6,10 @@ namespace ControlLib.Possession.Graphics;
 
 public abstract class PlayerAccessory : CosmeticSprite
 {
-    public PossessionManager Manager { get; }
+    protected PossessionManager Manager { get; }
 
     public Vector2 camPos;
     public float alpha;
-    public bool isVisible;
 
     protected float colorTime;
     protected bool invertColorLerp;
@@ -25,39 +24,49 @@ public abstract class PlayerAccessory : CosmeticSprite
         player.room?.AddObject(this);
     }
 
-    public void TryRealizeInRoom(Room playerRoom)
+    public virtual void TryRealizeInRoom(Room playerRoom)
     {
         room?.RemoveObject(this);
+
         playerRoom.AddObject(this);
+
+        pos = player.mainBodyChunk.pos + camPos;
     }
 
-    public void UpdateColorLerp(bool applyLerp) =>
-        UpdateLerpFunction(applyLerp, ref colorTime, ref invertColorLerp);
+    public void UpdateColorLerp(bool applyLerp)
+    {
+        if (applyLerp)
+        {
+            colorTime += invertColorLerp ? 0.1f : -0.1f;
+
+            if (Math.Abs(colorTime) >= 1f)
+                invertColorLerp = !invertColorLerp;
+        }
+        else if (colorTime > 0f)
+        {
+            colorTime = Math.Max(0f, colorTime - 0.1f);
+        }
+    }
 
     public override void Update(bool eu)
     {
         base.Update(eu);
 
-        if (player.dead)
+        if (player is null)
         {
-            isVisible = false;
-
-            if (alpha <= 0f)
-            {
-                Destroy();
-            }
+            Destroy();
+            return;
         }
-        else if (player.room is not null && player.room != room)
+
+        if (player.room is not null && player.room != room)
         {
             TryRealizeInRoom(player.room);
         }
-
-        pos = GetMarkPos(player, camPos, 1f);
     }
 
     public override void AddToContainer(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, FContainer newContatiner)
     {
-        newContatiner ??= rCam.ReturnFContainer("Shortcuts");
+        newContatiner ??= rCam.ReturnFContainer("HUD");
 
         foreach (FSprite sprite in sLeaser.sprites)
         {
@@ -96,26 +105,11 @@ public abstract class PlayerAccessory : CosmeticSprite
 
     protected static Vector2 GetMarkPos(Player player, Vector2 camPos, float timeStacker)
     {
-        if (player.graphicsModule is not PlayerGraphics playerGraphics) return default;
+        if (player?.graphicsModule is not PlayerGraphics playerGraphics) return default;
 
         Vector2 vector2 = Vector2.Lerp(playerGraphics.drawPositions[1, 1], playerGraphics.drawPositions[1, 0], timeStacker);
         Vector2 vector3 = Vector2.Lerp(playerGraphics.head.lastPos, playerGraphics.head.pos, timeStacker);
 
         return vector3 + Custom.DirVec(vector2, vector3) + new Vector2(0f, 30f) - camPos;
-    }
-
-    protected static void UpdateLerpFunction(bool applyLerp, ref float lerpTime, ref bool invertLerp)
-    {
-        if (applyLerp)
-        {
-            lerpTime += invertLerp ? 0.1f : -0.1f;
-
-            if (Math.Abs(lerpTime) >= 1f)
-                invertLerp = !invertLerp;
-        }
-        else
-        {
-            lerpTime = Math.Max(0, lerpTime - 0.1f);
-        }
     }
 }

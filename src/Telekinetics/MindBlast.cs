@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Runtime.CompilerServices;
-using ModLib.Collections;
+using ControlLib.Possession;
+using ModLib.Options;
 using MoreSlugcats;
 using Noise;
 using RWCustom;
@@ -11,13 +12,10 @@ namespace ControlLib.Telekinetics;
 public class MindBlast : CosmeticSprite
 {
     private static readonly ConditionalWeakTable<Player, MindBlast> _activeInstances = new();
-    private static readonly WeakDictionary<Player, int> _playerCooldowns = [];
 
     private readonly Player player;
-    private readonly int power;
-
     private readonly DynamicSoundLoop soundLoop;
-    private readonly Color explodeColor = RainWorld.GoldRGB;
+    private readonly Color explodeColor;
 
     private float killFac;
     private float lastKillFac;
@@ -25,25 +23,37 @@ public class MindBlast : CosmeticSprite
     private LightningMachine? activateLightning;
     private RoomSettings.RoomEffect? meltEffect;
 
-    private bool expired;
     private bool enlightenedRoom;
     private bool forcedMeltEffect;
 
     private float effectAdd;
     private readonly float effectInitLevel;
 
-    public MindBlast(Player player, int power)
+    public bool Expired { get; private set; }
+
+    public float Power { get; }
+
+    private MindBlast(Player player, float power)
     {
         this.player = player;
-        this.power = power;
+        Power = Mathf.Clamp(power, -2f, 2f);
 
-        soundLoop = new DisembodiedDynamicSoundLoop(this)
+        soundLoop = new ChunkDynamicSoundLoop(player.mainBodyChunk)
         {
             sound = SoundID.Rock_Through_Air_LOOP,
+            Volume = 1f,
             Pitch = 0.5f
         };
 
+        explodeColor = power < 1f
+            ? RainWorld.AntiGold.rgb
+            : power > 1f
+                ? RainWorld.RippleGold
+                : RainWorld.GoldRGB;
+
         room = player.room;
+
+        if (room is null) return;
 
         for (int i = 0; i < room.roomSettings.effects.Count; i++)
         {
@@ -51,7 +61,7 @@ public class MindBlast : CosmeticSprite
             {
                 meltEffect = room.roomSettings.effects[i];
                 effectInitLevel = meltEffect.amount;
-                return;
+                break;
             }
         }
     }
@@ -66,34 +76,29 @@ public class MindBlast : CosmeticSprite
             return;
         }
 
-        AbstractPhysicalObject abstractKaboom = new(
-            room.world,
-            killFac < 0.55f
-                ? AbstractPhysicalObject.AbstractObjectType.FirecrackerPlant
-                : killFac >= 0.9f
-                    ? DLCSharedEnums.AbstractObjectType.SingularityBomb
-                    : AbstractPhysicalObject.AbstractObjectType.ScavengerBomb,
-            null,
-            room.ToWorldCoordinate(pos),
-            room.world.game.GetNewID()
-        );
-
-        abstractKaboom.RealizeInRoom();
-
-        if (abstractKaboom.realizedObject is SingularityBomb singularity)
+        if (killFac >= 0.5f)
         {
-            singularity.zeroMode = true;
-            singularity.explodeColor = new Color(1f, 0.2f, 0.2f);
+            AbstractPhysicalObject.AbstractObjectType bombType = killFac >= 0.95f
+                ? DLCSharedEnums.AbstractObjectType.SingularityBomb
+                : AbstractPhysicalObject.AbstractObjectType.ScavengerBomb;
 
-            singularity.Explode();
-        }
-        else if (abstractKaboom.realizedObject is ScavengerBomb scavBomb)
-        {
-            scavBomb.Explode(null);
+            Main.ExplodePos(player, room.ToWorldCoordinate(pos), bombType, (p) =>
+            {
+                if (p is SingularityBomb singularity)
+                    singularity.zeroMode = true;
+            });
         }
         else
         {
-            (abstractKaboom.realizedObject as FirecrackerPlant)?.Explode();
+            for (int num = Random.Range(1, 6); num >= 0; num--)
+            {
+                room.AddObject(new Spark(pos, Custom.RNV() * Mathf.Lerp(15f, 30f, Random.value), explodeColor, null, 7, 17));
+            }
+
+            room.AddObject(new Explosion.FlashingSmoke(pos, Custom.RNV() * 5f * Random.value, 1f, new Color(1f, 1f, 1f), explodeColor, 5));
+            room.AddObject(new Explosion.ExplosionLight(pos, Mathf.Lerp(50f, 150f, Random.value), 0.5f, 4, explodeColor));
+
+            room.PlaySound(SoundID.Firecracker_Bang, pos);
         }
 
         if (!player.dead)
@@ -104,7 +109,7 @@ public class MindBlast : CosmeticSprite
             room.AddObject(new CreatureSpasmer(player, false, 40));
         }
 
-        Main.Logger?.LogDebug($"{nameof(MindBlast)}: Interrupted! Explosion type: {abstractKaboom.realizedObject}; Player alive? {!player.dead}");
+        Main.Logger?.LogDebug($"{nameof(MindBlast)}: Interrupted! Progress was: {killFac}");
 
         Destroy();
     }
@@ -113,23 +118,19 @@ public class MindBlast : CosmeticSprite
     {
         if (room is null) return;
 
-        Vector2 vector = Vector2.Lerp(pos, lastPos, 0.35f);
+        room.AddObject(new Explosion.ExplosionLight(pos, 2000f * Power, 2f, 60, explodeColor));
 
-        room.AddObject(new Explosion.ExplosionLight(vector, 280f, 1f, 7, explodeColor));
-        room.AddObject(new Explosion.ExplosionLight(vector, 230f, 1f, 3, new Color(1f, 1f, 1f)));
-        room.AddObject(new Explosion.ExplosionLight(vector, 2000f, 2f, 60, explodeColor));
-        room.AddObject(new ShockWave(vector, 350f, 0.485f, 300, true));
-        room.AddObject(new ShockWave(vector, 2000f, 0.185f, 180, false));
+        room.AddObject(new ShockWave(pos, 275f * Power, 0.2425f * Power, (int)(200 * Power), true));
+        room.AddObject(new ShockWave(pos, 1250f * Power, 0.0925f * Power, (int)(180 * Power), false));
 
-        room.ScreenMovement(new Vector2?(vector), default, 0.75f);
-        room.PlaySound(SoundID.SB_A14, player.mainBodyChunk, false, 1f, 0.5f + (Random.value * 0.25f));
+        room.ScreenMovement(pos, default, 0.35f * Power);
+        room.PlaySound(SoundID.SB_A14, pos, 1f, Power + Random.Range(-0.5f, 0.5f));
 
-        room.InGameNoise(new InGameNoise(vector, 9000f, player, 1f));
-        room.InGameNoise(new InGameNoise(pos, 12000f, player, 1f));
+        room.InGameNoise(new InGameNoise(pos, 4500f * Power, player, 1f));
 
         if (meltEffect is null)
         {
-            meltEffect = new RoomSettings.RoomEffect(RoomSettings.RoomEffect.Type.VoidMelt, 1f, false);
+            meltEffect = new RoomSettings.RoomEffect(RoomSettings.RoomEffect.Type.VoidMelt, Mathf.Clamp(0.75f * Power, 0.5f, 1f), false);
 
             room.roomSettings.effects.Add(meltEffect);
 
@@ -142,58 +143,149 @@ public class MindBlast : CosmeticSprite
         }
         effectAdd = 1f;
 
-        player.Stun(40);
-
         player.aerobicLevel = 1f;
         player.exhausted = true;
 
-        expired = true;
+        if (player.TryGetPossessionManager(out PossessionManager manager))
+        {
+            manager.PossessionCooldown = 200;
+        }
+
+        Expired = true;
+
+        DeathProtection.CreateInstance(player, (p) => p.canJump > 0, player.abstractCreature.pos);
     }
 
     public override void Update(bool eu)
     {
         base.Update(eu);
 
-        if (expired)
+        if (Expired)
         {
+            if (room is null) return;
+
             effectAdd = Mathf.Max(0f, effectAdd - 0.016666668f);
             meltEffect?.amount = Mathf.Lerp(effectInitLevel, 1f, Custom.SCurve(effectAdd, 0.6f));
 
-            if (effectAdd <= 0.5f && room is not null && !enlightenedRoom)
+            if (!enlightenedRoom)
+            {
+                Vector2 targetVel = new(0f, 2f);
+                foreach (Creature creature in room.physicalObjects.SelectMany(static list => list).OfType<Creature>())
+                {
+                    creature.Stun(40);
+
+                    if (creature is Player) continue;
+
+                    foreach (BodyChunk bodyChunk in creature.bodyChunks)
+                    {
+                        bodyChunk.vel = Vector2.MoveTowards(bodyChunk.vel, targetVel, 20f);
+                    }
+
+                    foreach (Limb limb in creature.graphicsModule?.bodyParts?.OfType<Limb>() ?? [])
+                    {
+                        limb.mode = Limb.Mode.Dangle;
+                    }
+                }
+            }
+
+            if (effectAdd <= 0.5f && !enlightenedRoom)
             {
                 enlightenedRoom = true;
 
+                float stunFactor = OptionUtils.GetOptionValue<float>("mind_blast_stun_factor");
+                int stunDeathThreshold = OptionUtils.GetOptionValue<int>("stun_death_threshold");
+
                 foreach (PhysicalObject physicalObject in room.physicalObjects.SelectMany(static list => list))
                 {
-                    if (physicalObject == player) continue;
+                    if (!RippleLayerCheck(physicalObject.abstractPhysicalObject, player.abstractPhysicalObject)) continue;
 
-                    foreach (BodyChunk bodyChunk in physicalObject.bodyChunks)
+                    float stunPower = -(Vector2.Distance(physicalObject.firstChunk.pos, pos) - stunFactor) * Power;
+                    float velocity = stunPower * 0.2f;
+
+                    if (physicalObject is Creature or Oracle)
                     {
-                        bodyChunk.vel += Custom.RNV() * 24f;
-                    }
-
-                    room.AddObject(new KarmicShockwave(physicalObject, physicalObject.firstChunk.pos, 32, 16, 32));
-
-                    if (physicalObject is Creature creature)
-                    {
-                        float blastPower = power * 0.1f / creature.Template.baseDamageResistance;
-
-                        bool shouldDie = creature.State is HealthState healthState
-                            ? blastPower * 0.5f >= healthState.health
-                            : blastPower >= 2f;
-
-                        if (shouldDie)
+                        if (physicalObject is Creature crit && crit.Template.baseDamageResistance <= 0.1f)
                         {
-                            creature.SetKillTag(player.abstractCreature);
+                            Main.Logger?.LogDebug($"Die! {crit} (Too weak to withstand MindBlast)");
 
-                            creature.Die();
+                            stunPower = int.MaxValue;
                         }
                         else
                         {
-                            creature.Stun(power);
+                            Main.Logger?.LogDebug($"Target: ({physicalObject}); Stun power: {stunPower} | Velocity: {velocity}");
                         }
                     }
+
+                    if (velocity > 0f)
+                    {
+                        Vector2 offset = Custom.RNV() * 0.1f;
+                        foreach (BodyChunk bodyChunk in physicalObject.bodyChunks)
+                        {
+                            Vector2 direction = Custom.DirVec(bodyChunk.pos, pos) + offset;
+
+                            bodyChunk.vel += -direction * velocity;
+                        }
+                    }
+
+                    if (stunPower <= 0f
+                        || physicalObject is not Creature creature
+                        || creature is Player or { dead: true }) continue;
+
+                    bool isPlayerFriend = IsPlayerFriend(creature.abstractCreature);
+
+                    int blastPower = (int)(stunPower * (creature.Template.baseDamageResistance * 0.1f) * (isPlayerFriend ? 0.5f : Power));
+
+                    creature.Stun(blastPower);
+                    creature.Deafen(blastPower);
+
+                    if (isPlayerFriend) continue;
+
+                    if (room.game.IsArenaSession)
+                        creature.SetKillTag(player.abstractCreature);
+
+                    if (creature.stun >= stunDeathThreshold)
+                    {
+                        room.AddObject(new KarmicShockwave(creature, creature.firstChunk.pos, 64, 24, 48));
+
+                        creature.Die();
+                    }
+                    else
+                    {
+                        room.AddObject(new ReverseShockwave(creature.firstChunk.pos, 24f, 0.1f, 80));
+
+                        creature.Violence(creature.firstChunk, null, creature.firstChunk, null, Creature.DamageType.Explosion, blastPower * (0.1f * Power), blastPower * Power);
+                    }
                 }
+
+                if (ModManager.Watcher && room.locusts is not null)
+                {
+                    room.locusts.AddAvoidancePoint(pos, 480f * Power, (int)(300 * Power));
+                    room.locusts.AddAvoidancePoint(player.mainBodyChunk.pos, 250f * Power, (int)(200 * Power));
+
+                    room.locusts.KillInRadius(pos, 360 * Power);
+
+                    int locustCount = room.locusts.cloudLocusts.Count;
+
+                    foreach (LocustSystem.GroundLocust locust in room.locusts.groundLocusts)
+                    {
+                        locustCount++;
+
+                        if (locust.Poisoned)
+                        {
+                            locust.alive = false;
+                            continue;
+                        }
+
+                        locust.scared = true;
+                    }
+
+                    room.locusts.cloudLocusts.RemoveAll(cl => Custom.DistLess(cl.pos, pos, stunFactor * 0.5f * Power));
+
+                    player.repelLocusts = (int)(stunFactor * 0.1f * locustCount);
+                }
+
+                room.PlaySound(SoundID.Firecracker_Bang, pos, 1f, (Random.value * 1.5f) + (Random.value * Power));
+                room.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, pos, 1f, Random.value + (Random.value * Power));
             }
 
             if (effectAdd <= 0f)
@@ -211,17 +303,16 @@ public class MindBlast : CosmeticSprite
             killFac = 1f;
 
             Explode();
-
-            return;
         }
-        else if (activateLightning is null && killFac >= 0.25f)
+        else if (activateLightning is null && killFac >= 0.15f)
         {
-            activateLightning = new LightningMachine(pos, pos, new Vector2(pos.x, pos.y + 10f), 0f, false, true, 0.3f, 1f, 1f)
+            activateLightning = new LightningMachine(pos, pos, new Vector2(pos.x, pos.y + 10f), 0f, false, true, 0.5f, 0.5f * Power, 1f)
             {
                 volume = 0.8f,
                 impactType = 3,
-                lightningType = 0.65f
+                lightningType = 0.1f
             };
+
             room.AddObject(activateLightning);
 
             Main.Logger?.LogDebug($"{nameof(MindBlast)}: Creating lightning machine!");
@@ -232,10 +323,11 @@ public class MindBlast : CosmeticSprite
             float num3 = Mathf.Clamp(killFac, 0.2f, 1f);
             activateLightning.startPoint = new Vector2(Mathf.Lerp(pos.x, 150f, (num3 * 2f) - 2f), pos.y);
             activateLightning.endPoint = new Vector2(Mathf.Lerp(pos.x, 150f, (num3 * 2f) - 2f), pos.y + 10f);
-            activateLightning.chance = Mathf.Lerp(0f, 0.7f, num3);
+            activateLightning.chance = Custom.SCurve(0.7f, num3);
         }
 
-        soundLoop.Volume = Mathf.InverseLerp(5f, 15f, killFac);
+        soundLoop.Volume = Mathf.Lerp(15f, 5f, killFac);
+
         soundLoop.Update();
     }
 
@@ -247,22 +339,28 @@ public class MindBlast : CosmeticSprite
         if (forcedMeltEffect)
         {
             room?.roomSettings.effects.Remove(meltEffect);
+
+            forcedMeltEffect = false;
         }
         meltEffect = null;
 
         base.Destroy();
 
         _activeInstances.Remove(player);
-        _playerCooldowns.Add(player, 80);
 
-        Main.Logger?.LogDebug($"{nameof(MindBlast)} from {player} was destroyed! Applying cooldown.");
+        if (player.TryGetPossessionManager(out PossessionManager manager))
+        {
+            manager.TargetSelector?.ResetSelectorInput(true);
+        }
+
+        Main.Logger?.LogDebug($"{nameof(MindBlast)} from {player} was destroyed!");
     }
 
     public override void InitiateSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam)
     {
         sLeaser.sprites = new FSprite[1];
 
-        sLeaser.sprites[0] = new FSprite("Futile_White", true)
+        sLeaser.sprites[0] = new FSprite("Futile_White")
         {
             shader = rCam.game.rainWorld.Shaders["FlatLight"]
         };
@@ -271,7 +369,7 @@ public class MindBlast : CosmeticSprite
     }
 
     public override void AddToContainer(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, FContainer newContatiner) =>
-        rCam.ReturnFContainer("Shortcuts").AddChild(sLeaser.sprites[0]);
+        rCam.ReturnFContainer("Bloom").AddChild(sLeaser.sprites[0]);
 
     public override void DrawSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, float timeStacker, Vector2 camPos)
     {
@@ -283,11 +381,11 @@ public class MindBlast : CosmeticSprite
             sLeaser.sprites[0].y = Mathf.Lerp(lastPos.y, pos.y, timeStacker) - camPos.y;
 
             float num = Mathf.Lerp(lastKillFac, killFac, timeStacker);
-            sLeaser.sprites[0].scale = Mathf.Lerp(200f, 2f, Mathf.Pow(num, 0.5f));
+            sLeaser.sprites[0].scale = Mathf.Lerp(150f, 2f, Mathf.Pow(num, 0.5f));
             sLeaser.sprites[0].alpha = Mathf.Pow(num, 3f);
         }
 
-        if (expired)
+        if (Expired)
         {
             rCam.ApplyPalette();
         }
@@ -295,21 +393,37 @@ public class MindBlast : CosmeticSprite
         base.DrawSprites(sLeaser, rCam, timeStacker, camPos);
     }
 
-    public static void CreateInstance(Player player, int blastPower)
+    private bool IsPlayerFriend(AbstractCreature creature)
     {
-        if (player?.room is null || HasInstance(player) || HasCooldown(player))
+        if (creature.realizedCreature is not IReactToSocialEvents) return false;
+
+        bool result = room.game.session.creatureCommunities.LikeOfPlayer(creature.creatureTemplate.communityID, room.world?.RegionNumber ?? 0, player.playerState.playerNumber) >= 0.5f;
+
+        Main.Logger?.LogDebug($"# Community of {creature} likes player? {result}");
+
+        if (!result)
+        {
+            result = creature.abstractAI?.RealAI?.friendTracker?.friend == player;
+
+            Main.Logger?.LogDebug($"# Is {creature} friend of player? {result}");
+        }
+
+        return result;
+    }
+
+    public static void CreateInstance(Player player, float power)
+    {
+        if (player?.room is null || HasInstance(player))
         {
             string reason = player?.room is null
                 ? "Room or player is null"
-                : HasInstance(player)
-                    ? "Player already has an active instance"
-                    : "Player is on cooldown";
+                : "Player already has an active instance";
 
             Main.Logger?.LogDebug($"Could not create MindBlast instance: {reason}.");
             return;
         }
 
-        MindBlast mindBlast = new(player, blastPower);
+        MindBlast mindBlast = new(player, power);
 
         player.room.AddObject(mindBlast);
 
@@ -322,5 +436,6 @@ public class MindBlast : CosmeticSprite
 
     public static bool HasInstance(Player player) => _activeInstances.TryGetValue(player, out _);
 
-    public static bool HasCooldown(Player player) => _playerCooldowns.TryGetValue(player, out _);
+    private static bool RippleLayerCheck(AbstractPhysicalObject x, AbstractPhysicalObject y) =>
+        x.rippleLayer == y.rippleLayer || x.rippleBothSides || y.rippleBothSides;
 }

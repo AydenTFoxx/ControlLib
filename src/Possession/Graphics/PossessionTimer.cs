@@ -16,16 +16,16 @@ public class PossessionTimer(PossessionManager manager)
 
     private float rubberRadius;
 
-    private bool IsPlayerVisible => player.room is not null && !player.dead;
+    private bool IsPlayerVisible => player?.room is not null && !player.dead;
     private bool ShouldShowPips => IsPlayerVisible && (Manager.IsPossessing || Manager.PossessionTime < Manager.MaxPossessionTime);
 
     private Color PipColor =>
         player.graphicsModule is PlayerGraphics playerGraphics
-            ? GetPlayerColor(playerGraphics)
+            ? Color.Lerp(GetPlayerColor(playerGraphics), Color.white, 0.5f)
             : Color.white;
 
     private Color FlashingPipColor =>
-        Manager.TargetSelector.State is TargetSelector.QueryingState
+        Manager.TargetSelector?.State is TargetSelector.QueryingState
             ? PipColor == Color.white
                 ? RainWorld.GoldRGB
                 : Color.white
@@ -37,27 +37,28 @@ public class PossessionTimer(PossessionManager manager)
 
         alpha += ((ShouldShowPips ? 1f : 0f) - alpha) * 0.05f;
 
-        if (alpha <= 0f) return;
-
-        if (ShouldShowPips)
+        if (alpha <= 0f)
         {
-            float pipScale = Manager.MaxPossessionTime / PipSpritesLength;
-
-            for (int m = 0; m < sLeaser.sprites.Length; m++)
-            {
-                FSprite pip = sLeaser.sprites[m];
-
-                float num22 = pipScale * m;
-                float num23 = pipScale * (m + 1);
-                pip.scale = Manager.PossessionTime <= num22
-                    ? 0f
-                    : Manager.PossessionTime >= num23
-                        ? 1f
-                        : (Manager.PossessionTime - num22) / pipScale;
-            }
-
-            UpdateColorLerp(Manager.LowPossessionTime || Manager.TargetSelector.State is TargetSelector.QueryingState);
+            this.camPos = camPos;
+            return;
         }
+
+        float pipScale = Manager.MaxPossessionTime / PipSpritesLength;
+
+        for (int m = 0; m < sLeaser.sprites.Length; m++)
+        {
+            FSprite pip = sLeaser.sprites[m];
+
+            float num22 = pipScale * m;
+            float num23 = pipScale * (m + 1);
+            pip.scale = Manager.PossessionTime <= num22
+                ? 0f
+                : Manager.PossessionTime >= num23
+                    ? 1f
+                    : (Manager.PossessionTime - num22) / pipScale;
+        }
+
+        UpdateColorLerp(Manager.LowPossessionTime || Manager.TargetSelector?.State is TargetSelector.QueryingState);
 
         float radius = Manager.IsPossessing ? 15f : 6f;
         rubberRadius += (radius - rubberRadius) * 0.045f;

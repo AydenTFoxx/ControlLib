@@ -26,13 +26,15 @@ public static class PossessionExts
     /// <returns>The existing <c>PossessionManager</c> instance, or a new one if none was found.</returns>
     public static PossessionManager GetPossessionManager(this Player self)
     {
-        if (TryGetPossessionManager(self, out PossessionManager manager)) return manager!;
+        if (TryGetPossessionManager(self, out PossessionManager manager)) return manager;
 
         PossessionManager newManager = new(self);
 
         _possessionHolders.Add(self, newManager);
         return newManager;
     }
+
+    public static bool RemovePossessionManager(this Player self) => _possessionHolders.Remove(self);
 
     /// <summary>
     /// Attempts to retrieve the given creature's possessing player. If none is found, <c>null</c> is returned instead.

@@ -43,7 +43,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
     public bool HasTargetCursor => targetCursor is not null;
 
-    public bool HasMindBlast => IsOptionEnabled(Options.MIND_BLAST) && (MindBlast.HasInstance(player) || MindBlast.HasCooldown(player));
+    public bool HasMindBlast => IsOptionEnabled(Options.MIND_BLAST) && (MindBlast.HasInstance(player) || manager.OnMindBlastCooldown);
 
     public bool ExceededTimeLimit
     {
@@ -79,8 +79,8 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
         State.UpdatePhase(this);
     }
 
-    internal Vector2 GetTargetPos() =>
-        targetCursor?.targetPos ?? (HasValidTargets ? Targets[0].mainBodyChunk.pos : Vector2.zero);
+    public Vector2 GetTargetPos() =>
+        targetCursor?.GetPos() ?? (HasValidTargets ? Targets[0].mainBodyChunk.pos : Vector2.zero);
 
     public void QueryTargetCursor()
     {
@@ -114,7 +114,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     /// <summary>
     /// Resets the selector's input data. Also restores the player's controls if they have no possession.
     /// </summary>
-    public void ResetSelectorInput()
+    public void ResetSelectorInput(bool forceReset = false)
     {
         Input = new();
 
@@ -123,9 +123,13 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
             player.controller = null;
         }
 
-        if (HasMindBlast)
+        ExceededTimeLimit = false;
+
+        if (HasMindBlast || forceReset)
         {
-            targetCursor?.ResetCursor(false);
+            targetCursor?.ResetCursor();
+
+            MoveToState(TargetSelectionState.Idle);
         }
     }
 
@@ -138,9 +142,9 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
         Input.InputTime++;
 
-        if (!HasMindBlast && (ExceededTimeLimit || PossessionManager.PossessionCooldown > 0))
+        if (ExceededTimeLimit || PossessionManager.PossessionCooldown > 0)
         {
-            if (ExceededTimeLimit)
+            if (ExceededTimeLimit && !HasMindBlast)
             {
                 PossessionManager.PossessionCooldown = 80;
 
@@ -154,18 +158,30 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
         State.UpdatePhase(this);
 
-        if (HasValidTargets)
+        bool hasValidTargets = HasValidTargets;
+
+        if (player.graphicsModule is PlayerGraphics playerGraphics
+            && (hasValidTargets || targetCursor is not null))
         {
-            if (player.graphicsModule is PlayerGraphics playerGraphics)
+            if (targetCursor is not null)
+            {
+                playerGraphics.LookAtPoint(targetCursor.GetPos(), 9000f);
+            }
+            else if (hasValidTargets)
             {
                 playerGraphics.LookAtObject(Targets[0]);
-
-                playerGraphics.hands[0].mode = Limb.Mode.HuntAbsolutePosition;
-                playerGraphics.hands[0].absoluteHuntPos = Targets[0].mainBodyChunk.pos;
+            }
+            else
+            {
+                playerGraphics.LookAtNothing();
             }
 
-            if (targetCursor is not null) return;
+            playerGraphics.hands[0].mode = Limb.Mode.HuntAbsolutePosition;
+            playerGraphics.hands[0].absoluteHuntPos = targetCursor?.GetPos() ?? (hasValidTargets ? Targets[0].mainBodyChunk.pos : Vector2.zero);
+        }
 
+        if (hasValidTargets)
+        {
             int module = Extras.IsMeadowEnabled && !IsOptionEnabled(Options.MEADOW_SLOWDOWN) ? 8 : 4;
             if (Input.InputTime % module == 0)
             {
@@ -311,16 +327,13 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     /// <summary>
     /// Retrieves the max range at which the player can possess creatures.
     /// </summary>
-    /// <param name="gameSession">The current game session.</param>
     /// <returns>A float determining how far a creature can be from the player to be eligible for possession.</returns>
-    public static float GetPossessionRange(GameSession? gameSession) =>
+    public static float GetPossessionRange() =>
         IsOptionEnabled(Options.WORLDWIDE_MIND_CONTROL)
             ? 9999f
             : IsClientOptionValue(Options.SELECTION_MODE, "ascension")
                 ? 480f
-                : gameSession is ArenaGameSession
-                    ? 1024f
-                    : 720f;
+                : 1024f;
 
     /// <summary>
     /// Determines if the given creature is within possession range of the player.
@@ -329,7 +342,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     /// <param name="creature">The creature to possess.</param>
     /// <returns><c>true</c> if the creature is within possession range, <c>false</c> otherwise.</returns>
     public static bool IsInPossessionRange(Vector2 pos, Creature creature) =>
-        Custom.DistLess(pos, creature.mainBodyChunk.pos, GetPossessionRange(creature.room?.game.session));
+        Custom.DistLess(pos, creature.mainBodyChunk.pos, GetPossessionRange());
 
     /// <summary>
     /// Determines if the given creature is a valid target for possession.
@@ -386,17 +399,43 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     {
         public virtual int Compare(Creature x, Creature y)
         {
-            if (x is not IPlayerEdible && y is IPlayerEdible) return -1;
-            if (y is not IPlayerEdible && x is IPlayerEdible) return 1;
-
             float xDist = Vector2.Distance(x.mainBodyChunk.pos, playerPos);
             float yDist = Vector2.Distance(y.mainBodyChunk.pos, playerPos);
 
-            return xDist < yDist
-                ? -1
-                : xDist > yDist
-                    ? 1
-                    : 0;
+            return IgnoreCrit(x, y, xDist, yDist, out int comparison)
+                ? comparison
+                : xDist < yDist
+                    ? -1
+                    : xDist > yDist
+                        ? 1
+                        : 0;
+        }
+
+        private static bool IgnoreCrit(Creature x, Creature y, float distX, float distY, out int comparison, bool isRecursive = false)
+        {
+            bool result = x is not IPlayerEdible && y is IPlayerEdible && (distX - distY) <= 60f;
+
+            if (result)
+            {
+                comparison = -1;
+                return true;
+            }
+
+            if (isRecursive)
+            {
+                comparison = 0;
+                return false;
+            }
+
+            result = IgnoreCrit(y, x, distY, distX, out comparison, isRecursive: true);
+
+            if (result)
+            {
+                comparison = 1;
+                return true;
+            }
+
+            return false;
         }
     }
 

@@ -11,6 +11,8 @@ public class TargetCursor(PossessionManager manager)
     public Vector2 targetPos;
     public Vector2 lastTargetPos;
 
+    private float targetAlpha;
+
     private float CursorSpeed =>
         Extras.IsMeadowEnabled
         && !OptionUtils.IsOptionEnabled(Options.MEADOW_SLOWDOWN)
@@ -21,12 +23,14 @@ public class TargetCursor(PossessionManager manager)
         ? RainWorld.GoldRGB
         : Color.red;
 
+    public Vector2 GetPos() => targetPos + camPos;
+
     public void ResetCursor(bool isVisible = false)
     {
         targetPos = pos;
         lastTargetPos = targetPos;
 
-        this.isVisible = isVisible;
+        targetAlpha = isVisible ? 1f : 0f;
     }
 
     public void UpdateCursor(Player.InputPackage input)
@@ -34,9 +38,16 @@ public class TargetCursor(PossessionManager manager)
         lastTargetPos = targetPos;
 
         Vector2 goalPos = targetPos + (new Vector2(input.x, input.y) * CursorSpeed);
-        float maxDist = TargetSelector.GetPossessionRange(null);
+        float maxDist = TargetSelector.GetPossessionRange();
 
         targetPos = ClampedDist(goalPos, pos, maxDist);
+    }
+
+    public override void TryRealizeInRoom(Room playerRoom)
+    {
+        base.TryRealizeInRoom(playerRoom);
+
+        ResetCursor();
     }
 
     public override void Update(bool eu)
@@ -48,13 +59,22 @@ public class TargetCursor(PossessionManager manager)
 
     public override void DrawSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, float timeStacker, Vector2 camPos)
     {
-        alpha += ((isVisible ? 1f : 0f) - alpha) * 0.05f;
+        pos = GetMarkPos(player, camPos, timeStacker);
+
+        if (targetAlpha != alpha)
+        {
+            alpha = Mathf.Clamp(alpha + ((targetAlpha - alpha) * 0.05f), 0f, 1f);
+        }
 
         sLeaser.sprites[0].alpha = alpha;
 
-        if (alpha <= 0f) return;
+        if (alpha <= 0f)
+        {
+            this.camPos = camPos;
+            return;
+        }
 
-        UpdateColorLerp(Manager.TargetSelector.ExceededTimeLimit);
+        UpdateColorLerp(Manager.TargetSelector is not null && Manager.TargetSelector.ExceededTimeLimit);
 
         sLeaser.sprites[0].color = Color.Lerp(Color.white, FlashColor, colorTime);
 

@@ -17,7 +17,7 @@ public partial class TargetSelector
         public readonly int WrapsTo = wrapsTo;
 
         public TargetSelectionState(int order)
-            : this(order, order)
+            : this(order, wrapsTo: order)
         {
         }
 

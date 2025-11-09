@@ -27,8 +27,6 @@ public class Options : OptionInterface
 
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 
-    private static OpCheckBox? checkBox;
-
     public Options()
     {
         SELECTION_MODE = config.Bind(
@@ -43,7 +41,7 @@ public class Options : OptionInterface
             "invert_classic",
             false,
             new ConfigurableInfo(
-                "(Classic mode only) Inverts the control inputs for selecting creatures in the Possession ability."
+                "(Classic mode only) Inverts the directional inputs for selecting creatures to possess."
             )
         );
         MEADOW_SLOWDOWN = config.Bind(
@@ -57,21 +55,21 @@ public class Options : OptionInterface
             "kinetic_abilities",
             false,
             new ConfigurableInfo(
-                "If enabled, Slugcat can move objects/corpses around instead of possessing them."
+                "If enabled, Slugcat can \"possess\" non-living objects, moving them around freely. Unlike creatures, they do not block the player's movement, and remain possessed until either thrown or dropped."
             )
         );
         MIND_BLAST = config.Bind(
             "mind_blast",
             false,
             new ConfigurableInfo(
-                "If enabled, Slugcat can use all possession time for a powerful burst of energy, which can kill foes if overwhelming enough; Has a separate keybind, only visible if this setting is enabled."
+                "A powerful burst of energy requiring full possession time, which stuns or even kills foes around its target position; Has a dedicated keybind. (Default: B)"
             )
         );
         INFINITE_POSSESSION = config.Bind(
             "infinite_possession",
             false,
             new ConfigurableInfo(
-                "Allows indefinite possession of creatures. Also prevents Inv from exploding."
+                "Allows indefinite possession of creatures. Also prevents ??? from exploding."
             )
         );
         POSSESS_ANCESTORS = config.Bind(
@@ -96,21 +94,8 @@ public class Options : OptionInterface
             )
         );
 
-        SELECTION_MODE.OnChange += OnSelectionModeChanged;
         MIND_BLAST.OnChange += OnMindBlastChanged;
-    }
-
-    private void OnMindBlastChanged() => Keybinds.ToggleMindBlast(MIND_BLAST.Value);
-    private void OnSelectionModeChanged()
-    {
-        if (SELECTION_MODE.Value is "classic")
-        {
-            checkBox?.Reactivate();
-        }
-        else
-        {
-            checkBox?.Deactivate();
-        }
+        KINETIC_ABILITIES.OnChange += OnMindBlastChanged;
     }
 
     public override void Initialize()
@@ -124,9 +109,10 @@ public class Options : OptionInterface
         Tabs[0] = new OptionBuilder(this, "Client Options")
             .CreateModHeader()
             .AddComboBoxOption("Selection Mode", SELECTION_MODE, width: 120)
-            .AddPadding(Vector2.up * 10)
-            .AddCheckBoxOption("Invert Controls", INVERT_CLASSIC, out checkBox)
+            .AddCheckBoxOption("Invert Controls", INVERT_CLASSIC, out OpCheckBox checkBoxIC)
             .Build();
+
+        SELECTION_MODE.BoundUIconfig.OnValueChanged += BuildToggleAction(checkBoxIC, "classic");
 
         Tabs[1] = new OptionBuilder(this, "Gameplay")
             .CreateModHeader()
@@ -136,13 +122,15 @@ public class Options : OptionInterface
             .AddCheckBoxOption("Meadow Slowdown", MEADOW_SLOWDOWN)
             .AddPadding(Vector2.up * 10)
             .AddCheckBoxOption("Kinetic Abilities", KINETIC_ABILITIES)
-            .AddCheckBoxOption("Mind Blast", MIND_BLAST, default, MenuColorEffect.rgbDarkRed)
+            .AddCheckBoxOption("Mind Blast", MIND_BLAST, out OpCheckBox checkBoxMB, default, MenuColorEffect.rgbDarkRed)
             .Build();
+
+        KINETIC_ABILITIES.BoundUIconfig.OnValueChanged += BuildToggleAction(checkBoxMB, "true");
 
         Tabs[2] = new OptionBuilder(this, "Cheats", MenuColorEffect.rgbDarkRed)
             .CreateModHeader()
             .AddPadding(Vector2.down * 10)
-            .AddText("These options are for testing purposes only; Use at your own discretion.", new Vector2(50f, 24f))
+            .AddText("These options are for testing purposes only; Use at your own discretion.", new Vector2(64f, 24f))
             .AddPadding(Vector2.up * 30)
             .AddCheckBoxOption("Infinite Possession", INFINITE_POSSESSION)
             .AddCheckBoxOption("Possess Anscestors", POSSESS_ANCESTORS)
@@ -150,19 +138,30 @@ public class Options : OptionInterface
             .AddPadding(Vector2.up * 20)
             .AddCheckBoxOption("Worldwide Mind Control", WORLDWIDE_MIND_CONTROL, default, MenuColorEffect.rgbDarkRed)
             .Build();
-
-        OnSelectionModeChanged();
     }
+
+    private static OnValueChangeHandler BuildToggleAction(UIconfig target, string enableValue)
+    {
+        ToggleAction(null, target.value, null);
+
+        return ToggleAction;
+
+        void ToggleAction(UIconfig? _, string value, string? oldValue)
+        {
+            target.greyedOut = value != enableValue;
+        }
+    }
+
+    private void OnMindBlastChanged() => Keybinds.ToggleMindBlast(KINETIC_ABILITIES.Value && MIND_BLAST.Value);
 }
 
 public static class OptionBuilderExts
 {
-    public static OptionBuilder CreateModHeader(this OptionBuilder self)
-    {
-        return self.SetOrigin(new Vector2(100f, 450f))
-            .AddText(Main.PLUGIN_NAME, new Vector2(50f, 32f), true, RainWorld.SaturatedGold)
-            .AddText($"[v{Main.PLUGIN_VERSION}]", new Vector2(60f, 24f), false, Color.gray);
-    }
+    public static OptionBuilder CreateModHeader(this OptionBuilder self) =>
+        self.SetOrigin(new Vector2(100f, 500f))
+            .AddText(Main.PLUGIN_NAME, new Vector2(64f, 0f), true, RainWorld.RippleGold)
+            .AddText($"[v{Main.PLUGIN_VERSION}]", new Vector2(100f, 32f), false, Color.gray)
+            .ResetOrigin();
 
     public static OptionBuilder AddCheckBoxOption(this OptionBuilder self, string text, Configurable<bool> configurable, out OpCheckBox checkBox, params Color[] colors)
     {

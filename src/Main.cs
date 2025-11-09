@@ -1,11 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Security.Permissions;
 using BepInEx;
-using BepInEx.Logging;
 using ControlLib.Possession;
 using ModLib;
 using ModLib.Logging;
 using ModLib.Options;
+using MoreSlugcats;
+using UnityEngine;
 
 #pragma warning disable CS0618 // Type or member is obsolete
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
@@ -18,7 +20,7 @@ public class Main : ModPlugin
 {
     public const string PLUGIN_NAME = "ControlLib";
     public const string PLUGIN_GUID = "ynhzrfxn.controllib";
-    public const string PLUGIN_VERSION = "0.4.3";
+    public const string PLUGIN_VERSION = "0.4.5";
 
     internal static new IMyLogger? Logger { get; private set; }
 
@@ -33,16 +35,15 @@ public class Main : ModPlugin
 
         TempOptions.Add("attuned_slugcats", new ConfigValue("Monk,Saint"));
         TempOptions.Add("hardmode_slugcats", new ConfigValue("Artificer,Hunter,Inv"));
+
+        TempOptions.Add("mind_blast_stun_factor", new ConfigValue(600f));
+        TempOptions.Add("stun_death_threshold", new ConfigValue(100));
     }
 
     public Main()
         : base(new Options())
     {
-        LogLevel maxLevel = OptionUtils.IsOptionEnabled("modlib.debug")
-            ? LogLevel.All
-            : LogLevel.Warning;
-
-        Logger = new LogWrapper(base.Logger, maxLevel);
+        Logger = new LogWrapper(base.Logger);
     }
 
     public override void OnEnable()
@@ -55,7 +56,7 @@ public class Main : ModPlugin
 
         foreach (KeyValuePair<string, ConfigValue> optionPair in TempOptions)
         {
-            OptionUtils.SharedOptions.AddTemporaryOption(optionPair.Key, optionPair.Value);
+            OptionUtils.SharedOptions.AddTemporaryOption(optionPair.Key, optionPair.Value, false);
         }
     }
 
@@ -83,5 +84,59 @@ public class Main : ModPlugin
         base.RemoveHooks();
 
         PossessionHooks.RemoveHooks();
+    }
+
+    public static void ExplodePlayer(Player player, AbstractPhysicalObject.AbstractObjectType bombType, Action<PhysicalObject>? onRealizedCallback = null) =>
+        ExplodePos(player, player.abstractCreature.pos, bombType, onRealizedCallback);
+
+    public static void ExplodePos(Player player, WorldCoordinate pos, AbstractPhysicalObject.AbstractObjectType bombType, Action<PhysicalObject>? onRealizedCallback = null)
+    {
+        AbstractPhysicalObject abstractBomb = new(
+            player.abstractCreature.world,
+            bombType,
+            null,
+            pos,
+            player.abstractCreature.world.game.GetNewID()
+        );
+
+        abstractBomb.RealizeInRoom();
+
+        PhysicalObject? realizedBomb = abstractBomb.realizedObject;
+
+        if (realizedBomb is null)
+        {
+            Logger?.LogWarning($"Failed to realize explosion for {player}! Destroying abstract object.");
+
+            abstractBomb.Destroy();
+            return;
+        }
+
+        if (realizedBomb is Weapon weapon)
+        {
+            weapon.thrownBy = player;
+        }
+
+        realizedBomb.CollideWithObjects = false;
+
+        onRealizedCallback?.Invoke(realizedBomb);
+
+        if (realizedBomb is ScavengerBomb scavBomb)
+        {
+            scavBomb.Explode(scavBomb.thrownClosestToCreature?.mainBodyChunk);
+        }
+        else if (realizedBomb is SingularityBomb singularity)
+        {
+            if (singularity.zeroMode)
+                singularity.explodeColor = new Color(1f, 0.2f, 0.2f);
+
+            singularity.Explode();
+        }
+        else
+        {
+            Logger?.LogWarning($"{realizedBomb} is not a supported kaboom type; Destroying object.");
+
+            realizedBomb.Destroy();
+            abstractBomb.Destroy();
+        }
     }
 }
