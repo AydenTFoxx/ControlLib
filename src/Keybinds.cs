@@ -26,7 +26,7 @@ public static class Keybinds
         POSSESS = Keybind.Register("Possess", KeyCode.V, KeyCode.Joystick1Button0);
         MIND_BLAST = Keybind.Register("Mind Blast", KeyCode.B, KeyCode.Joystick1Button1);
 
-        ToggleMindBlast(Options.KINETIC_ABILITIES.Value && Options.MIND_BLAST.Value);
+        ToggleMindBlast(Options.MIND_BLAST.Value);
     }
 
     public static void ToggleMindBlast(bool enable)

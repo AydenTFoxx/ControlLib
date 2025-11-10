@@ -19,7 +19,7 @@ public class Options : OptionInterface
     public static Configurable<bool> KINETIC_ABILITIES;
     public static Configurable<bool> MIND_BLAST;
 
-    public static Configurable<bool> MEADOW_SLOWDOWN;
+    public static Configurable<bool> MULTIPLAYER_SLOWDOWN;
     public static Configurable<bool> INFINITE_POSSESSION;
     public static Configurable<bool> POSSESS_ANCESTORS;
     public static Configurable<bool> FORCE_MULTITARGET_POSSESSION;
@@ -44,11 +44,11 @@ public class Options : OptionInterface
                 "(Classic mode only) Inverts the directional inputs for selecting creatures to possess."
             )
         );
-        MEADOW_SLOWDOWN = config.Bind(
-            "meadow_slowdown",
+        MULTIPLAYER_SLOWDOWN = config.Bind(
+            "multiplayer_slowdown",
             false,
             new ConfigurableInfo(
-                "If in a Rain Meadow lobby, whether or not using the Possession ability will slow down time."
+                "When in multiplayer (online or local), determines if using the Possession ability will slow down time."
             )
         );
         KINETIC_ABILITIES = config.Bind(
@@ -95,7 +95,6 @@ public class Options : OptionInterface
         );
 
         MIND_BLAST.OnChange += OnMindBlastChanged;
-        KINETIC_ABILITIES.OnChange += OnMindBlastChanged;
     }
 
     public override void Initialize()
@@ -119,13 +118,11 @@ public class Options : OptionInterface
             .AddPadding(Vector2.down * 10)
             .AddText("These options may affect how you experience the game; Use with care.", new Vector2(64f, 24f))
             .AddPadding(Vector2.up * 30)
-            .AddCheckBoxOption("Meadow Slowdown", MEADOW_SLOWDOWN)
+            .AddCheckBoxOption("Multiplayer Slowdown", MULTIPLAYER_SLOWDOWN)
             .AddPadding(Vector2.up * 10)
             .AddCheckBoxOption("Kinetic Abilities", KINETIC_ABILITIES)
-            .AddCheckBoxOption("Mind Blast", MIND_BLAST, out OpCheckBox checkBoxMB, default, MenuColorEffect.rgbDarkRed)
+            .AddCheckBoxOption("Mind Blast", MIND_BLAST, default, MenuColorEffect.rgbDarkRed)
             .Build();
-
-        KINETIC_ABILITIES.BoundUIconfig.OnValueChanged += BuildToggleAction(checkBoxMB, "true");
 
         Tabs[2] = new OptionBuilder(this, "Cheats", MenuColorEffect.rgbDarkRed)
             .CreateModHeader()
@@ -142,17 +139,17 @@ public class Options : OptionInterface
 
     private static OnValueChangeHandler BuildToggleAction(UIconfig target, string enableValue)
     {
-        ToggleAction(null, target.value, null);
+        ToggleAction(null, target.value, "");
 
         return ToggleAction;
 
-        void ToggleAction(UIconfig? _, string value, string? oldValue)
+        void ToggleAction(UIconfig? _, string value, string oldValue)
         {
             target.greyedOut = value != enableValue;
         }
     }
 
-    private void OnMindBlastChanged() => Keybinds.ToggleMindBlast(KINETIC_ABILITIES.Value && MIND_BLAST.Value);
+    private void OnMindBlastChanged() => Keybinds.ToggleMindBlast(MIND_BLAST.Value);
 }
 
 public static class OptionBuilderExts

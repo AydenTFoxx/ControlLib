@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using ControlLib.Meadow;
 using ControlLib.Possession.Graphics;
@@ -23,7 +24,7 @@ namespace ControlLib.Possession;
 /// <param name="player">The player itself.</param>
 public sealed class PossessionManager : IDisposable
 {
-    private static readonly List<Type> BannedCreatureTypes = [typeof(Player), typeof(Overseer), typeof(FireSprite)];
+    private static readonly Type[] BannedCreatureTypes = [typeof(Player), typeof(Overseer), typeof(FireSprite), typeof(BoxWorm)];
 
     public int PossessionTimePotential { get; }
     public bool IsHardmodeSlugcat { get; }
@@ -43,7 +44,7 @@ public sealed class PossessionManager : IDisposable
     public float PossessionTime { get; set; }
 
     public bool IsPossessing => MyPossessions.Count > 0;
-    public bool LowPossessionTime => IsPossessing && PossessionTime / MaxPossessionTime < 0.34f;
+    public bool LowPossessionTime => (IsPossessing || OnMindBlastCooldown) && PossessionTime / MaxPossessionTime < 0.34f;
 
     public bool OnMindBlastCooldown { get; set; }
 
@@ -348,7 +349,7 @@ public sealed class PossessionManager : IDisposable
         }
 
         if (OnMindBlastCooldown)
-            OnMindBlastCooldown = !LowPossessionTime;
+            OnMindBlastCooldown = LowPossessionTime;
 
         if (didReachLowPossessionTime && !IsPossessing && PossessionCooldown == 0 && !player.submerged)
         {

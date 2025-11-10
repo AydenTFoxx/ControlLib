@@ -202,9 +202,9 @@ public class MindBlast : CosmeticSprite
                     float stunPower = -(Vector2.Distance(physicalObject.firstChunk.pos, pos) - stunFactor) * Power;
                     float velocity = stunPower * 0.2f;
 
-                    if (physicalObject is Creature or Oracle)
+                    if (physicalObject is Creature crit)
                     {
-                        if (physicalObject is Creature crit && crit.Template.baseDamageResistance <= 0.1f)
+                        if (crit.Template.baseDamageResistance <= 0.1f)
                         {
                             Main.Logger?.LogDebug($"Die! {crit} (Too weak to withstand MindBlast)");
 
@@ -213,6 +213,13 @@ public class MindBlast : CosmeticSprite
                         else
                         {
                             Main.Logger?.LogDebug($"Target: ({physicalObject}); Stun power: {stunPower} | Velocity: {velocity}");
+                        }
+                    }
+                    else if (physicalObject is Oracle oracle)
+                    {
+                        if (room.game.IsArenaSession || room.game.GetStorySession?.saveStateNumber == MoreSlugcatsEnums.SlugcatStatsName.Saint)
+                        {
+                            AscendOracle(oracle);
                         }
                     }
 
@@ -257,31 +264,50 @@ public class MindBlast : CosmeticSprite
                     }
                 }
 
-                if (ModManager.Watcher && room.locusts is not null)
+                if (ModManager.Watcher)
                 {
-                    room.locusts.AddAvoidancePoint(pos, 480f * Power, (int)(300 * Power));
-                    room.locusts.AddAvoidancePoint(player.mainBodyChunk.pos, 250f * Power, (int)(200 * Power));
+                    int locustCount = 0;
 
-                    room.locusts.KillInRadius(pos, 360 * Power);
-
-                    int locustCount = room.locusts.cloudLocusts.Count;
-
-                    foreach (LocustSystem.GroundLocust locust in room.locusts.groundLocusts)
+                    foreach (LocustSystem locustSystem in room.updateList.OfType<LocustSystem>())
                     {
-                        locustCount++;
+                        locustSystem.AddAvoidancePoint(pos, 480f * Power, (int)(200 * Power));
+                        locustSystem.KillInRadius(pos, 360 * Power);
 
-                        if (locust.Poisoned)
+                        int locustsFound = locustSystem.cloudLocusts.Count + locustSystem.groundLocusts.Count;
+
+                        locustCount += locustsFound;
+
+                        Main.Logger?.LogDebug($"Locusts found: {locustsFound}");
+
+                        foreach (LocustSystem.GroundLocust locust in locustSystem.groundLocusts)
                         {
-                            locust.alive = false;
-                            continue;
+                            if (locust.Poisoned)
+                            {
+                                locust.alive = false;
+                                continue;
+                            }
+
+                            locust.scared = true;
                         }
 
-                        locust.scared = true;
+                        for (int j = 0; j < locustSystem.cloudLocusts.Count; j++)
+                        {
+                            LocustSystem.CloudLocust locust = locustSystem.cloudLocusts[j];
+
+                            locust.alive = !Custom.DistLess(locust.pos, pos, stunFactor * 0.5f * Power);
+
+                            locustSystem.cloudLocusts[j] = locust;
+                        }
                     }
 
-                    room.locusts.cloudLocusts.RemoveAll(cl => Custom.DistLess(cl.pos, pos, stunFactor * 0.5f * Power));
+                    if (locustCount > 0)
+                    {
+                        Main.Logger?.LogDebug($"Total locusts: {locustCount}");
 
-                    player.repelLocusts = (int)(stunFactor * 0.1f * locustCount);
+                        player.repelLocusts = (int)(stunFactor * Power * 0.1f * locustCount);
+
+                        Main.Logger?.LogDebug($"Locust repellant duration: {player.repelLocusts}");
+                    }
                 }
 
                 room.PlaySound(SoundID.Firecracker_Bang, pos, 1f, (Random.value * 1.5f) + (Random.value * Power));
@@ -391,6 +417,60 @@ public class MindBlast : CosmeticSprite
         }
 
         base.DrawSprites(sLeaser, rCam, timeStacker, camPos);
+    }
+
+    private void AscendOracle(Oracle oracle)
+    {
+        if (oracle.ID == MoreSlugcatsEnums.OracleID.ST)
+        {
+            if (!oracle.Consious) return;
+
+            room.AddObject(new ShockWave(oracle.firstChunk.pos, 500f, 0.75f, 18, false));
+            (oracle.oracleBehavior as STOracleBehavior)?.AdvancePhase();
+
+            player.firstChunk.vel = Vector2.zero;
+            return;
+        }
+
+        if (room.game.session is not StoryGameSession storySession) return;
+
+        if (oracle.ID == MoreSlugcatsEnums.OracleID.CL)
+        {
+            if (storySession.saveState.deathPersistentSaveData.ripPebbles) return;
+
+            storySession.saveState.deathPersistentSaveData.ripPebbles = true;
+
+            room.PlaySound(SoundID.SS_AI_Talk_1, player.mainBodyChunk, false, 1f, 0.4f);
+
+            Custom.Log("Ascend saint pebbles - MindBlast Edition");
+
+            if (oracle.oracleBehavior is CLOracleBehavior oracleBehavior)
+            {
+                oracleBehavior.dialogBox.Interrupt("...", 1);
+                oracleBehavior.currentConversation?.Destroy();
+            }
+
+            oracle.health = 0f;
+        }
+        else if (oracle.ID == Oracle.OracleID.SL)
+        {
+            if (storySession.saveState.deathPersistentSaveData.ripMoon || oracle.glowers < 0 || oracle.mySwarmers.Count < 0) return;
+
+            for (int l = 0; l < oracle.mySwarmers.Count; l++)
+            {
+                oracle.mySwarmers[l].ExplodeSwarmer();
+            }
+
+            storySession.saveState.deathPersistentSaveData.ripMoon = true;
+
+            Custom.Log("Ascend saint moon - MindBlast Edition");
+
+            if (oracle.oracleBehavior is SLOracleBehaviorHasMark oracleBehavior)
+            {
+                oracleBehavior.dialogBox.Interrupt("...", 1);
+                oracleBehavior.currentConversation?.Destroy();
+            }
+        }
     }
 
     private bool IsPlayerFriend(AbstractCreature creature)

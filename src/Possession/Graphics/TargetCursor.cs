@@ -14,8 +14,8 @@ public class TargetCursor(PossessionManager manager)
     private float targetAlpha;
 
     private float CursorSpeed =>
-        Extras.IsMeadowEnabled
-        && !OptionUtils.IsOptionEnabled(Options.MEADOW_SLOWDOWN)
+        Extras.IsMultiplayer
+        && !OptionUtils.IsOptionEnabled(Options.MULTIPLAYER_SLOWDOWN)
             ? 7.5f
             : 15f;
 

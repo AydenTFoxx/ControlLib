@@ -30,7 +30,7 @@ public abstract class PlayerAccessory : CosmeticSprite
 
         playerRoom.AddObject(this);
 
-        pos = player.mainBodyChunk.pos + camPos;
+        pos = player.mainBodyChunk.pos - camPos;
     }
 
     public void UpdateColorLerp(bool applyLerp)

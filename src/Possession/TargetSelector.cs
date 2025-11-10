@@ -182,7 +182,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
         if (hasValidTargets)
         {
-            int module = Extras.IsMeadowEnabled && !IsOptionEnabled(Options.MEADOW_SLOWDOWN) ? 8 : 4;
+            int module = Extras.IsMultiplayer && !IsOptionEnabled(Options.MULTIPLAYER_SLOWDOWN) ? 8 : 4;
             if (Input.InputTime % module == 0)
             {
                 foreach (Creature target in Targets)
@@ -386,8 +386,8 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     /// <returns><c>true</c> if the value should be updated, <c>false</c> otherwise.</returns>
     /// <remarks>Has explicit support for Rain Meadow compatibility, where the host's options are also taken into account for this check.</remarks>
     public static bool ShouldSetMushroomCounter(Player player, int count) =>
-        Extras.IsMeadowEnabled
-            ? (!Extras.IsOnlineSession || IsOptionEnabled(Options.MEADOW_SLOWDOWN)) && player.mushroomCounter < count
+        Extras.IsMultiplayer
+            ? IsOptionEnabled(Options.MULTIPLAYER_SLOWDOWN) && player.mushroomCounter < count
             : player.mushroomCounter < count;
 
     /// <summary>
