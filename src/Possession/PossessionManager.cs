@@ -29,9 +29,11 @@ public sealed class PossessionManager : IDisposable
     public int PossessionTimePotential { get; }
     public bool IsHardmodeSlugcat { get; }
     public bool IsAttunedSlugcat { get; }
-    public int MaxPossessionTime => PossessionTimePotential + ((player?.room?.game.GetStorySession?.saveState.deathPersistentSaveData.karma ?? 0) * 40);
+    public int MaxPossessionTime { get; }
 
-    private readonly WeakCollection<Creature> MyPossessions = [];
+    private readonly WeakList<Creature> MyPossessions = [];
+    private readonly WeakList<PlayerCarryableItem> PossessedItems = [];
+
     private Player player;
     private PossessionTimer possessionTimer;
 
@@ -43,7 +45,7 @@ public sealed class PossessionManager : IDisposable
     public int PossessionCooldown { get; set; }
     public float PossessionTime { get; set; }
 
-    public bool IsPossessing => MyPossessions.Count > 0;
+    public bool IsPossessing => MyPossessions.Count > 0 || PossessedItems.Count > 0;
     public bool LowPossessionTime => (IsPossessing || OnMindBlastCooldown) && PossessionTime / MaxPossessionTime < 0.34f;
 
     public bool OnMindBlastCooldown { get; set; }
@@ -67,6 +69,7 @@ public sealed class PossessionManager : IDisposable
                     ? GetOptionValue<int>("hardmode_possession_potential")
                     : GetOptionValue<int>("default_possession_potential");
 
+        MaxPossessionTime = PossessionTimePotential + ((player.room?.game.GetStorySession?.saveState.deathPersistentSaveData.karma ?? 0) * 40);
         PossessionTime = MaxPossessionTime;
 
         TargetSelector = new(player, this);
@@ -112,6 +115,10 @@ public sealed class PossessionManager : IDisposable
         && !IsBannedPossessionTarget(target)
         && IsPossessionValid(target);
 
+    public bool CanPossessItem(PlayerCarryableItem target) =>
+        CanPossess()
+        && target is not null and not ObjectController and { grabbedBy.Count: 0, forbiddenToPlayer: 0 };
+
     public static bool IsBannedPossessionTarget(Creature target) =>
         target is null or { dead: true } or { abstractCreature.controlled: true }
         || BannedCreatureTypes.Contains(target.GetType());
@@ -130,12 +137,15 @@ public sealed class PossessionManager : IDisposable
     /// <returns><c>true</c> if the player is possessing this creature, <c>false</c> otherwise.</returns>
     public bool HasPossession(Creature target) => MyPossessions.Contains(target);
 
+    public bool HasPossession(PlayerCarryableItem target) => PossessedItems.Contains(target);
+
     /// <summary>
     /// Removes all possessions of the player. Possessed creatures will automatically stop their own possessions.
     /// </summary>
     public void ResetAllPossessions()
     {
         MyPossessions.Clear();
+        PossessedItems.Clear();
 
         player.controller = null;
 
@@ -267,12 +277,18 @@ public sealed class PossessionManager : IDisposable
 
         if (IsPossessing)
         {
+            bool hasCreaturePossession = MyPossessions.Count > 0;
+
             if (player.graphicsModule is PlayerGraphics playerGraphics)
             {
-                playerGraphics.LookAtNothing();
+                if (hasCreaturePossession)
+                    playerGraphics.LookAtNothing();
+                else
+                    playerGraphics.LookAtObject(PossessedItems.OrderBy(po => Custom.DistNoSqrt(po.firstChunk.pos, player.mainBodyChunk.pos)).FirstOrDefault());
             }
 
-            player.Blink(10);
+            if (hasCreaturePossession)
+                player.Blink(10);
 
             if (!IsOptionEnabled(Options.INFINITE_POSSESSION))
             {
@@ -377,7 +393,7 @@ public sealed class PossessionManager : IDisposable
 
             MindBlast.CreateInstance(player, IsAttunedSlugcat ? 1.5f : IsHardmodeSlugcat ? 0.5f : 1f);
 
-            PossessionTime = -120f;
+            PossessionTime = 0f;
 
             OnMindBlastCooldown = true;
         }

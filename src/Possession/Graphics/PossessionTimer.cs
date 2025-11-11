@@ -33,7 +33,7 @@ public class PossessionTimer(PossessionManager manager)
 
     public override void DrawSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, float timeStacker, Vector2 camPos)
     {
-        pos = GetMarkPos(player, camPos, timeStacker);
+        pos = GetMarkPos(camPos, timeStacker);
 
         alpha += ((ShouldShowPips ? 1f : 0f) - alpha) * 0.05f;
 

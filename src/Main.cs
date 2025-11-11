@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Security.Permissions;
 using BepInEx;
+using ControlLib.Enums;
 using ControlLib.Possession;
 using ModLib;
 using ModLib.Logging;
@@ -54,6 +55,8 @@ public class Main : ModPlugin
 
         Keybinds.InitKeybinds();
 
+        AbstractObjectTypes.RegisterValues();
+
         foreach (KeyValuePair<string, ConfigValue> optionPair in TempOptions)
         {
             OptionUtils.SharedOptions.AddTemporaryOption(optionPair.Key, optionPair.Value, false);
@@ -65,6 +68,8 @@ public class Main : ModPlugin
         if (!IsModEnabled) return;
 
         base.OnDisable();
+
+        AbstractObjectTypes.UnregisterValues();
 
         foreach (string optionKey in TempOptions.Keys)
         {

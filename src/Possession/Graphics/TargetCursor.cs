@@ -40,7 +40,7 @@ public class TargetCursor(PossessionManager manager)
         Vector2 goalPos = targetPos + (new Vector2(input.x, input.y) * CursorSpeed);
         float maxDist = TargetSelector.GetPossessionRange();
 
-        targetPos = ClampedDist(goalPos, pos, maxDist);
+        targetPos = RWCustomExts.ClampedDist(goalPos, pos, maxDist);
     }
 
     public override void TryRealizeInRoom(Room playerRoom)
@@ -59,7 +59,7 @@ public class TargetCursor(PossessionManager manager)
 
     public override void DrawSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, float timeStacker, Vector2 camPos)
     {
-        pos = GetMarkPos(player, camPos, timeStacker);
+        pos = GetMarkPos(camPos, timeStacker);
 
         if (targetAlpha != alpha)
         {

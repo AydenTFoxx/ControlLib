@@ -24,7 +24,7 @@ public static class PossessionExts
     /// </summary>
     /// <param name="self">The player to be queried.</param>
     /// <returns>The existing <c>PossessionManager</c> instance, or a new one if none was found.</returns>
-    public static PossessionManager GetPossessionManager(this Player self)
+    public static PossessionManager GetOrCreatePossessionManager(this Player self)
     {
         if (TryGetPossessionManager(self, out PossessionManager manager)) return manager;
 

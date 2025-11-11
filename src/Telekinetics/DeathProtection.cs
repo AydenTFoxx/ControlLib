@@ -42,48 +42,28 @@ public class DeathProtection : UpdatableAndDeletable
     private readonly Predicate<Player> condition;
 
     /// <summary>
-    ///     Determines whether or not a custom condition was provided.
-    /// </summary>
-    private readonly bool isDefaultCondition;
-
-    /// <summary>
     ///     If true and Slugcat somehow dies while under this protection, it is instead revived.
     /// </summary>
     private readonly bool forceRevive;
-
-    /// <summary>
-    ///     Creates a new death protection instance which lasts for the given amount of ticks.
-    /// </summary>
-    /// <param name="target">The player to protect.</param>
-    /// <param name="lifespan">The duration of the protection.</param>
-    /// <param name="safePos">An optional "safe" position, used when the player's character is destroyed.</param>
-    /// <param name="forceRevive">If true and the player somehow dies while protected, it will be revived. This also immediately ends the protection.</param>
-    /// <param name="power">The power multiplier for visual effects</param>
-    private DeathProtection(Player target, int lifespan, WorldCoordinate? safePos, bool forceRevive, float power)
-        : this(target, null, safePos, forceRevive, power)
-    {
-        this.lifespan = lifespan;
-    }
 
     /// <summary>
     ///     Creates a new death protection instance which lasts until the given condition returns <c>true</c>.
     /// </summary>
     /// <param name="target">The player to protect.</param>
     /// <param name="condition">The condition for removing the protection.</param>
+    /// <param name="lifespan">The amount of time to wait before <paramref name="condition"/> can be tested.</param>
     /// <param name="safePos">An optional "safe" position, used when the player's character is destroyed.</param>
-    /// <param name="forceRevive">If true and the player somehow dies while protected, it will be revived. This also immediately ends the protection.</param>
-    /// <param name="power">The power multiplier for visual effects</param>
-    private DeathProtection(Player target, Predicate<Player>? condition, WorldCoordinate? safePos, bool forceRevive, float power)
+    /// <param name="forceRevive">If true and the player somehow dies while protected, they are revived. This also immediately ends the protection.</param>
+    private DeathProtection(Player target, Predicate<Player>? condition, int lifespan, WorldCoordinate? safePos, bool forceRevive)
     {
         Target = target;
         SafePos = safePos ?? target.abstractCreature.pos;
-        Power = power;
 
-        this.condition = condition ?? DefaultCondition;
+        Power = MindBlast.TryGetInstance(target, out MindBlast mindBlast) ? mindBlast.Power : 1f;
+
+        this.condition = condition ?? (static (_) => true);
         this.forceRevive = forceRevive;
-
-        isDefaultCondition = condition is null;
-        lifespan = isDefaultCondition ? 1 : 40;
+        this.lifespan = lifespan;
     }
 
     public override void Update(bool eu)
@@ -94,7 +74,7 @@ public class DeathProtection : UpdatableAndDeletable
         Target.airInLungs = 1f;
 
         if (ModManager.Watcher)
-            Target.repelLocusts = 10 * lifespan;
+            Target.repelLocusts = 10 * Math.Max(lifespan, 2);
 
         foreach (Creature.Grasp grasp in Target.grabbedBy)
         {
@@ -103,6 +83,7 @@ public class DeathProtection : UpdatableAndDeletable
             if (grabber is not Player)
             {
                 grabber.ReleaseGrasp(grasp.graspUsed);
+                grabber.Stun(20);
             }
         }
 
@@ -116,7 +97,10 @@ public class DeathProtection : UpdatableAndDeletable
                 Target.room.AddObject(this);
             }
 
-            Target.room.game.cameras[0].hud?.textPrompt?.gameOverMode = false;
+            foreach (RoomCamera camera in Target.room.game.cameras)
+            {
+                camera.hud?.textPrompt?.gameOverMode = false;
+            }
         }
 
         if (SaveCooldown > 0)
@@ -129,13 +113,13 @@ public class DeathProtection : UpdatableAndDeletable
             Main.Logger?.LogWarning($"{Target} was killed while protected! Will revive? {canRevive}");
 
             if (canRevive)
-                RevivePlayer(Target);
+                RevivePlayer();
 
             Destroy();
             return;
         }
 
-        if (!isDefaultCondition && lifespan > 0)
+        if (lifespan > 0)
         {
             lifespan--;
             return;
@@ -154,71 +138,68 @@ public class DeathProtection : UpdatableAndDeletable
         Main.Logger?.LogDebug($"{Target} is no longer being protected.");
     }
 
-    private void RevivePlayer(Player target)
+    private void RevivePlayer()
     {
-        target.dead = false;
+        Target.dead = false;
 
-        if (target.State is HealthState healthState)
+        if (Target.State is HealthState healthState)
         {
             healthState.alive = true;
             healthState.health = 1f;
         }
         else
         {
-            target.playerState.alive = true;
+            Target.playerState.alive = true;
 
             if (ModManager.CoopAvailable)
             {
-                target.playerState.permaDead = false;
+                Target.playerState.permaDead = false;
             }
         }
 
-        target.AI?.abstractAI.SetDestinationNoPathing(target.abstractCreature.pos, false);
-
-        if (target.slatedForDeletetion && SafePos.HasValue)
-        {
-            target.slatedForDeletetion = false;
-            target.SuperHardSetPosition(target.room.MiddleOfTile(SafePos.Value));
-        }
+        Target.AI?.abstractAI.SetDestinationNoPathing(Target.abstractCreature.pos, false);
 
         SaveCooldown = 10;
 
-        Main.Logger?.LogDebug($"Revived {target}!");
+        Main.Logger?.LogDebug($"Revived {Target}!");
     }
 
-    private bool DefaultCondition(Player _)
+    /// <summary>
+    ///     Creates a new death protection instance which lasts for the given amount of ticks.
+    /// </summary>
+    /// <param name="target">The player to protect.</param>
+    /// <param name="lifespan">The duration of the protection.</param>
+    /// <param name="safePos">An optional "safe" position, used when the player's character is destroyed.</param>
+    /// <param name="forceRevive">If true and the player somehow dies while protected, they are revived. This also immediately ends the protection.</param>
+    public static void CreateInstance(Player target, int lifespan, WorldCoordinate? safePos = null, bool forceRevive = true)
     {
-        lifespan--;
-
-        return lifespan <= 0;
+        if (CreateInstanceInternal(target, null, lifespan, safePos, forceRevive))
+            Main.Logger?.LogInfo($"Preventing all death from {target} for {lifespan} ticks.");
     }
 
-    /// <inheritdoc cref="DeathProtection(Player,int,WorldCoordinate?,bool,float)"/>
-    public static void CreateInstance(Player target, int lifespan, WorldCoordinate? safePos = null, bool forceRevive = true, float power = 1f)
+    /// <inheritdoc cref="DeathProtection(Player,Predicate{Player},int,WorldCoordinate?,bool)"/>
+    public static void CreateInstance(Player target, Predicate<Player> condition, WorldCoordinate? safePos = null, bool forceRevive = true)
     {
-        if (target?.room is null || TryGetProtection(target, out _)) return;
+        if (CreateInstanceInternal(target, condition, 40, safePos, forceRevive))
+            Main.Logger?.LogInfo($"Preventing all death from {target} conditionally.");
+    }
 
-        DeathProtection protection = new(target, lifespan, safePos, forceRevive, power);
+    private static bool CreateInstanceInternal(Player target, Predicate<Player>? condition, int lifespan, WorldCoordinate? safePos, bool forceRevive)
+    {
+        if (target?.room is null || TryGetProtection(target, out _)) return false;
+
+        DeathProtection protection = new(target, condition, lifespan, safePos, forceRevive);
+
+        if (target.dead)
+        {
+            protection.RevivePlayer();
+        }
 
         _activeInstances.Add(target, protection);
 
         target.room.AddObject(protection);
 
-        Main.Logger?.LogInfo($"Preventing all death from {target} for {lifespan} ticks.");
-    }
-
-    /// <inheritdoc cref="DeathProtection(Player,Predicate{Player},WorldCoordinate?,bool,float)"/>
-    public static void CreateInstance(Player target, Predicate<Player> condition, WorldCoordinate? safePos = null, bool forceRevive = true, float power = 1f)
-    {
-        if (target?.room is null || TryGetProtection(target, out _)) return;
-
-        DeathProtection protection = new(target, condition, safePos, forceRevive, power);
-
-        _activeInstances.Add(target, protection);
-
-        target.room.AddObject(protection);
-
-        Main.Logger?.LogInfo($"Preventing all death from {target} conditionally.");
+        return true;
     }
 
     public static bool TryGetProtection(Player target, out DeathProtection protection) => _activeInstances.TryGetValue(target, out protection);

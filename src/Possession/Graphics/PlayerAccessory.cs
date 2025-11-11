@@ -7,6 +7,7 @@ namespace ControlLib.Possession.Graphics;
 public abstract class PlayerAccessory : CosmeticSprite
 {
     protected PossessionManager Manager { get; }
+    protected readonly Player player;
 
     public Vector2 camPos;
     public float alpha;
@@ -14,7 +15,7 @@ public abstract class PlayerAccessory : CosmeticSprite
     protected float colorTime;
     protected bool invertColorLerp;
 
-    protected readonly Player player;
+    private Vector2 lastMarkPos;
 
     public PlayerAccessory(PossessionManager manager)
     {
@@ -64,7 +65,7 @@ public abstract class PlayerAccessory : CosmeticSprite
         }
     }
 
-    public override void AddToContainer(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, FContainer newContatiner)
+    public override void AddToContainer(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, FContainer? newContatiner)
     {
         newContatiner ??= rCam.ReturnFContainer("HUD");
 
@@ -94,22 +95,18 @@ public abstract class PlayerAccessory : CosmeticSprite
     {
         camPos = rCam.pos;
 
-        AddToContainer(sLeaser, rCam, null!);
+        AddToContainer(sLeaser, rCam, null);
     }
 
-    protected static float ClampedDist(float targetPos, float refPos, float maxDist) =>
-        Mathf.Clamp(targetPos, refPos - maxDist, refPos + maxDist);
-
-    protected static Vector2 ClampedDist(Vector2 targetPos, Vector2 refPos, float maxDist) =>
-        new(ClampedDist(targetPos.x, refPos.x, maxDist), ClampedDist(targetPos.y, refPos.y, maxDist));
-
-    protected static Vector2 GetMarkPos(Player player, Vector2 camPos, float timeStacker)
+    protected Vector2 GetMarkPos(Vector2 camPos, float timeStacker)
     {
-        if (player?.graphicsModule is not PlayerGraphics playerGraphics) return default;
+        if (player?.graphicsModule is PlayerGraphics playerGraphics)
+        {
+            Vector2 vector2 = Vector2.Lerp(playerGraphics.drawPositions[1, 1], playerGraphics.drawPositions[1, 0], timeStacker);
+            Vector2 vector3 = Vector2.Lerp(playerGraphics.head.lastPos, playerGraphics.head.pos, timeStacker);
 
-        Vector2 vector2 = Vector2.Lerp(playerGraphics.drawPositions[1, 1], playerGraphics.drawPositions[1, 0], timeStacker);
-        Vector2 vector3 = Vector2.Lerp(playerGraphics.head.lastPos, playerGraphics.head.pos, timeStacker);
-
-        return vector3 + Custom.DirVec(vector2, vector3) + new Vector2(0f, 30f) - camPos;
+            lastMarkPos = vector3 + Custom.DirVec(vector2, vector3) + new Vector2(0f, 30f) - camPos;
+        }
+        return lastMarkPos;
     }
 }

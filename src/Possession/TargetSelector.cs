@@ -176,8 +176,13 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
                 playerGraphics.LookAtNothing();
             }
 
-            playerGraphics.hands[0].mode = Limb.Mode.HuntAbsolutePosition;
-            playerGraphics.hands[0].absoluteHuntPos = targetCursor?.GetPos() ?? (hasValidTargets ? Targets[0].mainBodyChunk.pos : Vector2.zero);
+            int handIndex = playerGraphics.hands[0].mode == Limb.Mode.Retracted ? 0 : 1;
+
+            Vector2 targetPos = targetCursor?.GetPos() ?? (hasValidTargets ? Targets[0].mainBodyChunk.pos : Vector2.zero);
+            targetPos = RWCustomExts.ClampedDist(targetPos, player.mainBodyChunk.pos, 80f);
+
+            playerGraphics.hands[handIndex].mode = Limb.Mode.HuntAbsolutePosition;
+            playerGraphics.hands[handIndex].absoluteHuntPos = targetPos;
         }
 
         if (hasValidTargets)

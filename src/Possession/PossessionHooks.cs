@@ -1,8 +1,15 @@
+using System.Collections.Generic;
+using System.Linq;
+using ControlLib.Enums;
 using ControlLib.Telekinetics;
 using ModLib;
+using ModLib.Collections;
+using ModLib.Input;
 using ModLib.Meadow;
+using ModLib.Options;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
+using RWCustom;
 using UnityEngine;
 
 namespace ControlLib.Possession;
@@ -12,6 +19,8 @@ namespace ControlLib.Possession;
 /// </summary>
 public static class PossessionHooks
 {
+    private static readonly WeakList<Player> RevivedPlayers = [];
+
     /// <summary>
     /// Applies the Possession module's hooks to the game.
     /// </summary>
@@ -19,12 +28,15 @@ public static class PossessionHooks
     {
         IL.Creature.Update += Extras.WrapILHook(UpdatePossessedCreatureILHook);
 
+        On.AbstractPhysicalObject.Realize += RealizeControllerHook;
+
         On.AbstractWorldEntity.Destroy += PreventPlayerDestructionHook;
 
         On.Creature.Die += CreatureDeathHook;
 
         On.Player.AddFood += AddPossessionTimeHook;
         On.Player.Destroy += DisposePossessionManagerHook;
+        On.Player.ThrowObject += ThrowPossessedItemHook;
         On.Player.Update += UpdatePlayerPossessionHook;
     }
 
@@ -35,12 +47,15 @@ public static class PossessionHooks
     {
         IL.Creature.Update -= Extras.WrapILHook(UpdatePossessedCreatureILHook);
 
+        On.AbstractPhysicalObject.Realize -= RealizeControllerHook;
+
         On.AbstractWorldEntity.Destroy -= PreventPlayerDestructionHook;
 
         On.Creature.Die -= CreatureDeathHook;
 
         On.Player.AddFood -= AddPossessionTimeHook;
         On.Player.Destroy -= DisposePossessionManagerHook;
+        On.Player.ThrowObject -= ThrowPossessedItemHook;
         On.Player.Update -= UpdatePlayerPossessionHook;
     }
 
@@ -103,11 +118,81 @@ public static class PossessionHooks
         orig.Invoke(self);
     }
 
+    private static void RealizeControllerHook(On.AbstractPhysicalObject.orig_Realize orig, AbstractPhysicalObject self)
+    {
+        orig.Invoke(self);
+
+        if (self.type == AbstractObjectTypes.ObjectController)
+            self.realizedObject ??= new ObjectController(self, null, null);
+    }
+
+    private static void ThrowPossessedItemHook(On.Player.orig_ThrowObject orig, Player self, int grasp, bool eu)
+    {
+        if (self.grasps[grasp]?.grabbed is ObjectController controller)
+        {
+            controller.ThrowObject(grasp);
+        }
+        else
+        {
+            orig.Invoke(self, grasp, eu);
+        }
+    }
+
     /// <summary>
     /// Updates the player's possession manager. If none is found, a new one is created, then updated as well.
     /// </summary>
     private static void UpdatePlayerPossessionHook(On.Player.orig_Update orig, Player self, bool eu)
     {
+        if (self.dangerGrasp is not null
+            && self.dangerGraspTime < 60
+            && self.room is not null
+            && (self.room.game.IsArenaSession || (self.room.game.GetStorySession?.saveState.deathPersistentSaveData.reinforcedKarma ?? false))
+            && OptionUtils.IsOptionEnabled(Options.KINETIC_ABILITIES)
+            && !RevivedPlayers.Contains(self)
+            && (self.dead || self.IsKeyDown(Keybinds.MIND_BLAST, true))
+            && (!Extras.IsMeadowEnabled || MeadowUtils.IsMine(self))) // Welcome to conditional hell
+        {
+            if (self.room.game.session is StoryGameSession storySession)
+            {
+                storySession.saveState.deathPersistentSaveData.reinforcedKarma = false;
+
+                foreach (RoomCamera camera in self.room.game.cameras)
+                {
+                    camera.hud?.karmaMeter.reinforceAnimation = 1;
+                    camera.hud?.karmaMeter.symbolDirty = true;
+                }
+            }
+
+            self.room.AddObject(new FadingMeltLights(self.room));
+            self.room.AddObject(new KarmicShockwave(self, self.dangerGrasp.grabbedChunk.pos, 40, 40f, 80f));
+
+            self.AllGraspsLetGoOfThisObject(true);
+
+            List<Creature> dangerousCrits = [.. self.room.updateList.OfType<Creature>().Where(c => c.abstractCreature.abstractAI?.RealAI?.DynamicRelationship(self.abstractCreature).GoForKill ?? false)];
+
+            for (int i = 0; i < dangerousCrits.Count; i++)
+            {
+                Creature crit = dangerousCrits[i];
+
+                if (crit == self) continue; // How in the world would a Slugcat be dangerous? I dunno, but you can never trust a modder's ability to surprise ya and break your code
+
+                float distFactor = -(Vector2.Distance(crit.mainBodyChunk.pos, self.dangerGrasp.grabbedChunk.pos) - 480f);
+
+                if (distFactor <= 0f) continue;
+
+                crit.Deafen((int)(distFactor * 1.25f));
+                crit.Blind((int)(distFactor * 0.75f));
+
+                crit.Violence(self.dead ? crit.mainBodyChunk : self.dangerGrasp.grabbedChunk, Custom.DirVec(self.dangerGrasp.grabbedChunk.pos, crit.mainBodyChunk.pos) * (distFactor * 0.5f), crit.mainBodyChunk, null, Creature.DamageType.Explosion, distFactor * 0.01f * Random.Range(1f, 2f), distFactor);
+            }
+
+            self.stun = 0;
+
+            DeathProtection.CreateInstance(self, 40 * Random.Range(8, 10));
+
+            RevivedPlayers.Add(self);
+        }
+
         orig.Invoke(self, eu);
 
         if (self.dead
@@ -117,7 +202,7 @@ public static class PossessionHooks
             return;
         }
 
-        PossessionManager manager = self.GetPossessionManager();
+        PossessionManager manager = self.GetOrCreatePossessionManager();
 
         manager.Update();
     }

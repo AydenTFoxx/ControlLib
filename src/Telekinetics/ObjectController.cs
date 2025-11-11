@@ -1,57 +1,130 @@
+using System;
 using System.Linq;
 using ModLib.Input;
 using UnityEngine;
 
+/**
+- Player "possesses" object, and can move it freely in air.
+  Slugcat's eyes remain open, and follow the object around (but can still look at predators if they're closer)
+
+- Object receives player input, and flies akin to Saint's Attunement ability.
+  When receiving a throw input, the object is thrown as if Slugcat had thrown it, with the same behaviors and limitations.
+
+- The object can be dropped with the same inputs for dropping items (down + pickup)
+
+- If the object is thrown or dropped, or Slugcat is unconscious, the possession ends.
+
+- OPTIONAL: Scavengers within line of sight of the player and the held object will have their `tempLike` influenced
+  by their current opinion of Slugcat; Friendly scavengers will gain a greater respect, while afraid or aggressive scavs will be even more aggressive
+-- Probably also use ShockReaction(), and influence `fear` (reduced by `know`), if possible.
+*/
+
 namespace ControlLib.Telekinetics;
 
-public class ObjectController : UpdatableAndDeletable
+public class ObjectController : PlayerCarryableItem
 {
-    private readonly PhysicalObject target;
-    private readonly Player owner;
+    public PhysicalObject? Target
+    {
+        get;
+        set
+        {
+            if (field is not null && originalGravity != 0f)
+                field.SetLocalGravity(originalGravity);
 
-    private readonly float originalGravity;
+            field = value;
 
+            if (value is not null)
+            {
+                originalGravity = value.GetLocalGravity();
+                value.SetLocalGravity(0f);
+            }
+        }
+    }
+
+    public Player? Owner
+    {
+        get;
+        set => field = field is null ? value : throw new InvalidOperationException("Owner cannot be modified after being set to a non-null value.");
+    }
+
+    private float originalGravity;
     private Vector2 vel;
 
-    public ObjectController(PhysicalObject target, Player owner)
+    private int life;
+
+    private Weapon? Weapon => Target as Weapon;
+
+    public override float VisibilityBonus => 0.1f + (Target is not null ? Target.VisibilityBonus : 0f);
+
+    public ObjectController(AbstractPhysicalObject abstractController, PhysicalObject? target, Player? owner)
+        : base(abstractController)
     {
-        this.target = target;
-        this.owner = owner;
+        Target = target;
+        Owner = owner;
+    }
 
-        int graspToUse = (owner.grasps[0] == null) ? 0 : 1;
+    public void ThrowObject(int grasp)
+    {
+        if (Owner is null || Target is null) return;
 
-        if (owner.grasps[graspToUse] is not null)
-        {
-            Main.Logger?.LogWarning("Tried grabbing an object with no available grasps; Destroying controller.");
+        Owner.grasps[grasp] = Target.grabbedBy.First(g => g?.grabber == Owner);
+        Owner.ThrowObject(grasp, evenUpdate);
+
+        Destroy();
+    }
+
+    public override void Destroy()
+    {
+        base.Destroy();
+
+        Target = null;
+    }
+
+    public override void Grabbed(Creature.Grasp grasp)
+    {
+        if (Owner is not null && grasp.grabber != Owner) return;
+
+        Target?.Grabbed(grasp);
+        base.Grabbed(grasp);
+    }
+
+    public override void PickedUp(Creature upPicker)
+    {
+        if (Owner is not null && upPicker != Owner)
             Destroy();
-            return;
-        }
-
-        owner.SlugcatGrab(target, graspToUse);
-
-        originalGravity = target.GetLocalGravity();
-        target.SetLocalGravity(0f);
+        else
+            base.PickedUp(upPicker);
     }
 
     public override void Update(bool eu)
     {
         base.Update(eu);
 
-        if (target is null or { slatedForDeletetion: true }
-            || owner is null or { slatedForDeletetion: true }
-            || (owner.room is not null && owner.room != room))
+        if (room is null || Target is null || Owner is null) return;
+
+        if (grabbedBy.Count == 0)
         {
             Destroy();
             return;
         }
 
-        if (target.room is not null && target.room != room)
+        if (Owner.room is not null && Owner.room != room)
         {
-            room?.RemoveObject(this);
-            target.room.AddObject(this);
+            room.RemoveObject(this);
+            room.RemoveObject(Target);
+
+            Owner.room.AddObject(this);
+            Owner.room.AddObject(Target);
         }
 
-        Player.InputPackage input = owner.GetRawInput();
+        if (Target.room is not null && Target.room != room)
+        {
+            Target.room.RemoveObject(Target);
+
+            room.AddObject(Target);
+        }
+
+        Player.InputPackage input = Owner.GetRawInput();
         Vector2 moveDir = GetMoveDirection(input);
 
         if (moveDir != Vector2.zero)
@@ -65,27 +138,22 @@ public class ObjectController : UpdatableAndDeletable
 
         if (vel != Vector2.zero)
         {
-            target.WeightedPush(0, target.bodyChunks.Last().index, vel, 10f);
+            Target.WeightedPush(0, Target.bodyChunks.Last().index, vel, 10f);
         }
 
-        if (target is Weapon weapon)
-        {
-            weapon.rotationSpeed = 20f;
-        }
+        Weapon?.rotationSpeed = 20f;
 
-        if (!owner.grasps.Any(g => g?.grabbed == target))
+        life++;
+
+        int module = Owner.Adrenaline > 0f ? 4 : 8;
+        if (life % module == 0)
         {
-            Destroy();
+            life = 0;
+            room.AddObject(new ShockWave(firstChunk.pos, 16f, 0.1f, module, false));
         }
     }
 
-    public override void Destroy()
-    {
-        base.Destroy();
-
-        target.SetLocalGravity(originalGravity);
-    }
-
+    // Adapted from Player.PointDir() method
     private static Vector2 GetMoveDirection(Player.InputPackage input)
     {
         Vector2 analogueDir = input.analogueDir;

@@ -21,17 +21,14 @@ public class MindBlast : CosmeticSprite
     private float lastKillFac;
 
     private LightningMachine? activateLightning;
-    private RoomSettings.RoomEffect? meltEffect;
+    private FadingMeltLights? fadingMeltLights;
 
     private bool enlightenedRoom;
-    private bool forcedMeltEffect;
-
-    private float effectAdd;
-    private readonly float effectInitLevel;
 
     public bool Expired { get; private set; }
-
     public float Power { get; }
+
+    private float FadeProgress => fadingMeltLights?.FadeProgress ?? 0f;
 
     private MindBlast(Player player, float power)
     {
@@ -52,18 +49,6 @@ public class MindBlast : CosmeticSprite
                 : RainWorld.GoldRGB;
 
         room = player.room;
-
-        if (room is null) return;
-
-        for (int i = 0; i < room.roomSettings.effects.Count; i++)
-        {
-            if (room.roomSettings.effects[i].type == RoomSettings.RoomEffect.Type.VoidMelt)
-            {
-                meltEffect = room.roomSettings.effects[i];
-                effectInitLevel = meltEffect.amount;
-                break;
-            }
-        }
     }
 
     public void Interrupt()
@@ -87,6 +72,8 @@ public class MindBlast : CosmeticSprite
                 if (p is SingularityBomb singularity)
                     singularity.zeroMode = true;
             });
+
+            room.AddObject(new FirecrackerPlant.ScareObject(pos));
         }
         else
         {
@@ -103,10 +90,14 @@ public class MindBlast : CosmeticSprite
 
         if (!player.dead)
         {
-            if (player.stun < 80)
-                player.Stun(80);
+            player.exhausted = true;
+            player.aerobicLevel = killFac;
 
-            room.AddObject(new CreatureSpasmer(player, false, 40));
+            int stunTime = (int)(120f * killFac);
+
+            player.Stun(stunTime);
+
+            room.AddObject(new CreatureSpasmer(player, false, stunTime / 2));
         }
 
         Main.Logger?.LogDebug($"{nameof(MindBlast)}: Interrupted! Progress was: {killFac}");
@@ -123,31 +114,19 @@ public class MindBlast : CosmeticSprite
         room.AddObject(new ShockWave(pos, 275f * Power, 0.2425f * Power, (int)(200 * Power), true));
         room.AddObject(new ShockWave(pos, 1250f * Power, 0.0925f * Power, (int)(180 * Power), false));
 
+        room.AddObject(fadingMeltLights = new FadingMeltLights(room));
+
         room.ScreenMovement(pos, default, 0.35f * Power);
         room.PlaySound(SoundID.SB_A14, pos, 1f, Power + Random.Range(-0.5f, 0.5f));
 
         room.InGameNoise(new InGameNoise(pos, 4500f * Power, player, 1f));
-
-        if (meltEffect is null)
-        {
-            meltEffect = new RoomSettings.RoomEffect(RoomSettings.RoomEffect.Type.VoidMelt, Mathf.Clamp(0.75f * Power, 0.5f, 1f), false);
-
-            room.roomSettings.effects.Add(meltEffect);
-
-            forcedMeltEffect = true;
-        }
-
-        for (int i = 0; i < 20; i++)
-        {
-            room.AddObject(new MeltLights.MeltLight(1f, room.RandomPos(), room, RainWorld.GoldRGB));
-        }
-        effectAdd = 1f;
 
         player.aerobicLevel = 1f;
         player.exhausted = true;
 
         if (player.TryGetPossessionManager(out PossessionManager manager))
         {
+            manager.PossessionTime = -120;
             manager.PossessionCooldown = 200;
         }
 
@@ -163,9 +142,6 @@ public class MindBlast : CosmeticSprite
         if (Expired)
         {
             if (room is null) return;
-
-            effectAdd = Mathf.Max(0f, effectAdd - 0.016666668f);
-            meltEffect?.amount = Mathf.Lerp(effectInitLevel, 1f, Custom.SCurve(effectAdd, 0.6f));
 
             if (!enlightenedRoom)
             {
@@ -188,7 +164,7 @@ public class MindBlast : CosmeticSprite
                 }
             }
 
-            if (effectAdd <= 0.5f && !enlightenedRoom)
+            if (FadeProgress <= 0.5f && !enlightenedRoom)
             {
                 enlightenedRoom = true;
 
@@ -314,7 +290,7 @@ public class MindBlast : CosmeticSprite
                 room.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, pos, 1f, Random.value + (Random.value * Power));
             }
 
-            if (effectAdd <= 0f)
+            if (FadeProgress <= 0f)
             {
                 Destroy();
             }
@@ -362,13 +338,8 @@ public class MindBlast : CosmeticSprite
         activateLightning?.Destroy();
         activateLightning = null;
 
-        if (forcedMeltEffect)
-        {
-            room?.roomSettings.effects.Remove(meltEffect);
-
-            forcedMeltEffect = false;
-        }
-        meltEffect = null;
+        fadingMeltLights?.Destroy();
+        fadingMeltLights = null;
 
         base.Destroy();
 
@@ -423,12 +394,13 @@ public class MindBlast : CosmeticSprite
     {
         if (oracle.ID == MoreSlugcatsEnums.OracleID.ST)
         {
-            if (!oracle.Consious) return;
+            if (oracle.Consious)
+            {
+                room.AddObject(new ShockWave(oracle.firstChunk.pos, 500f, 0.75f, 18, false));
+                (oracle.oracleBehavior as STOracleBehavior)?.AdvancePhase();
 
-            room.AddObject(new ShockWave(oracle.firstChunk.pos, 500f, 0.75f, 18, false));
-            (oracle.oracleBehavior as STOracleBehavior)?.AdvancePhase();
-
-            player.firstChunk.vel = Vector2.zero;
+                player.firstChunk.vel = Vector2.zero;
+            }
             return;
         }
 
