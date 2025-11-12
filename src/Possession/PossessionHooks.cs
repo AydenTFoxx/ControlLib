@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using ControlLib.Enums;
 using ControlLib.Telekinetics;
 using ModLib;
 using ModLib.Collections;
@@ -28,15 +27,13 @@ public static class PossessionHooks
     {
         IL.Creature.Update += Extras.WrapILHook(UpdatePossessedCreatureILHook);
 
-        On.AbstractPhysicalObject.Realize += RealizeControllerHook;
-
         On.AbstractWorldEntity.Destroy += PreventPlayerDestructionHook;
 
         On.Creature.Die += CreatureDeathHook;
 
         On.Player.AddFood += AddPossessionTimeHook;
         On.Player.Destroy += DisposePossessionManagerHook;
-        On.Player.ThrowObject += ThrowPossessedItemHook;
+        On.Player.OneWayPlacement += WarpPlayerAccessoriesHook;
         On.Player.Update += UpdatePlayerPossessionHook;
     }
 
@@ -47,15 +44,13 @@ public static class PossessionHooks
     {
         IL.Creature.Update -= Extras.WrapILHook(UpdatePossessedCreatureILHook);
 
-        On.AbstractPhysicalObject.Realize -= RealizeControllerHook;
-
         On.AbstractWorldEntity.Destroy -= PreventPlayerDestructionHook;
 
         On.Creature.Die -= CreatureDeathHook;
 
         On.Player.AddFood -= AddPossessionTimeHook;
         On.Player.Destroy -= DisposePossessionManagerHook;
-        On.Player.ThrowObject -= ThrowPossessedItemHook;
+        On.Player.OneWayPlacement -= WarpPlayerAccessoriesHook;
         On.Player.Update -= UpdatePlayerPossessionHook;
     }
 
@@ -116,26 +111,6 @@ public static class PossessionHooks
             && DeathProtection.TryGetProtection(player, out _)) return;
 
         orig.Invoke(self);
-    }
-
-    private static void RealizeControllerHook(On.AbstractPhysicalObject.orig_Realize orig, AbstractPhysicalObject self)
-    {
-        orig.Invoke(self);
-
-        if (self.type == AbstractObjectTypes.ObjectController)
-            self.realizedObject ??= new ObjectController(self, null, null);
-    }
-
-    private static void ThrowPossessedItemHook(On.Player.orig_ThrowObject orig, Player self, int grasp, bool eu)
-    {
-        if (self.grasps[grasp]?.grabbed is ObjectController controller)
-        {
-            controller.ThrowObject(grasp);
-        }
-        else
-        {
-            orig.Invoke(self, grasp, eu);
-        }
     }
 
     /// <summary>
@@ -205,6 +180,16 @@ public static class PossessionHooks
         PossessionManager manager = self.GetOrCreatePossessionManager();
 
         manager.Update();
+    }
+
+    private static void WarpPlayerAccessoriesHook(On.Player.orig_OneWayPlacement orig, Player self, Vector2 pos, int playerIndex)
+    {
+        orig.Invoke(self, pos, playerIndex);
+
+        if (self.TryGetPossessionManager(out PossessionManager manager))
+        {
+            manager.ResetAccessories();
+        }
     }
 
     /// <summary>

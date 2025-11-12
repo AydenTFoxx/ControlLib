@@ -17,5 +17,13 @@ TODO: Disable MindBlast unconditionally when in a Rain Meadow lobby;
       Alternatively force-disable it on Meadow mode, and set its value to the host's, false by default.
 
 Invoking MindBlast, then triggering TargetCursor and releasing it without possessing anyone causes the player to be unable to use TargetCursor, and attempting to invoke MindBlast again creates it at the previous position.
+	Fixed!
 
 TargetCursor is still offset from the player's position, frequently after changing rooms. Starting a possession fixes the issue.
+	Fixed!
+
+Stopping a possession causes all of the player's possessions to be stopped as well. When having multiple possession targets, if one's possession is cancelled, the player is unable to stop other possessions until their time runs out.
+    Correction: First behavior does not occur at all; Pressing the POSSESS keybind simply stops all possessions, regardless of their count.
+    Fixed player being unable to stop possessions :P
+
+Warping to another region as Watcher causes both TargetCursor and PossessionTimer to become invisible. This is fixed after hibernation.

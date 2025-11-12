@@ -43,9 +43,9 @@ public partial class TargetSelector
     {
         public override void UpdatePhase(TargetSelector selector)
         {
-            if (selector.PossessionManager.IsPossessing)
+            if (selector.Manager.IsPossessing)
             {
-                selector.PossessionManager.ResetAllPossessions();
+                selector.Manager.ResetAllPossessions();
 
                 selector.Input.LockAction = true;
                 return;
@@ -151,9 +151,9 @@ public partial class TargetSelector
 
             foreach (Creature target in selector.Targets)
             {
-                if (selector.PossessionManager.CanPossessCreature(target))
+                if (selector.Manager.CanPossessCreature(target))
                 {
-                    selector.PossessionManager.StartPossession(target);
+                    selector.Manager.StartPossession(target);
                 }
             }
 

@@ -49,7 +49,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     {
         get
         {
-            if (Input.InputTime > PossessionManager.PossessionTimePotential)
+            if (Input.InputTime > Manager.PossessionTimePotential)
             {
                 field = true;
             }
@@ -59,7 +59,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     }
 
     public Player Player => player;
-    public PossessionManager PossessionManager => manager;
+    public PossessionManager Manager => manager;
 
     protected WeakList<Creature> queryCreatures = [];
     protected TargetCursor? targetCursor =
@@ -118,7 +118,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     {
         Input = new();
 
-        if (!PossessionManager.IsPossessing)
+        if (!Manager.IsPossessing)
         {
             player.controller = null;
         }
@@ -133,6 +133,14 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
         }
     }
 
+    public void ResetTargetCursor()
+    {
+        targetCursor?.Destroy();
+
+        if (IsClientOptionValue(Options.SELECTION_MODE, "ascension"))
+            targetCursor = new TargetCursor(Manager);
+    }
+
     /// <summary>
     /// Updates the target selector's behaviors.
     /// </summary>
@@ -142,11 +150,11 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
         Input.InputTime++;
 
-        if (ExceededTimeLimit || PossessionManager.PossessionCooldown > 0)
+        if (ExceededTimeLimit || Manager.PossessionCooldown > 0)
         {
             if (ExceededTimeLimit && !HasMindBlast)
             {
-                PossessionManager.PossessionCooldown = 80;
+                Manager.PossessionCooldown = 80;
 
                 player.exhausted = true;
                 player.aerobicLevel = 1f;

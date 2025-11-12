@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Text;
 using ControlLib.Meadow;
@@ -45,7 +46,12 @@ public sealed class PossessionManager : IDisposable
     public int PossessionCooldown { get; set; }
     public float PossessionTime { get; set; }
 
-    public bool IsPossessing => MyPossessions.Count > 0 || PossessedItems.Count > 0;
+    public bool IsPossessing
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => MyPossessions.Count > 0 || PossessedItems.Count > 0;
+    }
+
     public bool LowPossessionTime => (IsPossessing || OnMindBlastCooldown) && PossessionTime / MaxPossessionTime < 0.34f;
 
     public bool OnMindBlastCooldown { get; set; }
@@ -54,22 +60,22 @@ public sealed class PossessionManager : IDisposable
     {
         this.player = player;
 
-        string attunedSlugcats = FormatSlugcatNames(GetOptionValue<string>("attuned_slugcats"));
-        string hardmodeSlugcats = FormatSlugcatNames(GetOptionValue<string>("hardmode_slugcats"));
+        string attunedSlugcats = FormatSlugcatNames(GetOptionValue<string>("attuned_slugcats")); // Default: "Monk, Saint"
+        string hardmodeSlugcats = FormatSlugcatNames(GetOptionValue<string>("hardmode_slugcats")); // Default: "Hunter, Artificer, Sofanthiel"
 
         IsAttunedSlugcat = attunedSlugcats.Contains(player.SlugCatClass.ToString());
 
         IsHardmodeSlugcat = hardmodeSlugcats.Contains(player.SlugCatClass.ToString());
 
         PossessionTimePotential = player.SlugCatClass == MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel
-            ? GetOptionValue<int>("sofanthiel_possession_potential")
+            ? GetOptionValue<int>("sofanthiel_possession_potential") // Default: 1
             : IsAttunedSlugcat
-                ? GetOptionValue<int>("attuned_possession_potential")
+                ? GetOptionValue<int>("attuned_possession_potential") // Default: 480
                 : IsHardmodeSlugcat
-                    ? GetOptionValue<int>("hardmode_possession_potential")
-                    : GetOptionValue<int>("default_possession_potential");
+                    ? GetOptionValue<int>("hardmode_possession_potential") // Default: 240
+                    : GetOptionValue<int>("default_possession_potential"); // Default: 360
 
-        MaxPossessionTime = PossessionTimePotential + ((player.room?.game.GetStorySession?.saveState.deathPersistentSaveData.karma ?? 0) * 40);
+        MaxPossessionTime = GetMaxPossessionForSlugcat(player, PossessionTimePotential);
         PossessionTime = MaxPossessionTime;
 
         TargetSelector = new(player, this);
@@ -90,6 +96,22 @@ public sealed class PossessionManager : IDisposable
                 .Replace("Gorbo", "Sofanthiel");
 
             return stringBuilder.ToString();
+        }
+
+        static int GetMaxPossessionForSlugcat(Player player, int potential)
+        {
+            if (player?.room is null || !player.room.game.IsStorySession) return potential;
+
+            DeathPersistentSaveData saveData = player.room.game.GetStorySession.saveState.deathPersistentSaveData;
+
+            int extraTime = player.OutsideWatcherCampaign
+                ? saveData.karma * 40
+                : (int)(saveData.rippleLevel * 80f);
+
+            if (saveData.reinforcedKarma)
+                extraTime = (int)(extraTime * 1.5f);
+
+            return potential * extraTime;
         }
     }
 
@@ -117,7 +139,7 @@ public sealed class PossessionManager : IDisposable
 
     public bool CanPossessItem(PlayerCarryableItem target) =>
         CanPossess()
-        && target is not null and not ObjectController and { grabbedBy.Count: 0, forbiddenToPlayer: 0 };
+        && target is not (null or ObjectController) and { grabbedBy.Count: 0, forbiddenToPlayer: 0 };
 
     public static bool IsBannedPossessionTarget(Creature target) =>
         target is null or { dead: true } or { abstractCreature.controlled: true }
@@ -145,11 +167,34 @@ public sealed class PossessionManager : IDisposable
     public void ResetAllPossessions()
     {
         MyPossessions.Clear();
-        PossessedItems.Clear();
+
+        for (int i = 0; i < PossessedItems.Count; i++)
+        {
+            if (ObjectController.TryGetController(PossessedItems[i], out ObjectController controller))
+            {
+                controller.Destroy();
+            }
+        }
+
+        if (PossessedItems.Count > 0)
+        {
+            Main.Logger?.LogWarning($"{player} still has posssessed items after clearing possessions! Remaining possessions will be dropped.");
+            Main.Logger?.LogWarning($"Possessed items are: {FormatPossessions(PossessedItems)}");
+
+            PossessedItems.Clear();
+        }
 
         player.controller = null;
 
         Main.Logger?.LogDebug($"{player} is no longer possessing anything.");
+    }
+
+    public void ResetAccessories()
+    {
+        possessionTimer?.Destroy();
+        possessionTimer = new PossessionTimer(this);
+
+        TargetSelector?.ResetTargetCursor();
     }
 
     /// <summary>
@@ -169,7 +214,7 @@ public sealed class PossessionManager : IDisposable
                     scavBomb.thrownClosestToCreature = scavBomb.thrownBy;
             });
 
-            Main.Logger?.LogMessage($"{(Random.value < 0.5f ? "Game over" : "Goodbye")}, {player.SlugCatClass.ToString().Replace("Sofanthiel", "gamer")}.");
+            Main.Logger?.LogMessage($"{(Random.value < 0.5f ? "Game over" : "Goodbye")}, {player.SlugCatClass.ToString().Replace("Sofanthiel", "gamer")}. (Tried possessing: {target})");
             return;
         }
 
@@ -205,6 +250,64 @@ public sealed class PossessionManager : IDisposable
         Main.Logger?.LogDebug($"{player}: Started possessing {target}.");
     }
 
+    public void StartPossession(PlayerCarryableItem target)
+    {
+        if (PossessionTimePotential == 1
+            && player.room is not null
+            && !IsOptionEnabled(Options.INFINITE_POSSESSION)
+            && !IsOptionEnabled(Options.WORLDWIDE_MIND_CONTROL))
+        {
+            Main.ExplodePlayer(player, DLCSharedEnums.AbstractObjectType.SingularityBomb, static (p) =>
+            {
+                if (p is SingularityBomb singularity)
+                    singularity.zeroMode = true;
+            });
+
+            Main.Logger?.LogMessage($"{(Random.value < 0.5f ? "Game over" : "Goodbye")}, {player.SlugCatClass.ToString().Replace("Sofanthiel", "gamer")}. (Tried possessing: {target})");
+            return;
+        }
+
+        PossessedItems.Add(target);
+
+        if (target.room is not null && target.room.BeingViewed)
+        {
+            target.room.AddObject(new TemplarCircle(target, target.firstChunk.pos, 48f, 8f, 2f, 12, true));
+            target.room.AddObject(new ShockWave(target.firstChunk.pos, 100f, 0.08f, 4, false));
+            target.room.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, target.firstChunk, loop: false, 1f, 1.25f + (Random.value * 1.25f));
+        }
+
+        player.controller ??= GetFadeOutController(player);
+
+        Main.Logger?.LogDebug($"{player}: Started possessing {target}.");
+    }
+
+    public void StopPossession(PlayerCarryableItem target)
+    {
+        PossessedItems.Remove(target);
+
+        if (!IsPossessing)
+        {
+            player.controller = null;
+            PossessionCooldown = 20;
+        }
+
+        if (PossessionTime == 0)
+        {
+            for (int k = 0; k < 20; k++)
+            {
+                player.room?.AddObject(new Spark(player.mainBodyChunk.pos, Custom.RNV() * Random.value * 40f, new Color(1f, 1f, 1f), null, 30, 120));
+            }
+        }
+
+        if (target.room is not null && target.room.BeingViewed)
+        {
+            target.room.AddObject(new ReverseShockwave(target.firstChunk.pos, 64f, 0.05f, 24));
+            target.room.PlaySound(SoundID.HUD_Pause_Game, target.firstChunk, loop: false, 1f, 0.5f);
+        }
+
+        Main.Logger?.LogDebug($"{player}: Stopped possessing {target}.");
+    }
+
     /// <summary>
     /// Interrupts the possession of the given creature.
     /// </summary>
@@ -212,11 +315,11 @@ public sealed class PossessionManager : IDisposable
     public void StopPossession(Creature target)
     {
         MyPossessions.Remove(target);
-        PossessionCooldown = 20;
 
         if (!IsPossessing)
         {
             player.controller = null;
+            PossessionCooldown = 20;
         }
 
         if (PossessionTime == 0)
@@ -260,7 +363,7 @@ public sealed class PossessionManager : IDisposable
 
         if (IsOptionEnabled(Options.MIND_BLAST) && UpdateMindBlast()) return;
 
-        if (player.Consious && player.IsKeyDown(Keybinds.POSSESS, true) && CanPossess())
+        if (player.Consious && player.IsKeyDown(Keybinds.POSSESS, true) && (IsPossessing || CanPossess()))
         {
             TargetSelector.Update();
         }
@@ -305,7 +408,7 @@ public sealed class PossessionManager : IDisposable
 
             if (PossessionTime <= 0f || !player.Consious)
             {
-                Main.Logger?.LogDebug($"Forcing end of possession! Ran out of time? {PossessionTime <= 0f}");
+                Main.Logger?.LogInfo($"Forcing end of possession! Ran out of time? {PossessionTime <= 0f}");
 
                 if (player.Consious)
                 {
@@ -426,20 +529,34 @@ public sealed class PossessionManager : IDisposable
     /// Retrieves a <c>string</c> representation of this <c>PossessionManager</c> instance.
     /// </summary>
     /// <returns>A <c>string</c> containing the instance's values and possessions.</returns>
-    public override string ToString() => $"{player} :: ({FormatPossessions(MyPossessions)}) [{PossessionTime}t; {PossessionCooldown}c]";
+    public override string ToString()
+    {
+        return new StringBuilder($"=== {(disposedValue ? "[DISPOSED] " : "")}{nameof(PossessionManager)}: {player} ===")
+            .AppendLine()
+            .AppendLine($"Potential:{PossessionTimePotential}")
+            .AppendLine($"Attuned:{(IsAttunedSlugcat ? "Yes" : "No")}")
+            .AppendLine($"Hardmode:{(IsHardmodeSlugcat ? "Yes" : "No")}")
+            .AppendLine($"Time:{PossessionTime}/{MaxPossessionTime}")
+            .AppendLine($"Cooldown:{PossessionCooldown}")
+            .AppendLine($"OnMindBlastCooldown:{(OnMindBlastCooldown ? "Yes" : "No")}")
+            .AppendLine()
+            .AppendLine($"C:[{FormatPossessions(MyPossessions)}]")
+            .AppendLine($"I:[{FormatPossessions(PossessedItems)}]")
+            .ToString();
+    }
 
     /// <summary>
     /// Formats a list all of the player's possessed creatures for logging purposes.
     /// </summary>
     /// <param name="possessions">A list of the player's possessed creatures.</param>
     /// <returns>A formatted <c>string</c> listing all of the possessed creatures' names and IDs.</returns>
-    public static string FormatPossessions(ICollection<Creature> possessions)
+    public static string FormatPossessions<T>(ICollection<T> possessions) where T : PhysicalObject
     {
         StringBuilder stringBuilder = new();
 
-        foreach (Creature creature in possessions)
+        foreach (T element in possessions)
         {
-            stringBuilder.Append($"{creature}; ");
+            stringBuilder.Append($"{element}; ");
         }
 
         return stringBuilder.ToString().Trim();

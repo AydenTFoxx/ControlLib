@@ -4,6 +4,7 @@ using System.Security.Permissions;
 using BepInEx;
 using ControlLib.Enums;
 using ControlLib.Possession;
+using ControlLib.Telekinetics;
 using ModLib;
 using ModLib.Logging;
 using ModLib.Options;
@@ -82,6 +83,8 @@ public class Main : ModPlugin
         base.ApplyHooks();
 
         PossessionHooks.ApplyHooks();
+
+        TelekineticsHooks.ApplyHooks();
     }
 
     protected override void RemoveHooks()
@@ -89,6 +92,8 @@ public class Main : ModPlugin
         base.RemoveHooks();
 
         PossessionHooks.RemoveHooks();
+
+        TelekineticsHooks.RemoveHooks();
     }
 
     public static void ExplodePlayer(Player player, AbstractPhysicalObject.AbstractObjectType bombType, Action<PhysicalObject>? onRealizedCallback = null) =>
