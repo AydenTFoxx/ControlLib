@@ -184,7 +184,7 @@ public sealed class PossessionManager : IDisposable
             PossessedItems.Clear();
         }
 
-        player.controller = null;
+        DestroyFadeOutController(player);
 
         Main.Logger?.LogDebug($"{player} is no longer possessing anything.");
     }
@@ -224,8 +224,9 @@ public sealed class PossessionManager : IDisposable
         {
             target.room.AddObject(new TemplarCircle(target, target.mainBodyChunk.pos, 48f, 8f, 2f, 12, true));
             target.room.AddObject(new ShockWave(target.mainBodyChunk.pos, 100f, 0.08f, 4, false));
-            target.room.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, target.mainBodyChunk, loop: false, 1f, 1.25f + (Random.value * 1.25f));
         }
+
+        player.room?.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, player.mainBodyChunk.pos, 1f, 1.25f + (Random.value * 1.25f));
 
         player.controller ??= GetFadeOutController(player);
 
@@ -273,39 +274,13 @@ public sealed class PossessionManager : IDisposable
         {
             target.room.AddObject(new TemplarCircle(target, target.firstChunk.pos, 48f, 8f, 2f, 12, true));
             target.room.AddObject(new ShockWave(target.firstChunk.pos, 100f, 0.08f, 4, false));
-            target.room.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, target.firstChunk, loop: false, 1f, 1.25f + (Random.value * 1.25f));
         }
+
+        player.room?.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, player.mainBodyChunk.pos, 1f, 1.25f + (Random.value * 1.25f));
 
         player.controller ??= GetFadeOutController(player);
 
         Main.Logger?.LogDebug($"{player}: Started possessing {target}.");
-    }
-
-    public void StopPossession(PlayerCarryableItem target)
-    {
-        PossessedItems.Remove(target);
-
-        if (!IsPossessing)
-        {
-            player.controller = null;
-            PossessionCooldown = 20;
-        }
-
-        if (PossessionTime == 0)
-        {
-            for (int k = 0; k < 20; k++)
-            {
-                player.room?.AddObject(new Spark(player.mainBodyChunk.pos, Custom.RNV() * Random.value * 40f, new Color(1f, 1f, 1f), null, 30, 120));
-            }
-        }
-
-        if (target.room is not null && target.room.BeingViewed)
-        {
-            target.room.AddObject(new ReverseShockwave(target.firstChunk.pos, 64f, 0.05f, 24));
-            target.room.PlaySound(SoundID.HUD_Pause_Game, target.firstChunk, loop: false, 1f, 0.5f);
-        }
-
-        Main.Logger?.LogDebug($"{player}: Stopped possessing {target}.");
     }
 
     /// <summary>
@@ -318,7 +293,7 @@ public sealed class PossessionManager : IDisposable
 
         if (!IsPossessing)
         {
-            player.controller = null;
+            DestroyFadeOutController(player);
             PossessionCooldown = 20;
         }
 
@@ -333,8 +308,9 @@ public sealed class PossessionManager : IDisposable
         if (target.room is not null && target.room.BeingViewed)
         {
             target.room.AddObject(new ReverseShockwave(target.mainBodyChunk.pos, 64f, 0.05f, 24));
-            target.room.PlaySound(SoundID.HUD_Pause_Game, target.mainBodyChunk, loop: false, 1f, 0.5f);
         }
+
+        player.room?.PlaySound(SoundID.HUD_Pause_Game, player.mainBodyChunk.pos, 0.8f, 0.5f);
 
         if (Extras.IsOnlineSession)
         {
@@ -350,6 +326,34 @@ public sealed class PossessionManager : IDisposable
 
         target.UpdateCachedPossession();
         target.abstractCreature.controlled = false;
+
+        Main.Logger?.LogDebug($"{player}: Stopped possessing {target}.");
+    }
+
+    public void StopPossession(PlayerCarryableItem target)
+    {
+        PossessedItems.Remove(target);
+
+        if (!IsPossessing)
+        {
+            DestroyFadeOutController(player);
+            PossessionCooldown = 20;
+        }
+
+        if (PossessionTime == 0)
+        {
+            for (int k = 0; k < 20; k++)
+            {
+                player.room?.AddObject(new Spark(player.mainBodyChunk.pos, Custom.RNV() * Random.value * 40f, new Color(1f, 1f, 1f), null, 30, 120));
+            }
+        }
+
+        if (target.room is not null && target.room.BeingViewed)
+        {
+            target.room.AddObject(new ReverseShockwave(target.firstChunk.pos, 64f, 0.05f, 24));
+        }
+
+        player.room?.PlaySound(SoundID.HUD_Pause_Game, player.mainBodyChunk.pos, 0.8f, 0.5f);
 
         Main.Logger?.LogDebug($"{player}: Stopped possessing {target}.");
     }
@@ -522,7 +526,19 @@ public sealed class PossessionManager : IDisposable
     {
         Player.InputPackage input = player.GetRawInput();
 
-        return new FadeOutController(input.x, player.standing ? 1 : input.y);
+        return new FadeOutController(player, input.x, player.standing ? 1 : input.y, 10);
+    }
+
+    public static void DestroyFadeOutController(Player player)
+    {
+        if (player.controller is FadeOutController fadeOutController)
+        {
+            fadeOutController.Destroy();
+        }
+        else
+        {
+            player.controller = null;
+        }
     }
 
     /// <summary>
@@ -562,13 +578,28 @@ public sealed class PossessionManager : IDisposable
         return stringBuilder.ToString().Trim();
     }
 
-    public class FadeOutController(int x, int y) : Player.PlayerController
+    public class FadeOutController(Player target, int x, int y, int fadeInTime) : Player.PlayerController
     {
+        private bool slatedForDeletion;
+
         public int FadeOutX() => x = (int)Mathf.Lerp(x, 0f, 0.25f);
         public int FadeOutY() => y = (int)Mathf.Lerp(y, 0f, 0.25f);
 
-        public override Player.InputPackage GetInput() =>
-            new(gamePad: false, global::Options.ControlSetup.Preset.None, FadeOutX(), FadeOutY(), jmp: false, thrw: false, pckp: false, mp: false, crouchToggle: false);
+        public override Player.InputPackage GetInput()
+        {
+            if (slatedForDeletion)
+            {
+                fadeInTime--;
+                if (fadeInTime <= 0 || !target.Consious)
+                {
+                    target.controller = null;
+                    return target.GetRawInput();
+                }
+            }
+            return new(gamePad: false, global::Options.ControlSetup.Preset.None, FadeOutX(), FadeOutY(), jmp: false, thrw: false, pckp: false, mp: false, crouchToggle: false);
+        }
+
+        public void Destroy() => slatedForDeletion = true;
     }
 
     private void Dispose(bool disposing)

@@ -1,9 +1,8 @@
 using System;
-using System.ComponentModel;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using ControlLib.Enums;
 using ControlLib.Possession;
+using ModLib.Collections;
 using ModLib.Input;
 using UnityEngine;
 
@@ -27,9 +26,7 @@ namespace ControlLib.Telekinetics;
 
 public class ObjectController : PlayerCarryableItem
 {
-    private static readonly ConditionalWeakTable<PhysicalObject, ObjectController> _activeInstances = new();
-
-    private static Vector2 MaxVelocity = new(20f, 20f);
+    private static readonly WeakDictionary<PhysicalObject, ObjectController> _activeInstances = [];
 
     public PhysicalObject? Target
     {
@@ -38,7 +35,7 @@ public class ObjectController : PlayerCarryableItem
         {
             if (field is not null)
             {
-                if (_activeInstances.TryGetValue(field, out _))
+                if (_activeInstances.ContainsKey(field))
                     _activeInstances.Remove(field);
 
                 if (originalGravity != 0f)
@@ -52,7 +49,7 @@ public class ObjectController : PlayerCarryableItem
                 originalGravity = value.GetLocalGravity();
                 value.SetLocalGravity(0f);
 
-                _activeInstances.Add(value, this);
+                _activeInstances[value] = this;
             }
         }
     }
@@ -63,13 +60,15 @@ public class ObjectController : PlayerCarryableItem
         set => field = field is null ? value : throw new InvalidOperationException("Owner cannot be modified after being set to a non-null value.");
     }
 
-    private float originalGravity;
-    private Vector2 vel;
+    private Player.InputPackage input;
+    private Player.InputPackage lastInput;
 
+    public Player.InputPackage Input => input;
+
+    private float originalGravity;
     private int life;
 
     private Creature.Grasp? TargetGrasp;
-
     private Weapon? Weapon => Target as Weapon;
 
     public override float VisibilityBonus => 0.1f + (Target is not null ? Target.VisibilityBonus : 0f);
@@ -90,6 +89,20 @@ public class ObjectController : PlayerCarryableItem
     {
         if (Owner is null || Target is null) return;
 
+        if (input.x == 0 && lastInput.x != 0)
+            input.x = lastInput.x;
+
+        if (input.y == 0 && lastInput.y != 0)
+            input.y = lastInput.y;
+
+        Owner.input[0] = input;
+
+        if (input.x == 0 && input.y != 0)
+        {
+            Owner.animation = Player.AnimationIndex.Flip;
+            Owner.jumpBoost = 3f;
+        }
+
         Owner.grasps[grasp] = TargetGrasp;
         Owner.ThrowObject(grasp, evenUpdate);
 
@@ -109,6 +122,8 @@ public class ObjectController : PlayerCarryableItem
         TargetGrasp = null;
 
         Target = null;
+
+        room?.AddObject(new ReverseShockwave(firstChunk.pos, 16f, 0.125f, 12));
     }
 
     public override void Grabbed(Creature.Grasp grasp)
@@ -145,7 +160,16 @@ public class ObjectController : PlayerCarryableItem
     {
         base.Update(eu);
 
-        if (Target is null || Owner is null) return;
+        if (Target is null || Owner is null)
+        {
+            life++;
+            if (life % 20 == 0)
+            {
+                life = 0;
+                room.AddObject(new ShockWave(firstChunk.pos, 12f, 0.05f, 20, false));
+            }
+            return;
+        }
 
         if (grabbedBy.Count == 0)
         {
@@ -169,26 +193,29 @@ public class ObjectController : PlayerCarryableItem
             room.AddObject(Target);
         }
 
-        Player.InputPackage input = Owner.GetRawInput();
-        Vector2 moveDir = GetMoveDirection(input);
+        if (input.AnyInput)
+            lastInput = input;
+
+        input = Owner.GetRawInput();
+
+        Vector2 moveDir = GetMoveDirection();
 
         if (moveDir != Vector2.zero)
         {
-            vel += Vector2.Min(moveDir * 0.8f, MaxVelocity);
-        }
-        else if (vel != Vector2.zero)
-        {
-            vel *= 0.02f;
-        }
-
-        foreach (BodyChunk bodyChunk in Target.bodyChunks)
-        {
-            bodyChunk.vel = vel;
+            foreach (BodyChunk bodyChunk in Target.bodyChunks)
+            {
+                bodyChunk.vel = Vector2.ClampMagnitude(bodyChunk.vel + (moveDir * 2f), 8f);
+            }
         }
 
         if (input.thrw && TargetGrasp is not null)
         {
             ThrowObject(TargetGrasp.graspUsed);
+            return;
+        }
+        else if (input.y < 0 && input.pckp)
+        {
+            Destroy();
             return;
         }
 
@@ -204,10 +231,8 @@ public class ObjectController : PlayerCarryableItem
         }
     }
 
-    public static bool TryGetController(PhysicalObject target, out ObjectController controller) => _activeInstances.TryGetValue(target, out controller);
-
     // Adapted from Player.PointDir() method
-    private static Vector2 GetMoveDirection(Player.InputPackage input)
+    private Vector2 GetMoveDirection()
     {
         Vector2 analogueDir = input.analogueDir;
 
@@ -219,7 +244,6 @@ public class ObjectController : PlayerCarryableItem
     }
 
     // For usage by Dev Console's `invoke` command; May crash your game.
-    [EditorBrowsable(EditorBrowsableState.Never)]
     public static void TestItemPossession(string playerIndex)
     {
         if (!int.TryParse(playerIndex, out int playerNumber)
@@ -259,4 +283,6 @@ public class ObjectController : PlayerCarryableItem
             Main.Logger?.LogWarning("Failed to realize controller object, aborting operation.");
         }
     }
+
+    public static bool TryGetController(PhysicalObject target, out ObjectController controller) => _activeInstances.TryGetValue(target, out controller);
 }

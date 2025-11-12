@@ -1,4 +1,6 @@
+using System;
 using ControlLib.Enums;
+using MonoMod.RuntimeDetour;
 using RWCustom;
 using UnityEngine;
 
@@ -6,6 +8,21 @@ namespace ControlLib.Telekinetics;
 
 public static class TelekineticsHooks
 {
+    private static readonly Hook[] manualHooks;
+    private static readonly HookConfig Config;
+
+    static TelekineticsHooks()
+    {
+        Config = (typeof(DetourContext).GetField("Current")?.GetValue(null) as DetourContext)?.HookConfig ?? new();
+        Config.ManualApply = true;
+
+        manualHooks = new Hook[1];
+        manualHooks[0] = new Hook(
+            typeof(Player).GetProperty(nameof(Player.ThrowDirection)).GetGetMethod(),
+            PossessedThrowDirectionHook,
+            Config);
+    }
+
     public static void ApplyHooks()
     {
         On.AbstractPhysicalObject.Realize += RealizeControllerHook;
@@ -13,6 +30,11 @@ public static class TelekineticsHooks
         On.Player.Grabability += ObjectControllerGrababilityHook;
 
         On.Weapon.Thrown += ThrownWeaponFromControllerHook;
+
+        foreach (Hook hook in manualHooks)
+        {
+            hook.Apply();
+        }
     }
 
     public static void RemoveHooks()
@@ -22,12 +44,22 @@ public static class TelekineticsHooks
         On.Player.Grabability -= ObjectControllerGrababilityHook;
 
         On.Weapon.Thrown -= ThrownWeaponFromControllerHook;
+
+        foreach (Hook hook in manualHooks)
+        {
+            hook.Undo();
+        }
     }
 
     private static Player.ObjectGrabability ObjectControllerGrababilityHook(On.Player.orig_Grabability orig, Player self, PhysicalObject obj) =>
         obj is ObjectController
             ? Player.ObjectGrabability.BigOneHand
             : orig.Invoke(self, obj);
+
+    private static int PossessedThrowDirectionHook(Func<Player, int> orig, Player self) =>
+        ObjectController.TryGetController(self, out ObjectController controller)
+            ? controller.Input.x
+            : orig.Invoke(self);
 
     private static void RealizeControllerHook(On.AbstractPhysicalObject.orig_Realize orig, AbstractPhysicalObject self)
     {

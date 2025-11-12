@@ -120,7 +120,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
         if (!Manager.IsPossessing)
         {
-            player.controller = null;
+            PossessionManager.DestroyFadeOutController(player);
         }
 
         ExceededTimeLimit = false;
