@@ -189,6 +189,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
             Vector2 targetPos = targetCursor?.GetPos() ?? (hasValidTargets ? Targets[0].mainBodyChunk.pos : Vector2.zero);
             targetPos = RWCustomExts.ClampedDist(targetPos, player.mainBodyChunk.pos, 80f);
 
+            playerGraphics.hands[handIndex].reachingForObject = true;
             playerGraphics.hands[handIndex].mode = Limb.Mode.HuntAbsolutePosition;
             playerGraphics.hands[handIndex].absoluteHuntPos = targetPos;
         }

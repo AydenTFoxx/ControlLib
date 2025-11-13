@@ -276,7 +276,7 @@ public sealed class PossessionManager : IDisposable
             target.room.AddObject(new ShockWave(target.firstChunk.pos, 100f, 0.08f, 4, false));
         }
 
-        player.room?.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, player.mainBodyChunk.pos, 1f, 1.25f + (Random.value * 1.25f));
+        player.room?.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, player.mainBodyChunk.pos, 1f, 1f + (Random.value * 1f));
 
         player.controller ??= GetFadeOutController(player);
 

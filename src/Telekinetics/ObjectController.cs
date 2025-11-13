@@ -106,6 +106,8 @@ public class ObjectController : PlayerCarryableItem
         Owner.grasps[grasp] = TargetGrasp;
         Owner.ThrowObject(grasp, evenUpdate);
 
+        TargetGrasp = null;
+
         Destroy();
     }
 
@@ -123,7 +125,7 @@ public class ObjectController : PlayerCarryableItem
 
         Target = null;
 
-        room?.AddObject(new ReverseShockwave(firstChunk.pos, 16f, 0.125f, 12));
+        room?.AddObject(new ReverseShockwave(firstChunk.pos, 16f, 0.125f, 15));
     }
 
     public override void Grabbed(Creature.Grasp grasp)
