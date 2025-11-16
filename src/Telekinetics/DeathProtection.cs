@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace ControlLib.Telekinetics;
@@ -12,6 +13,22 @@ public class DeathProtection : UpdatableAndDeletable
     private static readonly ConditionalWeakTable<Player, DeathProtection> _activeInstances = new();
 
     /// <summary>
+    ///     The positive condition for removing the protection instance; Always returns <c>true</c>.
+    /// </summary>
+    /// <remarks>
+    ///     When using this predicate, the protection instance is removed as soon as lifetime is depleted.
+    /// </remarks>
+    public static readonly Predicate<Player> DefaultCondition = static (_) => true;
+
+    /// <summary>
+    ///     The negative condition for removing the protection instance; Always returns <c>false</c>.
+    /// </summary>
+    /// <remarks>
+    ///     When using this predicate, the protection instance remains active unless manually removed.
+    /// </remarks>
+    public static readonly Predicate<Player> NullCondition = static (_) => false;
+
+    /// <summary>
     ///     The targeted player.
     /// </summary>
     public Player Target { get; }
@@ -19,7 +36,7 @@ public class DeathProtection : UpdatableAndDeletable
     /// <summary>
     ///     The last known position considered "safe"; If Slugcat is destroyed, it is instead teleported to this position.
     /// </summary>
-    public WorldCoordinate? SafePos { get; }
+    public WorldCoordinate? SafePos { get; private set; }
 
     /// <summary>
     ///     The power value for visual effects.
@@ -61,14 +78,23 @@ public class DeathProtection : UpdatableAndDeletable
 
         Power = MindBlast.TryGetInstance(target, out MindBlast mindBlast) ? mindBlast.Power : 1f;
 
-        this.condition = condition ?? (static (_) => true);
+        this.condition = condition ?? DefaultCondition;
         this.forceRevive = forceRevive;
         this.lifespan = lifespan;
+
+        ToggleImmunities(target.abstractCreature, true);
     }
 
     public override void Update(bool eu)
     {
         base.Update(eu);
+
+        if (Target is null)
+        {
+            Main.Logger?.LogWarning($"Player was destroyed while being protected! Removing protection object.");
+            Destroy();
+            return;
+        }
 
         Target.rainDeath = 0f;
         Target.airInLungs = 1f;
@@ -76,8 +102,12 @@ public class DeathProtection : UpdatableAndDeletable
         if (ModManager.Watcher)
             Target.repelLocusts = 10 * Math.Max(lifespan, 2);
 
-        foreach (Creature.Grasp grasp in Target.grabbedBy)
+        for (int i = 0; i < Target.grabbedBy.Count; i++)
         {
+            Creature.Grasp grasp = Target.grabbedBy[i];
+
+            if (grasp is null) continue;
+
             Creature grabber = grasp.grabber;
 
             if (grabber is not Player)
@@ -97,9 +127,24 @@ public class DeathProtection : UpdatableAndDeletable
                 Target.room.AddObject(this);
             }
 
-            foreach (RoomCamera camera in Target.room.game.cameras)
+            foreach (RoomCamera camera in room!.game.cameras)
             {
                 camera.hud?.textPrompt?.gameOverMode = false;
+            }
+
+            if (SafePos is null || ShouldUpdateSafePos())
+            {
+                SafePos = room.GetWorldCoordinate(Target.bodyChunks[1].pos);
+            }
+
+            foreach (WormGrass wormGrass in room.updateList.OfType<WormGrass>())
+            {
+                foreach (WormGrass.WormGrassPatch patch in wormGrass.patches)
+                {
+                    patch.trackedCreatures.RemoveAll(tc => tc.creature == Target);
+                }
+
+                wormGrass.AddNewRepulsiveObject(Target);
             }
         }
 
@@ -133,7 +178,12 @@ public class DeathProtection : UpdatableAndDeletable
     {
         base.Destroy();
 
-        _activeInstances.Remove(Target);
+        if (Target is not null)
+        {
+            _activeInstances.Remove(Target);
+
+            ToggleImmunities(Target.abstractCreature, false);
+        }
 
         Main.Logger?.LogDebug($"{Target} is no longer being protected.");
     }
@@ -164,6 +214,19 @@ public class DeathProtection : UpdatableAndDeletable
         Main.Logger?.LogDebug($"Revived {Target}!");
     }
 
+    private bool ShouldUpdateSafePos()
+    {
+        if (SaveCooldown != 0
+            || Target is not { dead: false, grabbedBy.Count: 0 }
+            || !Target.IsTileSolid(1, 0, -1)
+            || Target.IsTileSolid(1, 0, 0)
+            || Target.IsTileSolid(1, 0, 1)) return false;
+
+        Room.Tile tile = room.GetTile(Target.bodyChunks[1].pos);
+
+        return !tile.DeepWater && !tile.wormGrass;
+    }
+
     /// <summary>
     ///     Creates a new death protection instance which lasts for the given amount of ticks.
     /// </summary>
@@ -181,7 +244,20 @@ public class DeathProtection : UpdatableAndDeletable
     public static void CreateInstance(Player target, Predicate<Player> condition, WorldCoordinate? safePos = null, bool forceRevive = true)
     {
         if (CreateInstanceInternal(target, condition, 40, safePos, forceRevive))
-            Main.Logger?.LogInfo($"Preventing all death from {target} conditionally.");
+            Main.Logger?.LogInfo($"Preventing all death from {target} {(condition == NullCondition ? "indefinitely" : "conditionally")}.");
+    }
+
+    public static bool HasProtection(Player? target) => target is not null && _activeInstances.TryGetValue(target, out _);
+
+    public static bool TryGetProtection(Player? target, out DeathProtection protection)
+    {
+        if (target is null)
+        {
+            protection = null!;
+            return false;
+        }
+
+        return _activeInstances.TryGetValue(target, out protection);
     }
 
     private static bool CreateInstanceInternal(Player target, Predicate<Player>? condition, int lifespan, WorldCoordinate? safePos, bool forceRevive)
@@ -202,5 +278,12 @@ public class DeathProtection : UpdatableAndDeletable
         return true;
     }
 
-    public static bool TryGetProtection(Player target, out DeathProtection protection) => _activeInstances.TryGetValue(target, out protection);
+    private static void ToggleImmunities(AbstractCreature? target, bool enable)
+    {
+        if (target is null) return;
+
+        target.lavaImmune = enable;
+        target.tentacleImmune = enable;
+        target.HypothermiaImmune = enable;
+    }
 }

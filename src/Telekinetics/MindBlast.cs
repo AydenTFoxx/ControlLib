@@ -1,6 +1,6 @@
 using System.Linq;
-using System.Runtime.CompilerServices;
 using ControlLib.Possession;
+using ModLib.Collections;
 using ModLib.Options;
 using MoreSlugcats;
 using Noise;
@@ -11,7 +11,7 @@ namespace ControlLib.Telekinetics;
 
 public class MindBlast : CosmeticSprite
 {
-    private static readonly ConditionalWeakTable<Player, MindBlast> _activeInstances = new();
+    private static readonly WeakDictionary<Player, MindBlast> _activeInstances = [];
 
     private readonly Player player;
     private readonly DynamicSoundLoop soundLoop;
@@ -67,13 +67,13 @@ public class MindBlast : CosmeticSprite
                 ? DLCSharedEnums.AbstractObjectType.SingularityBomb
                 : AbstractPhysicalObject.AbstractObjectType.ScavengerBomb;
 
-            Main.ExplodePos(player, room.ToWorldCoordinate(pos), bombType, (p) =>
+            ExplosionManager.ExplodePos(player, player.room, room.ToWorldCoordinate(pos), bombType, static (p) =>
             {
                 if (p is SingularityBomb singularity)
                     singularity.zeroMode = true;
             });
 
-            room.AddObject(new FirecrackerPlant.ScareObject(pos));
+            room.AddObject(new FirecrackerPlant.ScareObject(pos) { fearRange = 4000f, fearScavs = true, lifeTime = 400 });
         }
         else
         {
@@ -180,18 +180,23 @@ public class MindBlast : CosmeticSprite
 
                     if (physicalObject is Creature crit)
                     {
-                        if (crit.Template.baseDamageResistance <= 0.1f)
+                        if (crit.Template.baseDamageResistance <= 0.1f * Power)
                         {
                             Main.Logger?.LogDebug($"Die! {crit} (Too weak to withstand MindBlast)");
 
                             stunPower = int.MaxValue;
+
+                            if (room.game.IsArenaSession)
+                                crit.SetKillTag(player.abstractCreature);
+
+                            crit.Die();
                         }
                         else
                         {
                             Main.Logger?.LogDebug($"Target: ({physicalObject}); Stun power: {stunPower} | Velocity: {velocity}");
                         }
                     }
-                    else if (physicalObject is Oracle oracle)
+                    else if (physicalObject is Oracle oracle && stunPower > 0f)
                     {
                         if (room.game.IsArenaSession || room.game.GetStorySession?.saveStateNumber == MoreSlugcatsEnums.SlugcatStatsName.Saint)
                         {
@@ -223,12 +228,12 @@ public class MindBlast : CosmeticSprite
 
                     if (isPlayerFriend) continue;
 
-                    if (room.game.IsArenaSession)
-                        creature.SetKillTag(player.abstractCreature);
-
                     if (creature.stun >= stunDeathThreshold)
                     {
                         room.AddObject(new KarmicShockwave(creature, creature.firstChunk.pos, 64, 24, 48));
+
+                        if (room.game.IsArenaSession)
+                            creature.SetKillTag(player.abstractCreature);
 
                         creature.Die();
                     }
@@ -236,7 +241,7 @@ public class MindBlast : CosmeticSprite
                     {
                         room.AddObject(new ReverseShockwave(creature.firstChunk.pos, 24f, 0.1f, 80));
 
-                        creature.Violence(creature.firstChunk, null, creature.firstChunk, null, Creature.DamageType.Explosion, blastPower * (0.1f * Power), blastPower * Power);
+                        creature.Violence(room.game.IsArenaSession ? player.mainBodyChunk : creature.firstChunk, null, creature.firstChunk, null, Creature.DamageType.Explosion, blastPower * (0.1f * Power), blastPower * Power);
                     }
                 }
 
@@ -447,7 +452,7 @@ public class MindBlast : CosmeticSprite
 
     private bool IsPlayerFriend(AbstractCreature creature)
     {
-        if (creature.realizedCreature is not IReactToSocialEvents) return false;
+        if (creature.abstractAI?.RealAI is not IReactToSocialEvents or FriendTracker.IHaveFriendTracker) return false;
 
         bool result = room.game.session.creatureCommunities.LikeOfPlayer(creature.creatureTemplate.communityID, room.world?.RegionNumber ?? 0, player.playerState.playerNumber) >= 0.5f;
 
@@ -455,7 +460,7 @@ public class MindBlast : CosmeticSprite
 
         if (!result)
         {
-            result = creature.abstractAI?.RealAI?.friendTracker?.friend == player;
+            result = creature.abstractAI.RealAI.friendTracker?.friend == player;
 
             Main.Logger?.LogDebug($"# Is {creature} friend of player? {result}");
         }
@@ -463,30 +468,36 @@ public class MindBlast : CosmeticSprite
         return result;
     }
 
-    public static void CreateInstance(Player player, float power)
+    public static MindBlast CreateInstance(Player player, float? power, bool allowMultiple = false)
     {
-        if (player?.room is null || HasInstance(player))
+        if (player?.room is null || (!allowMultiple && (HasInstance(player) || _activeInstances.Values.Any(m => m.player == player))))
         {
             string reason = player?.room is null
                 ? "Room or player is null"
                 : "Player already has an active instance";
 
             Main.Logger?.LogDebug($"Could not create MindBlast instance: {reason}.");
-            return;
+            return null!;
         }
 
-        MindBlast mindBlast = new(player, power);
+        power ??= player.TryGetPossessionManager(out PossessionManager manager)
+            ? manager.IsAttunedSlugcat ? 1.5f : manager.IsHardmodeSlugcat ? 0.5f : 1f
+            : 1f;
+
+        MindBlast mindBlast = new(player, power.Value);
 
         player.room.AddObject(mindBlast);
 
-        _activeInstances.Add(player, mindBlast);
+        if (!allowMultiple)
+            _activeInstances.Add(player, mindBlast);
 
         Main.Logger?.LogDebug($"Created new MindBlast for {player}!");
+        return mindBlast;
     }
 
-    public static bool TryGetInstance(Player player, out MindBlast instance) => _activeInstances.TryGetValue(player, out instance);
+    public static bool HasInstance(Player player) => _activeInstances.ContainsKey(player);
 
-    public static bool HasInstance(Player player) => _activeInstances.TryGetValue(player, out _);
+    public static bool TryGetInstance(Player player, out MindBlast instance) => _activeInstances.TryGetValue(player, out instance);
 
     private static bool RippleLayerCheck(AbstractPhysicalObject x, AbstractPhysicalObject y) =>
         x.rippleLayer == y.rippleLayer || x.rippleBothSides || y.rippleBothSides;

@@ -15,6 +15,7 @@ public class Options : OptionInterface
 
     [ClientOption] public static Configurable<string> SELECTION_MODE;
     [ClientOption] public static Configurable<bool> INVERT_CLASSIC;
+    [ClientOption] public static Configurable<int> WEAPON_ROTATION_SPEED;
 
     public static Configurable<bool> KINETIC_ABILITIES;
     public static Configurable<bool> MIND_BLAST;
@@ -55,7 +56,7 @@ public class Options : OptionInterface
             "kinetic_abilities",
             false,
             new ConfigurableInfo(
-                "If enabled, Slugcat can \"possess\" non-living objects, moving them around freely. Unlike creatures, they do not block the player's movement, and remain possessed until either thrown or dropped."
+                "If enabled, Slugcat can \"possess\" carryable items, moving them with its mind. Items can also be thrown or dropped, and have the same behavior as if the player had performed these actions."
             )
         );
         MIND_BLAST = config.Bind(
@@ -63,6 +64,14 @@ public class Options : OptionInterface
             false,
             new ConfigurableInfo(
                 "A powerful burst of energy requiring full possession time, which stuns or even kills foes around its target position; Has a dedicated keybind. (Default: B)"
+            )
+        );
+        WEAPON_ROTATION_SPEED = config.Bind(
+            "weapon_rotation_speed",
+            8,
+            new ConfigurableInfo(
+                "(Requires Kinetic Abilities) The speed at which weapons will rotate when possessed by the player; If set to 0, weapons instead point towards their last directional input.",
+                new ConfigAcceptableRange<int>(0, 20)
             )
         );
         INFINITE_POSSESSION = config.Bind(
@@ -121,8 +130,13 @@ public class Options : OptionInterface
             .AddCheckBoxOption("Multiplayer Slowdown", MULTIPLAYER_SLOWDOWN)
             .AddPadding(Vector2.up * 10)
             .AddCheckBoxOption("Kinetic Abilities", KINETIC_ABILITIES)
+            .AddPadding(Vector2.up * 10)
+            .AddSliderOption("Weapon Rotation Speed", WEAPON_ROTATION_SPEED, out OpSlider sliderWRS, multi: 8f)
+            .AddPadding(Vector2.up * 20)
             .AddCheckBoxOption("Mind Blast", MIND_BLAST, default, MenuColorEffect.rgbDarkRed)
             .Build();
+
+        KINETIC_ABILITIES.BoundUIconfig.OnValueChanged += BuildToggleAction(sliderWRS, "true");
 
         Tabs[2] = new OptionBuilder(this, "Cheats", MenuColorEffect.rgbDarkRed)
             .CreateModHeader()
@@ -149,7 +163,7 @@ public class Options : OptionInterface
         }
     }
 
-    private void OnMindBlastChanged() => Keybinds.ToggleMindBlast(MIND_BLAST.Value);
+    private static void OnMindBlastChanged() => Keybinds.ToggleMindBlast(MIND_BLAST.Value);
 }
 
 public static class OptionBuilderExts
@@ -159,32 +173,4 @@ public static class OptionBuilderExts
             .AddText(Main.PLUGIN_NAME, new Vector2(64f, 0f), true, RainWorld.RippleGold)
             .AddText($"[v{Main.PLUGIN_VERSION}]", new Vector2(100f, 32f), false, Color.gray)
             .ResetOrigin();
-
-    public static OptionBuilder AddCheckBoxOption(this OptionBuilder self, string text, Configurable<bool> configurable, out OpCheckBox checkBox, params Color[] colors)
-    {
-        Vector2 origin = self.GetOrigin();
-
-        UIelement[] elements =
-        [
-            new OpLabel(origin + new Vector2(40f, 0f), new Vector2(100f, 24f), text)
-            {
-                description = configurable.info.description,
-                alignment = FLabelAlignment.Left,
-                verticalAlignment = OpLabel.LabelVAlignment.Center,
-                color = OptionBuilder.GetColorOrDefault(colors, 0)
-            },
-            checkBox = new OpCheckBox(configurable, origin)
-            {
-                description = configurable.info.description,
-                colorEdge = OptionBuilder.GetColorOrDefault(colors, 1),
-                colorFill = OptionBuilder.GetColorOrDefault(colors, 2, MenuColorEffect.rgbBlack)
-            }
-        ];
-
-        self.SetOrigin(new Vector2(origin.x, origin.y - 32f));
-
-        self.AddElements(elements);
-
-        return self;
-    }
 }

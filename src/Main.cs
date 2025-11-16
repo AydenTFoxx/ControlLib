@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Permissions;
 using BepInEx;
+using BepInEx.Logging;
 using ControlLib.Enums;
 using ControlLib.Possession;
 using ControlLib.Telekinetics;
+using Kittehface.Framework20;
 using ModLib;
 using ModLib.Logging;
 using ModLib.Options;
-using MoreSlugcats;
-using UnityEngine;
+using Mono.Cecil.Cil;
+using MonoMod.Cil;
 
 #pragma warning disable CS0618 // Type or member is obsolete
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
@@ -22,9 +25,34 @@ public class Main : ModPlugin
 {
     public const string PLUGIN_NAME = "ControlLib";
     public const string PLUGIN_GUID = "ynhzrfxn.controllib";
-    public const string PLUGIN_VERSION = "0.4.5";
+    public const string PLUGIN_VERSION = "0.5.0";
 
     internal static new IMyLogger? Logger { get; private set; }
+
+    internal static new ManualLogSource LogSource
+    {
+        get
+        {
+            if (field is null)
+            {
+                BepInEx.Logging.Logger.Sources.Remove(BepInEx.Logging.Logger.Sources.FirstOrDefault(s => s.SourceName.Equals(PLUGIN_NAME)));
+
+                field = BepInEx.Logging.Logger.CreateLogSource(PLUGIN_NAME);
+            }
+            return field;
+        }
+        private set
+        {
+            if (field is not null)
+            {
+                BepInEx.Logging.Logger.Sources.Remove(field);
+            }
+
+            field = value;
+        }
+    }
+
+    private static readonly IMyLogger? RWCustomLogger;
 
     private static readonly Dictionary<string, ConfigValue> TempOptions = [];
 
@@ -40,12 +68,17 @@ public class Main : ModPlugin
 
         TempOptions.Add("mind_blast_stun_factor", new ConfigValue(600f));
         TempOptions.Add("stun_death_threshold", new ConfigValue(100));
+
+        if (RainWorld.ShowLogs && !Extras.IsMeadowEnabled)
+        {
+            RWCustomLogger = LoggingAdapter.CreateLogger(BepInEx.Logging.Logger.CreateLogSource("RWCustom"));
+        }
     }
 
     public Main()
-        : base(new Options())
+        : base(new Options(), new LogWrapper(LoggingAdapter.CreateLogger(LogSource)))
     {
-        Logger = new LogWrapper(base.Logger);
+        Logger = base.Logger;
     }
 
     public override void OnEnable()
@@ -62,6 +95,23 @@ public class Main : ModPlugin
         {
             OptionUtils.SharedOptions.AddTemporaryOption(optionPair.Key, optionPair.Value, false);
         }
+
+#if DEBUG
+        try
+        {
+            if (Achievements.implementation is null)
+            {
+                Logger?.LogMessage($"Setting AchievementsImpl instance to {nameof(Achievements.StandaloneAchievementsImpl)}");
+
+                Achievements.implementation = new Achievements.StandaloneAchievementsImpl();
+                Achievements.implementation.Initialize();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError($"Could not replace AchievementsImpl instance: {ex}");
+        }
+#endif
     }
 
     public override void OnDisable()
@@ -82,71 +132,64 @@ public class Main : ModPlugin
     {
         base.ApplyHooks();
 
+        DeathProtectionHooks.ApplyHooks();
+
         PossessionHooks.ApplyHooks();
 
         TelekineticsHooks.ApplyHooks();
+
+        if (RWCustomLogger is not null)
+        {
+            IL.RWCustom.Custom.LogImportant += Extras.WrapILHook(RedirectImportantCustomLoggingILHook);
+            IL.RWCustom.Custom.LogWarning += Extras.WrapILHook(RedirectImportantCustomLoggingILHook);
+
+            On.RWCustom.Custom.Log += RedirectCustomLoggingHook;
+        }
     }
 
     protected override void RemoveHooks()
     {
         base.RemoveHooks();
 
+        DeathProtectionHooks.RemoveHooks();
+
         PossessionHooks.RemoveHooks();
 
         TelekineticsHooks.RemoveHooks();
+
+        if (RWCustomLogger is not null)
+        {
+            IL.RWCustom.Custom.LogImportant -= Extras.WrapILHook(RedirectImportantCustomLoggingILHook);
+            IL.RWCustom.Custom.LogWarning -= Extras.WrapILHook(RedirectImportantCustomLoggingILHook);
+
+            On.RWCustom.Custom.Log -= RedirectCustomLoggingHook;
+        }
     }
 
-    public static void ExplodePlayer(Player player, AbstractPhysicalObject.AbstractObjectType bombType, Action<PhysicalObject>? onRealizedCallback = null) =>
-        ExplodePos(player, player.abstractCreature.pos, bombType, onRealizedCallback);
-
-    public static void ExplodePos(Player player, WorldCoordinate pos, AbstractPhysicalObject.AbstractObjectType bombType, Action<PhysicalObject>? onRealizedCallback = null)
+    private void RedirectCustomLoggingHook(On.RWCustom.Custom.orig_Log orig, string[] values)
     {
-        AbstractPhysicalObject abstractBomb = new(
-            player.abstractCreature.world,
-            bombType,
-            null,
-            pos,
-            player.abstractCreature.world.game.GetNewID()
-        );
+        orig.Invoke(values);
 
-        abstractBomb.RealizeInRoom();
-
-        PhysicalObject? realizedBomb = abstractBomb.realizedObject;
-
-        if (realizedBomb is null)
-        {
-            Logger?.LogWarning($"Failed to realize explosion for {player}! Destroying abstract object.");
-
-            abstractBomb.Destroy();
-            return;
-        }
-
-        if (realizedBomb is Weapon weapon)
-        {
-            weapon.thrownBy = player;
-        }
-
-        realizedBomb.CollideWithObjects = false;
-
-        onRealizedCallback?.Invoke(realizedBomb);
-
-        if (realizedBomb is ScavengerBomb scavBomb)
-        {
-            scavBomb.Explode(scavBomb.thrownClosestToCreature?.mainBodyChunk);
-        }
-        else if (realizedBomb is SingularityBomb singularity)
-        {
-            if (singularity.zeroMode)
-                singularity.explodeColor = new Color(1f, 0.2f, 0.2f);
-
-            singularity.Explode();
-        }
-        else
-        {
-            Logger?.LogWarning($"{realizedBomb} is not a supported kaboom type; Destroying object.");
-
-            realizedBomb.Destroy();
-            abstractBomb.Destroy();
-        }
+        RWCustomLogger?.LogInfo(string.Join(" ", values));
     }
+
+    private static void RedirectImportantCustomLoggingILHook(ILContext context)
+    {
+        ILCursor c = new(context);
+        ILLabel? target = null;
+
+        c.GotoNext(MoveType.Before,
+            static x => x.MatchLdsfld(typeof(RainWorld).GetField(nameof(RainWorld.ShowLogs))),
+            x => x.MatchBrfalse(out target)
+        ).MoveAfterLabels();
+
+        // Target: if (RainWorld.ShowLogs) { UnityEngine.Debug.Log(string.Join(" ", values)); }
+        //                                  ^ HERE (Prepend)
+
+        c.Emit(OpCodes.Ldarg_1).EmitDelegate(LogToCustomLogger);
+
+        // Result: if (RainWorld.ShowLogs) { RedirectCustomLogging(values); UnityEngine.Debug.Log(string.Join(" ", values)); }
+    }
+
+    private static void LogToCustomLogger(params string[] values) => RWCustomLogger?.LogInfo(string.Join(" ", values));
 }

@@ -51,7 +51,7 @@ public partial class TargetSelector
                 return;
             }
 
-            selector.Player.controller ??= PossessionManager.GetFadeOutController(selector.Player);
+            selector.Player.controller = PossessionManager.GetFadeOutController(selector.Player);
 
             if (selector.targetCursor is null)
             {

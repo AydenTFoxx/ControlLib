@@ -1,9 +1,9 @@
 using System;
-using System.Linq;
-using ControlLib.Enums;
 using ControlLib.Possession;
 using ModLib.Collections;
 using ModLib.Input;
+using ModLib.Options;
+using RWCustom;
 using UnityEngine;
 
 /**
@@ -49,6 +49,8 @@ public class ObjectController : PlayerCarryableItem
                 originalGravity = value.GetLocalGravity();
                 value.SetLocalGravity(0f);
 
+                targetPos = new Vector2[value.bodyChunks.Length];
+
                 _activeInstances[value] = this;
             }
         }
@@ -69,7 +71,9 @@ public class ObjectController : PlayerCarryableItem
     private int life;
 
     private Creature.Grasp? TargetGrasp;
-    private Weapon? Weapon => Target as Weapon;
+
+    private Vector2 targetRotation;
+    private Vector2[]? targetPos;
 
     public override float VisibilityBonus => 0.1f + (Target is not null ? Target.VisibilityBonus : 0f);
 
@@ -101,6 +105,8 @@ public class ObjectController : PlayerCarryableItem
         {
             Owner.animation = Player.AnimationIndex.Flip;
             Owner.jumpBoost = 3f;
+
+            Owner.bodyChunks[0].vel.y += 4f;
         }
 
         Owner.grasps[grasp] = TargetGrasp;
@@ -115,9 +121,9 @@ public class ObjectController : PlayerCarryableItem
     {
         base.Destroy();
 
-        if (Target is PlayerCarryableItem carryableItem && Owner is not null && Owner.TryGetPossessionManager(out PossessionManager manager))
+        if (Target is not null && Owner is not null && Owner.TryGetPossessionManager(out PossessionManager manager))
         {
-            manager.StopPossession(carryableItem);
+            manager.StopItemPossession(Target);
         }
 
         TargetGrasp?.Release();
@@ -130,9 +136,9 @@ public class ObjectController : PlayerCarryableItem
 
     public override void Grabbed(Creature.Grasp grasp)
     {
-        if (Owner is not null && grasp.grabber != Owner) return;
+        if (grasp.grabber is not Player player || (Owner is not null && player != Owner)) return;
 
-        Owner ??= grasp.grabber as Player;
+        Owner ??= player;
 
         if (Target is not null)
         {
@@ -140,15 +146,52 @@ public class ObjectController : PlayerCarryableItem
             Target.Grabbed(TargetGrasp);
         }
 
+        input.x = Owner.ThrowDirection;
+
+        PickedUp(grasp.grabber);
+
         base.Grabbed(grasp);
     }
 
     public override void PickedUp(Creature upPicker)
     {
         if (Owner is not null && upPicker != Owner)
+        {
             Destroy();
+            return;
+        }
         else
-            base.PickedUp(upPicker);
+        {
+            Owner ??= upPicker as Player;
+        }
+
+        if (Target is null || Owner is null) return;
+
+        if (Target is PlayerCarryableItem carryableItem)
+        {
+            if (carryableItem is Spear spear)
+            {
+                spear.PulledOutOfStuckObject();
+                spear.hasHorizontalBeamState = true;
+                spear.PickedUp(upPicker);
+                spear.ChangeMode(Weapon.Mode.Free);
+            }
+            else
+            {
+                carryableItem.PickedUp(upPicker);
+            }
+        }
+        else
+        {
+            room.PlaySound(SoundID.Slugcat_Pick_Up_Misc_Inanimate, Target.firstChunk, false, 1f, 1f);
+        }
+
+        if (Target.graphicsModule != null && Owner.Grabability(Target) < (Player.ObjectGrabability)5)
+        {
+            Target.graphicsModule.BringSpritesToFront();
+        }
+
+        base.PickedUp(upPicker);
     }
 
     public override void PlaceInRoom(Room placeRoom)
@@ -200,14 +243,17 @@ public class ObjectController : PlayerCarryableItem
 
         input = Owner.GetRawInput();
 
-        Vector2 moveDir = GetMoveDirection();
+        targetPos ??= new Vector2[Target.bodyChunks.Length];
 
-        if (moveDir != Vector2.zero)
+        Vector2 moveDir = GetMoveDirection();
+        for (int i = 0; i < Target.bodyChunks.Length; i++)
         {
-            foreach (BodyChunk bodyChunk in Target.bodyChunks)
-            {
-                bodyChunk.vel = Vector2.ClampMagnitude(bodyChunk.vel + (moveDir * 2f), 8f);
-            }
+            BodyChunk bodyChunk = Target.bodyChunks[i];
+
+            if (moveDir != Vector2.zero)
+                targetPos[i] = bodyChunk.pos + (moveDir * 10f);
+
+            bodyChunk.pos = Vector2.SmoothDamp(bodyChunk.pos, targetPos[i], ref bodyChunk.vel, 2f, 6f);
         }
 
         if (input.thrw && TargetGrasp is not null)
@@ -221,7 +267,21 @@ public class ObjectController : PlayerCarryableItem
             return;
         }
 
-        Weapon?.rotationSpeed = 8f;
+        if (Target is Weapon weapon)
+        {
+            int speedVel = OptionUtils.GetClientOptionValue(Options.WEAPON_ROTATION_SPEED);
+
+            if (speedVel > 0)
+            {
+                weapon.rotationSpeed = speedVel;
+            }
+            else
+            {
+                targetRotation = Custom.DegToVec(Custom.AimFromOneVectorToAnother(Vector2.zero, new Vector2(lastInput.x, lastInput.y)));
+
+                weapon.rotation = Vector2.Lerp(weapon.lastRotation, targetRotation, weapon.room.game.myTimeStacker);
+            }
+        }
 
         life++;
 
@@ -245,46 +305,7 @@ public class ObjectController : PlayerCarryableItem
                 : Vector2.zero;
     }
 
-    // For usage by Dev Console's `invoke` command; May crash your game.
-    public static void TestItemPossession(string playerIndex)
-    {
-        if (!int.TryParse(playerIndex, out int playerNumber)
-            || UnityEngine.Object.FindObjectOfType<RainWorld>()?.processManager?.currentMainLoop is not RainWorldGame game
-            || game.Players.ElementAtOrDefault(playerNumber).realizedCreature is not Player player
-            || player.room is null) return;
-
-        PlayerCarryableItem? carryableItem = player.room.updateList.OfType<PlayerCarryableItem>().FirstOrDefault();
-
-        if (carryableItem is null) return;
-
-        AbstractPhysicalObject abstractController = new(
-            player.abstractCreature.world,
-            AbstractObjectTypes.ObjectController,
-            null,
-            player.abstractCreature.pos,
-            game.GetNewID());
-
-        abstractController.RealizeInRoom();
-
-        if (abstractController.realizedObject is ObjectController controller)
-        {
-            controller.Target = carryableItem;
-
-            player.SlugcatGrab(controller, player.grasps[0] is null ? 0 : 1);
-
-            if (player.TryGetPossessionManager(out PossessionManager manager))
-            {
-                manager.StartPossession(carryableItem);
-            }
-        }
-        else
-        {
-            abstractController.Destroy();
-            abstractController.realizedObject?.Destroy();
-
-            Main.Logger?.LogWarning("Failed to realize controller object, aborting operation.");
-        }
-    }
+    public static bool HasController(PhysicalObject target) => _activeInstances.ContainsKey(target);
 
     public static bool TryGetController(PhysicalObject target, out ObjectController controller) => _activeInstances.TryGetValue(target, out controller);
 }

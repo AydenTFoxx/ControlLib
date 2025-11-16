@@ -2,6 +2,7 @@ using System;
 using ImprovedInput;
 using ModLib;
 using ModLib.Input;
+using ModLib.Options;
 using UnityEngine;
 
 namespace ControlLib;
@@ -16,6 +17,8 @@ public static class Keybinds
     public static Keybind POSSESS { get; private set; }
     public static Keybind MIND_BLAST { get; private set; }
 
+    public static Keybind POSSESS_ITEM { get; private set; }
+
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 
     /// <summary>
@@ -23,8 +26,11 @@ public static class Keybinds
     /// </summary>
     public static void InitKeybinds()
     {
-        POSSESS = Keybind.Register("Possess", KeyCode.V, KeyCode.Joystick1Button0);
-        MIND_BLAST = Keybind.Register("Mind Blast", KeyCode.B, KeyCode.Joystick1Button1);
+        POSSESS = Keybind.Register("Possess", KeyCode.V, KeyCode.Joystick1Button1);
+        MIND_BLAST = Keybind.Register("Mind Blast", KeyCode.B, KeyCode.Joystick1Button2);
+
+        if (OptionUtils.IsOptionEnabled("modlib.debug"))
+            POSSESS_ITEM = Keybind.Register("Possess Item", KeyCode.F, KeyCode.Joystick1Button10);
 
         ToggleMindBlast(Options.MIND_BLAST.Value);
     }

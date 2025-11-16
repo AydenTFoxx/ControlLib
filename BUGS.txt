@@ -1,29 +1,35 @@
-Blue Lizard somehow was possessed while Slugcat had no possessions at all.
-    Fixed? Needs Playtest
-    Fixed! Or so I hope.
-
-While running away from a White Lizard, TargetCursor was tremendously offset, about a screen to the left of Slugcat's position.
-    Fixed? Needs Playtest
-    Fixed!
-
-Whenever crossing a shortcut in a StoryGameSession, Slugcat's PossessionTime is decreased to a fixed value, then replenishes over time once the scug is realized again.
-    Fixed? Needs Playtest
-    Fixed!
-
-Slugcat can start a possession (and use TargetCursor) while having negative PossessionTime (or was it PossessionCooldown?)
-    Fixed!
-
 TODO: Disable MindBlast unconditionally when in a Rain Meadow lobby;
       Alternatively force-disable it on Meadow mode, and set its value to the host's, false by default.
-
-Invoking MindBlast, then triggering TargetCursor and releasing it without possessing anyone causes the player to be unable to use TargetCursor, and attempting to invoke MindBlast again creates it at the previous position.
-	Fixed!
-
-TargetCursor is still offset from the player's position, frequently after changing rooms. Starting a possession fixes the issue.
-	Fixed!
 
 Stopping a possession causes all of the player's possessions to be stopped as well. When having multiple possession targets, if one's possession is cancelled, the player is unable to stop other possessions until their time runs out.
     Correction: First behavior does not occur at all; Pressing the POSSESS keybind simply stops all possessions, regardless of their count.
     Fixed player being unable to stop possessions :P
 
 Warping to another region as Watcher causes both TargetCursor and PossessionTimer to become invisible. This is fixed after hibernation.
+    Fixed!
+
+TODO: Reduce speed of possessed items and give the player better control of their trajectories. Also give them *some* friction for heavens' sake.
+    Work-in-progress; Needs testing.
+
+Using TargetCursor (and failing to possess any target), then quickly starting an item possession allows the player to move Slugcat, while still keeping the item possession.
+
+Possessing the same item twice causes it to be thrown at the player's position, sometimes with an arbitrary offset.
+
+// Green Lizard ID.25063.5154
+
+// TODO: A mod where Saint's Attunement ability is replaced with a "Revival" ability, akin to Ascended Saint.
+//       Karmic Burst is disabled in all modes except Arena (configurable, can also be set to only enable for challenges)
+//       Rubicon's challenge rooms are unlocked after a given amount of time without being killed. When the pipes are unlocked, all creatures are pacified, akin to an Echo.
+//       Saint now ascends themselves instead of the Void Worm in their ascension ending (toggleable; an easter egg and nod to AscendedSaint)
+//       The tutorial for the ascension attack is replaced by a new tutorial for reviving a creature. When triggered and in a shelter, a dead Batfly is spawned on the next room. Otherwise, it spawns at Saint's position.
+
+TODO: (ModLib) Make ModPlugin mode stable at startup and deactivation; Exceptions should be gracefully handled instead of causing undefined behavior.
+
+TODO: Overhaul PossessionTimePotential by setting a BasePossessionTime, which is multiplied by AttunedSlugcatFactor and/or HardmodeSlugcatFactor (if applicable),
+      then further modified with user-defined modifiers (e.g. "+5*10" would add 50 to the total value)
+
+TODO: Add helper methods to ControlLib.Main to aid in the addition of custom slugcats' PossessionTimePotential, as well as default modifiers for them. Possibly store these multipliers in the user's settings.
+
+TODO: Divine Slugcat Blast
+
+TODO: (ModLib) Separate ServerOptions instances and make OptionUtils reference Registry.MyMod to retrieve the correct instance.

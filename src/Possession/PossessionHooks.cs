@@ -27,8 +27,6 @@ public static class PossessionHooks
     {
         IL.Creature.Update += Extras.WrapILHook(UpdatePossessedCreatureILHook);
 
-        On.AbstractWorldEntity.Destroy += PreventPlayerDestructionHook;
-
         On.Creature.Die += CreatureDeathHook;
 
         On.Player.AddFood += AddPossessionTimeHook;
@@ -43,8 +41,6 @@ public static class PossessionHooks
     public static void RemoveHooks()
     {
         IL.Creature.Update -= Extras.WrapILHook(UpdatePossessedCreatureILHook);
-
-        On.AbstractWorldEntity.Destroy -= PreventPlayerDestructionHook;
 
         On.Creature.Die -= CreatureDeathHook;
 
@@ -102,70 +98,13 @@ public static class PossessionHooks
     }
 
     /// <summary>
-    /// Prevents the player's abstract representation from being destroyed while death-immune.
-    /// </summary>
-    private static void PreventPlayerDestructionHook(On.AbstractWorldEntity.orig_Destroy orig, AbstractWorldEntity self)
-    {
-        if (self is AbstractCreature abstractCreature
-            && abstractCreature.realizedCreature is Player player
-            && DeathProtection.TryGetProtection(player, out _)) return;
-
-        orig.Invoke(self);
-    }
-
-    /// <summary>
     /// Updates the player's possession manager. If none is found, a new one is created, then updated as well.
     /// </summary>
     private static void UpdatePlayerPossessionHook(On.Player.orig_Update orig, Player self, bool eu)
     {
-        if (self.dangerGrasp is not null
-            && self.dangerGraspTime < 60
-            && self.room is not null
-            && (self.room.game.IsArenaSession || (self.room.game.GetStorySession?.saveState.deathPersistentSaveData.reinforcedKarma ?? false))
-            && OptionUtils.IsOptionEnabled(Options.KINETIC_ABILITIES)
-            && !RevivedPlayers.Contains(self)
-            && (self.dead || self.IsKeyDown(Keybinds.MIND_BLAST, true))
-            && (!Extras.IsMeadowEnabled || MeadowUtils.IsMine(self))) // Welcome to conditional hell
+        if ((self.dangerGrasp is not null || self.dead) && !RevivedPlayers.Contains(self))
         {
-            if (self.room.game.session is StoryGameSession storySession)
-            {
-                storySession.saveState.deathPersistentSaveData.reinforcedKarma = false;
-
-                foreach (RoomCamera camera in self.room.game.cameras)
-                {
-                    camera.hud?.karmaMeter.reinforceAnimation = 1;
-                    camera.hud?.karmaMeter.symbolDirty = true;
-                }
-            }
-
-            self.room.AddObject(new FadingMeltLights(self.room));
-            self.room.AddObject(new KarmicShockwave(self, self.dangerGrasp.grabbedChunk.pos, 40, 40f, 80f));
-
-            self.AllGraspsLetGoOfThisObject(true);
-
-            List<Creature> dangerousCrits = [.. self.room.updateList.OfType<Creature>().Where(c => c.abstractCreature.abstractAI?.RealAI?.DynamicRelationship(self.abstractCreature).GoForKill ?? false)];
-
-            for (int i = 0; i < dangerousCrits.Count; i++)
-            {
-                Creature crit = dangerousCrits[i];
-
-                if (crit == self) continue; // How in the world would a Slugcat be dangerous? I dunno, but you can never trust a modder's ability to surprise ya and break your code
-
-                float distFactor = -(Vector2.Distance(crit.mainBodyChunk.pos, self.dangerGrasp.grabbedChunk.pos) - 480f);
-
-                if (distFactor <= 0f) continue;
-
-                crit.Deafen((int)(distFactor * 1.25f));
-                crit.Blind((int)(distFactor * 0.75f));
-
-                crit.Violence(self.dead ? crit.mainBodyChunk : self.dangerGrasp.grabbedChunk, Custom.DirVec(self.dangerGrasp.grabbedChunk.pos, crit.mainBodyChunk.pos) * (distFactor * 0.5f), crit.mainBodyChunk, null, Creature.DamageType.Explosion, distFactor * 0.01f * Random.Range(1f, 2f), distFactor);
-            }
-
-            self.stun = 0;
-
-            DeathProtection.CreateInstance(self, 40 * Random.Range(8, 10));
-
-            RevivedPlayers.Add(self);
+            TrySaveFromDeath(self);
         }
 
         orig.Invoke(self, eu);
@@ -188,7 +127,7 @@ public static class PossessionHooks
 
         if (self.TryGetPossessionManager(out PossessionManager manager))
         {
-            manager.ResetAccessories();
+            manager.SpritesNeedReset = true;
         }
     }
 
@@ -216,6 +155,73 @@ public static class PossessionHooks
         // Result: if (ModManager.MSC && !UpdateCreaturePossession(this, false)) { this.SafariControlInputUpdate(0); }
     }
 
+    private static bool TrySaveFromDeath(Player self)
+    {
+        if (self.room is not null
+            && (self.room.game.IsArenaSession || (self.room.game.GetStorySession?.saveState.deathPersistentSaveData.reinforcedKarma ?? false))
+            && OptionUtils.IsOptionEnabled(Options.KINETIC_ABILITIES)
+            && (self.dead || self.dangerGraspTime >= 59 || self.IsKeyDown(Keybinds.MIND_BLAST, true))
+            && (!Extras.IsMeadowEnabled || MeadowUtils.IsMine(self)))
+        {
+            if (self.room.game.session is StoryGameSession storySession)
+            {
+                storySession.saveState.deathPersistentSaveData.reinforcedKarma = false;
+
+                foreach (RoomCamera camera in self.room.game.cameras)
+                {
+                    if (camera?.hud is null) continue;
+
+                    camera.hud.karmaMeter.UpdateGraphic();
+                    camera.hud.karmaMeter.reinforceAnimation = 0;
+                }
+            }
+
+            BodyChunk bodyChunk = self.dangerGrasp?.grabbedChunk ?? self.mainBodyChunk;
+
+            self.room.AddObject(new FadingMeltLights(self.room));
+            self.room.AddObject(new KarmicShockwave(self, bodyChunk.pos, 40, 40f, 80f));
+
+            self.AllGraspsLetGoOfThisObject(true);
+
+            List<Creature> dangerousCrits = [.. self.room.updateList.OfType<Creature>().Where(c => IsHostileCrit(c.abstractCreature, self.abstractCreature))];
+
+            for (int i = 0; i < dangerousCrits.Count; i++)
+            {
+                Creature crit = dangerousCrits[i];
+
+                float distFactor = -(Vector2.Distance(crit.mainBodyChunk.pos, bodyChunk.pos) - 480f);
+
+                if (distFactor <= 0f) continue;
+
+                crit.Deafen((int)(distFactor * 1.25f));
+                crit.Blind((int)(distFactor * 0.75f));
+
+                crit.Violence(self.dead ? crit.mainBodyChunk : bodyChunk, Custom.DirVec(bodyChunk.pos, crit.mainBodyChunk.pos) * (distFactor * 0.5f), crit.mainBodyChunk, null, Creature.DamageType.Explosion, distFactor * 0.01f * Random.Range(1f, 2f), distFactor);
+            }
+
+            self.stun = 0;
+
+            DeathProtection.CreateInstance(self, 40 * Random.Range(8, 10));
+
+            RevivedPlayers.Add(self);
+        }
+
+        return !self.dead;
+
+        static bool IsHostileCrit(AbstractCreature creature, AbstractCreature player)
+        {
+            if (creature == player
+                || creature.realizedCreature is Player
+                || creature.abstractAI?.RealAI is null) return false;
+
+            CreatureTemplate.Relationship relationship = (creature.abstractAI.RealAI.tracker is null)
+                ? creature.abstractAI.RealAI.StaticRelationship(player)
+                : creature.abstractAI.RealAI.DynamicRelationship(player);
+
+            return relationship.GoForKill;
+        }
+    }
+
     /// <summary>
     /// Attempts to save the player from being destroyed with <see cref="Player.Destroy"/>.
     /// Most often occurs with death pits, but should also work for Leviathan bites and the likes.
@@ -233,6 +239,11 @@ public static class PossessionHooks
         Vector2 revivePos = player.room.MiddleOfTile(protection.SafePos.Value);
 
         player.SuperHardSetPosition(revivePos);
+
+        player.animation = Player.AnimationIndex.StandUp;
+        player.allowRoll = 0;
+        player.rollCounter = 0;
+        player.rollDirection = 0;
 
         Vector2 bodyVel = new(0f, 8f + player.room.gravity);
         foreach (BodyChunk bodyChunk in player.bodyChunks)

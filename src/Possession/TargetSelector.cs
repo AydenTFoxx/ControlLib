@@ -133,12 +133,16 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
         }
     }
 
-    public void ResetTargetCursor()
+    public void ResetSprites()
     {
-        targetCursor?.Destroy();
+        if (targetCursor is null && !IsClientOptionValue(Options.SELECTION_MODE, "ascension")) return;
 
-        if (IsClientOptionValue(Options.SELECTION_MODE, "ascension"))
-            targetCursor = new TargetCursor(Manager);
+        Main.Logger?.LogInfo($"Resetting selector sprites from {player}!");
+
+        targetCursor?.Destroy();
+        targetCursor = new TargetCursor(Manager);
+
+        Main.Logger?.LogInfo($"TargetCursor is: {targetCursor}");
     }
 
     /// <summary>
@@ -405,14 +409,69 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
             : player.mushroomCounter < count;
 
     /// <summary>
-    /// Sorts a list of creatures based on their distance to a given point.
+    /// Sorts a list of objects based on their distance to a given point.
     /// </summary>
     /// <param name="playerPos">The position for measuring distance to.</param>
-    /// <remarks>Edible creatures have inherently lower priority.</remarks>
-    protected class TargetSorter(Vector2 playerPos) : IComparer<Creature>
+    /// <remarks>Edible items have inherently lower priority, weapons have higher priority.</remarks>
+    public class TargetItemSorter(Vector2 playerPos) : IComparer<PhysicalObject>
     {
-        public virtual int Compare(Creature x, Creature y)
+        public int Compare(PhysicalObject x, PhysicalObject y) => CompareItems(playerPos, x, y);
+
+        public static int CompareItems(Vector2 playerPos, PhysicalObject x, PhysicalObject y)
         {
+            float xDist = Vector2.Distance(x.firstChunk.pos, playerPos);
+            float yDist = Vector2.Distance(y.firstChunk.pos, playerPos);
+
+            return IgnoreItem(x, y, xDist, yDist, out int comparison)
+                ? comparison
+                : xDist < yDist
+                    ? -1
+                    : xDist > yDist
+                        ? 1
+                        : 0;
+        }
+
+        private static bool IgnoreItem(PhysicalObject x, PhysicalObject y, float distX, float distY, out int comparison, bool isRecursive = false)
+        {
+            bool result = x is Weapon or (not IPlayerEdible) && y is (not Weapon) or IPlayerEdible && (distX - distY) <= 120f;
+
+            if (result)
+            {
+                comparison = -1;
+                return true;
+            }
+
+            if (isRecursive)
+            {
+                comparison = 0;
+                return false;
+            }
+
+            result = IgnoreItem(y, x, distY, distX, out comparison, isRecursive: true);
+
+            if (result)
+            {
+                comparison = 1;
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Sorts a list of creatures based on their distance to a given point; Edible and <c>null</c> creatures have inherently lower priority,
+    /// </summary>
+    /// <param name="playerPos">The position for measuring distance to.</param>
+    public class TargetSorter(Vector2 playerPos) : IComparer<Creature?>
+    {
+        public int Compare(Creature? x, Creature? y) => CompareCreatures(playerPos, x, y);
+
+        public static int CompareCreatures(Vector2 playerPos, Creature? x, Creature? y)
+        {
+            if (x is null) return y is null ? 0 : 1;
+            if (y is null) return x is null ? 0 : -1;
+
             float xDist = Vector2.Distance(x.mainBodyChunk.pos, playerPos);
             float yDist = Vector2.Distance(y.mainBodyChunk.pos, playerPos);
 
@@ -456,7 +515,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     /// <summary>
     /// Compares two creatures and returns <c>true</c> if both share the same template.
     /// </summary>
-    protected class TargetEqualityComparer : IEqualityComparer<Creature>
+    public class TargetEqualityComparer : IEqualityComparer<Creature>
     {
         public virtual bool Equals(Creature x, Creature y) => x.Template == y.Template;
         public virtual int GetHashCode(Creature obj) => base.GetHashCode();
