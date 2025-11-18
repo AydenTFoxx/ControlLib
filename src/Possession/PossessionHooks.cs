@@ -1,14 +1,8 @@
-using System.Collections.Generic;
-using System.Linq;
 using ControlLib.Telekinetics;
 using ModLib;
-using ModLib.Collections;
-using ModLib.Input;
 using ModLib.Meadow;
-using ModLib.Options;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
-using RWCustom;
 using UnityEngine;
 
 namespace ControlLib.Possession;
@@ -18,8 +12,6 @@ namespace ControlLib.Possession;
 /// </summary>
 public static class PossessionHooks
 {
-    private static readonly WeakList<Player> RevivedPlayers = [];
-
     /// <summary>
     /// Applies the Possession module's hooks to the game.
     /// </summary>
@@ -30,9 +22,10 @@ public static class PossessionHooks
         On.Creature.Die += CreatureDeathHook;
 
         On.Player.AddFood += AddPossessionTimeHook;
-        On.Player.Destroy += DisposePossessionManagerHook;
         On.Player.OneWayPlacement += WarpPlayerAccessoriesHook;
         On.Player.Update += UpdatePlayerPossessionHook;
+
+        On.UpdatableAndDeletable.Destroy += DisposePossessionManagerHook;
     }
 
     /// <summary>
@@ -45,9 +38,10 @@ public static class PossessionHooks
         On.Creature.Die -= CreatureDeathHook;
 
         On.Player.AddFood -= AddPossessionTimeHook;
-        On.Player.Destroy -= DisposePossessionManagerHook;
         On.Player.OneWayPlacement -= WarpPlayerAccessoriesHook;
         On.Player.Update -= UpdatePlayerPossessionHook;
+
+        On.UpdatableAndDeletable.Destroy -= DisposePossessionManagerHook;
     }
 
     /// <summary>
@@ -57,9 +51,8 @@ public static class PossessionHooks
     {
         orig.Invoke(self, add);
 
-        if (Extras.IsMeadowEnabled && !MeadowUtils.IsMine(self)) return;
-
-        if (self.TryGetPossessionManager(out PossessionManager manager))
+        if ((!Extras.IsMeadowEnabled || MeadowUtils.IsMine(self))
+            && self.TryGetPossessionManager(out PossessionManager manager))
         {
             manager.PossessionTime += add * 40;
         }
@@ -70,7 +63,7 @@ public static class PossessionHooks
     /// </summary>
     private static void CreatureDeathHook(On.Creature.orig_Die orig, Creature self)
     {
-        if (self is Player player && DeathProtection.TryGetProtection(player, out _)) return;
+        if (DeathProtection.HasProtection(self)) return;
 
         orig.Invoke(self);
 
@@ -78,22 +71,22 @@ public static class PossessionHooks
             && self.TryGetPossession(out Player possessor)
             && possessor.TryGetPossessionManager(out PossessionManager manager))
         {
-            manager.StopPossession(self);
+            manager.StopCreaturePossession(self);
         }
     }
 
     /// <summary>
-    /// Disposes of the player's PossessionManager when Slugcat is destroyed.
+    /// Disposes of the player's PossessionManager when Slugcat is destroyed. Also prevents death-protected creatures from being destroyed.
     /// </summary>
-    private static void DisposePossessionManagerHook(On.Player.orig_Destroy orig, Player self)
+    private static void DisposePossessionManagerHook(On.UpdatableAndDeletable.orig_Destroy orig, UpdatableAndDeletable self)
     {
-        if (TrySaveFromDestruction(self)) return;
+        if (self is Creature crit && TrySaveFromDestruction(crit)) return;
 
         orig.Invoke(self);
 
-        if (self.TryGetPossessionManager(out PossessionManager myManager))
+        if (self is Player player && player.TryGetPossessionManager(out PossessionManager manager))
         {
-            myManager.Dispose();
+            manager.Dispose();
         }
     }
 
@@ -102,23 +95,19 @@ public static class PossessionHooks
     /// </summary>
     private static void UpdatePlayerPossessionHook(On.Player.orig_Update orig, Player self, bool eu)
     {
-        if ((self.dangerGrasp is not null || self.dead) && !RevivedPlayers.Contains(self))
-        {
-            TrySaveFromDeath(self);
-        }
-
         orig.Invoke(self, eu);
 
-        if (self.dead
+        if (self.AI != null
+            || self.room is null
+            || self.room.game.rainWorld.safariMode
+            || self.dead
             || self.inShortcut
             || (Extras.IsMeadowEnabled && (MeadowUtils.IsGameMode(MeadowGameModes.Meadow) || !MeadowUtils.IsMine(self))))
         {
             return;
         }
 
-        PossessionManager manager = self.GetOrCreatePossessionManager();
-
-        manager.Update();
+        self.GetOrCreatePossessionManager().Update();
     }
 
     private static void WarpPlayerAccessoriesHook(On.Player.orig_OneWayPlacement orig, Player self, Vector2 pos, int playerIndex)
@@ -155,108 +144,51 @@ public static class PossessionHooks
         // Result: if (ModManager.MSC && !UpdateCreaturePossession(this, false)) { this.SafariControlInputUpdate(0); }
     }
 
-    private static bool TrySaveFromDeath(Player self)
-    {
-        if (self.room is not null
-            && (self.room.game.IsArenaSession || (self.room.game.GetStorySession?.saveState.deathPersistentSaveData.reinforcedKarma ?? false))
-            && OptionUtils.IsOptionEnabled(Options.KINETIC_ABILITIES)
-            && (self.dead || self.dangerGraspTime >= 59 || self.IsKeyDown(Keybinds.MIND_BLAST, true))
-            && (!Extras.IsMeadowEnabled || MeadowUtils.IsMine(self)))
-        {
-            if (self.room.game.session is StoryGameSession storySession)
-            {
-                storySession.saveState.deathPersistentSaveData.reinforcedKarma = false;
-
-                foreach (RoomCamera camera in self.room.game.cameras)
-                {
-                    if (camera?.hud is null) continue;
-
-                    camera.hud.karmaMeter.UpdateGraphic();
-                    camera.hud.karmaMeter.reinforceAnimation = 0;
-                }
-            }
-
-            BodyChunk bodyChunk = self.dangerGrasp?.grabbedChunk ?? self.mainBodyChunk;
-
-            self.room.AddObject(new FadingMeltLights(self.room));
-            self.room.AddObject(new KarmicShockwave(self, bodyChunk.pos, 40, 40f, 80f));
-
-            self.AllGraspsLetGoOfThisObject(true);
-
-            List<Creature> dangerousCrits = [.. self.room.updateList.OfType<Creature>().Where(c => IsHostileCrit(c.abstractCreature, self.abstractCreature))];
-
-            for (int i = 0; i < dangerousCrits.Count; i++)
-            {
-                Creature crit = dangerousCrits[i];
-
-                float distFactor = -(Vector2.Distance(crit.mainBodyChunk.pos, bodyChunk.pos) - 480f);
-
-                if (distFactor <= 0f) continue;
-
-                crit.Deafen((int)(distFactor * 1.25f));
-                crit.Blind((int)(distFactor * 0.75f));
-
-                crit.Violence(self.dead ? crit.mainBodyChunk : bodyChunk, Custom.DirVec(bodyChunk.pos, crit.mainBodyChunk.pos) * (distFactor * 0.5f), crit.mainBodyChunk, null, Creature.DamageType.Explosion, distFactor * 0.01f * Random.Range(1f, 2f), distFactor);
-            }
-
-            self.stun = 0;
-
-            DeathProtection.CreateInstance(self, 40 * Random.Range(8, 10));
-
-            RevivedPlayers.Add(self);
-        }
-
-        return !self.dead;
-
-        static bool IsHostileCrit(AbstractCreature creature, AbstractCreature player)
-        {
-            if (creature == player
-                || creature.realizedCreature is Player
-                || creature.abstractAI?.RealAI is null) return false;
-
-            CreatureTemplate.Relationship relationship = (creature.abstractAI.RealAI.tracker is null)
-                ? creature.abstractAI.RealAI.StaticRelationship(player)
-                : creature.abstractAI.RealAI.DynamicRelationship(player);
-
-            return relationship.GoForKill;
-        }
-    }
-
     /// <summary>
-    /// Attempts to save the player from being destroyed with <see cref="Player.Destroy"/>.
+    /// Attempts to save the given creature from being destroyed with <see cref="UpdatableAndDeletable.Destroy"/>.
     /// Most often occurs with death pits, but should also work for Leviathan bites and the likes.
     /// </summary>
-    /// <param name="player">The player to be saved.</param>
-    /// <returns><c>true</c> if the player has been saved (in this method call or another), <c>false</c> otherwise.</returns>
-    private static bool TrySaveFromDestruction(Player player)
+    /// <param name="creature">The creature to be saved.</param>
+    /// <returns><c>true</c> if the creature has been saved (in this method call or another), <c>false</c> otherwise.</returns>
+    private static bool TrySaveFromDestruction(Creature creature)
     {
-        if (player.room is null
-            || !DeathProtection.TryGetProtection(player, out DeathProtection protection)
+        if (creature.room is null
+            || !DeathProtection.TryGetProtection(creature, out DeathProtection protection)
             || !protection.SafePos.HasValue) return false;
 
         if (protection.SaveCooldown > 0) return true;
 
-        Vector2 revivePos = player.room.MiddleOfTile(protection.SafePos.Value);
+        Vector2 revivePos = creature.room.MiddleOfTile(protection.SafePos.Value);
 
-        player.SuperHardSetPosition(revivePos);
+        if (creature is Player player)
+        {
+            player.SuperHardSetPosition(revivePos);
 
-        player.animation = Player.AnimationIndex.StandUp;
-        player.allowRoll = 0;
-        player.rollCounter = 0;
-        player.rollDirection = 0;
+            player.animation = Player.AnimationIndex.StandUp;
+            player.allowRoll = 0;
+            player.rollCounter = 0;
+            player.rollDirection = 0;
+        }
+        else
+        {
+            foreach (BodyChunk bodyChunk in creature.bodyChunks)
+            {
+                bodyChunk.HardSetPosition(revivePos);
+            }
+        }
 
-        Vector2 bodyVel = new(0f, 8f + player.room.gravity);
-        foreach (BodyChunk bodyChunk in player.bodyChunks)
+        Vector2 bodyVel = new(0f, 8f + creature.room.gravity);
+        foreach (BodyChunk bodyChunk in creature.bodyChunks)
         {
             bodyChunk.vel = bodyVel;
         }
 
-        player.room.AddObject(new KarmicShockwave(player, revivePos, 80, 48, 64));
-        player.room.AddObject(new Explosion.ExplosionLight(revivePos, 180f * protection.Power, 1f, 80, RainWorld.GoldRGB));
+        creature.room.AddObject(new KarmicShockwave(creature, revivePos, 80, 48f * protection.Power, 64f * protection.Power));
+        creature.room.AddObject(new Explosion.ExplosionLight(revivePos, 180f * protection.Power, 1f, 80, RainWorld.GoldRGB));
 
-        player.room.PlaySound(SoundID.SB_A14, player.mainBodyChunk, false, 1f, 1.25f + (Random.value * 0.5f));
+        creature.room.PlaySound(SoundID.SB_A14, creature.mainBodyChunk, false, 1f, 1.25f + (Random.value * 0.5f));
 
-        Main.Logger?.LogInfo($"{player} was saved from destruction!");
+        Main.Logger?.LogInfo($"{creature} was saved from destruction!");
         return true;
     }
 
@@ -269,6 +201,8 @@ public static class PossessionHooks
     private static bool UpdateCreaturePossession(Creature self, bool isRecursive)
     {
         if (self is Player or Overseer
+            || self.room is null
+            || self.room.game.rainWorld.safariMode
             || !self.abstractCreature.controlled
             || (Extras.IsMeadowEnabled && !MeadowUtils.IsMine(self))) return false;
 
@@ -282,7 +216,7 @@ public static class PossessionHooks
 
         if (!manager.HasPossession(self) || !manager.IsPossessionValid(self))
         {
-            manager.StopPossession(self);
+            manager.StopCreaturePossession(self);
 
             return false;
         }

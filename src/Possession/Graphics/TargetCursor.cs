@@ -33,11 +33,11 @@ public class TargetCursor(PossessionManager manager)
         targetAlpha = isVisible ? 1f : 0f;
     }
 
-    public void UpdateCursor(Player.InputPackage input)
+    public void UpdateCursor(in Vector2 input)
     {
         lastTargetPos = targetPos;
 
-        Vector2 goalPos = targetPos + (new Vector2(input.x, input.y) * CursorSpeed);
+        Vector2 goalPos = targetPos + (input * CursorSpeed);
         float maxDist = TargetSelector.GetPossessionRange();
 
         targetPos = RWCustomExts.ClampedDist(goalPos, pos, maxDist);

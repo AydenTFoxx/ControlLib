@@ -153,7 +153,7 @@ public partial class TargetSelector
             {
                 if (selector.Manager.CanPossessCreature(target))
                 {
-                    selector.Manager.StartPossession(target);
+                    selector.Manager.StartCreaturePossession(target);
                 }
             }
 

@@ -217,14 +217,15 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     /// <returns><c>true</c> if the value of <c>Input.Offset</c> has changed, <c>false</c> otherwise.</returns>
     protected virtual bool UpdateInputOffset()
     {
-        Player.InputPackage input = player.GetRawInput();
+        IntVector2 input = player.GetRawInput().IntVec;
+
         int offset = input.x + input.y;
 
         if (targetCursor is not null)
         {
             if (input.x != 0 || input.y != 0 || !Input.HasInput)
             {
-                targetCursor.UpdateCursor(input);
+                targetCursor.UpdateCursor(input.ToVector2());
 
                 Input.HasInput = true;
             }
@@ -412,13 +413,16 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     /// Sorts a list of objects based on their distance to a given point.
     /// </summary>
     /// <param name="playerPos">The position for measuring distance to.</param>
-    /// <remarks>Edible items have inherently lower priority, weapons have higher priority.</remarks>
-    public class TargetItemSorter(Vector2 playerPos) : IComparer<PhysicalObject>
+    /// <remarks>Edible and <c>null</c> items have inherently lower priority, weapons have higher priority.</remarks>
+    public class TargetSorter(Vector2 playerPos) : IComparer<PhysicalObject>
     {
         public int Compare(PhysicalObject x, PhysicalObject y) => CompareItems(playerPos, x, y);
 
         public static int CompareItems(Vector2 playerPos, PhysicalObject x, PhysicalObject y)
         {
+            if (x is null) return y is null ? 0 : 1;
+            if (y is null) return x is null ? 0 : -1;
+
             float xDist = Vector2.Distance(x.firstChunk.pos, playerPos);
             float yDist = Vector2.Distance(y.firstChunk.pos, playerPos);
 
@@ -448,59 +452,6 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
             }
 
             result = IgnoreItem(y, x, distY, distX, out comparison, isRecursive: true);
-
-            if (result)
-            {
-                comparison = 1;
-                return true;
-            }
-
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Sorts a list of creatures based on their distance to a given point; Edible and <c>null</c> creatures have inherently lower priority,
-    /// </summary>
-    /// <param name="playerPos">The position for measuring distance to.</param>
-    public class TargetSorter(Vector2 playerPos) : IComparer<Creature?>
-    {
-        public int Compare(Creature? x, Creature? y) => CompareCreatures(playerPos, x, y);
-
-        public static int CompareCreatures(Vector2 playerPos, Creature? x, Creature? y)
-        {
-            if (x is null) return y is null ? 0 : 1;
-            if (y is null) return x is null ? 0 : -1;
-
-            float xDist = Vector2.Distance(x.mainBodyChunk.pos, playerPos);
-            float yDist = Vector2.Distance(y.mainBodyChunk.pos, playerPos);
-
-            return IgnoreCrit(x, y, xDist, yDist, out int comparison)
-                ? comparison
-                : xDist < yDist
-                    ? -1
-                    : xDist > yDist
-                        ? 1
-                        : 0;
-        }
-
-        private static bool IgnoreCrit(Creature x, Creature y, float distX, float distY, out int comparison, bool isRecursive = false)
-        {
-            bool result = x is not IPlayerEdible && y is IPlayerEdible && (distX - distY) <= 60f;
-
-            if (result)
-            {
-                comparison = -1;
-                return true;
-            }
-
-            if (isRecursive)
-            {
-                comparison = 0;
-                return false;
-            }
-
-            result = IgnoreCrit(y, x, distY, distX, out comparison, isRecursive: true);
 
             if (result)
             {

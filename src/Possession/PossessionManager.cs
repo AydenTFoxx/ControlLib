@@ -25,12 +25,23 @@ namespace ControlLib.Possession;
 /// <param name="player">The player itself.</param>
 public sealed class PossessionManager : IDisposable
 {
-    private static readonly Type[] BannedCreatureTypes = [typeof(Player), typeof(Overseer), typeof(FireSprite), typeof(BoxWorm), typeof(Rattler)];
+    private static readonly Type[] BannedCreatureTypes =
+    [
+        typeof(Player), // For obvious reasons; Also affects slugpups, so perhaps an exception will be made for them in the future
+        typeof(Overseer), // Shouldn't be allowed either, since only the Safari overseer seems to respect the player's inputs.
+        // Certain Watcher creatures do not respect Safari controls at all, so they're excluded from possession for the time being.
+        typeof(FireSprite),
+        typeof(BoxWorm),
+        typeof(BigMoth),
+        typeof(Rattler)
+    ];
 
     public int PossessionTimePotential { get; }
     public bool IsHardmodeSlugcat { get; }
     public bool IsAttunedSlugcat { get; }
     public int MaxPossessionTime { get; }
+
+    public float Power => IsAttunedSlugcat ? 1.5f : IsHardmodeSlugcat ? 0.5f : 1f;
 
     private readonly WeakList<Creature> MyPossessions = [];
     private readonly WeakList<PhysicalObject> PossessedItems = [];
@@ -80,6 +91,28 @@ public sealed class PossessionManager : IDisposable
                     ? GetOptionValue<int>("hardmode_possession_potential") // Default: 240
                     : GetOptionValue<int>("default_possession_potential"); // Default: 360
 
+        int? karmaValue = player.OutsideWatcherCampaign
+            ? player.room?.game.GetStorySession?.saveState.deathPersistentSaveData.karma + 1
+            : (int?)(player.room?.game.GetStorySession?.saveState.deathPersistentSaveData.rippleLevel * 2f);
+
+        if (karmaValue is not null)
+        {
+            if (!IsAttunedSlugcat && karmaValue >= 10)
+            {
+                PossessionTimePotential = IsHardmodeSlugcat
+                    ? GetOptionValue<int>("default_possession_potential")
+                    : GetOptionValue<int>("attuned_possession_potential");
+
+                IsAttunedSlugcat = true;
+            }
+            else if (IsAttunedSlugcat && karmaValue <= 1)
+            {
+                PossessionTimePotential = GetOptionValue<int>("default_possession_potential");
+
+                IsAttunedSlugcat = false;
+            }
+        }
+
         MaxPossessionTime = GetMaxPossessionForSlugcat(player, PossessionTimePotential);
         PossessionTime = MaxPossessionTime;
 
@@ -109,14 +142,12 @@ public sealed class PossessionManager : IDisposable
 
             DeathPersistentSaveData saveData = player.room.game.GetStorySession.saveState.deathPersistentSaveData;
 
-            int extraTime = (player.OutsideWatcherCampaign
-                ? saveData.karma
-                : (int)(saveData.rippleLevel * 2f)) * 40;
+            int extraTime = (player.OutsideWatcherCampaign ? saveData.karma : (int)(saveData.rippleLevel * 2f)) * 40;
 
             if (saveData.reinforcedKarma)
                 extraTime = (int)(extraTime * 1.5f);
 
-            return potential * extraTime;
+            return potential + extraTime;
         }
     }
 
@@ -210,7 +241,7 @@ public sealed class PossessionManager : IDisposable
     /// Initializes a new possession with the given creature as a target.
     /// </summary>
     /// <param name="target">The creature to possess.</param>
-    public void StartPossession(Creature target)
+    public void StartCreaturePossession(Creature target)
     {
         if (PossessionTimePotential == 1
             && player.room is not null
@@ -264,7 +295,7 @@ public sealed class PossessionManager : IDisposable
     /// Interrupts the possession of the given creature.
     /// </summary>
     /// <param name="target">The creature to stop possessing.</param>
-    public void StopPossession(Creature target)
+    public void StopCreaturePossession(Creature target)
     {
         MyPossessions.Remove(target);
 
@@ -446,22 +477,24 @@ public sealed class PossessionManager : IDisposable
                     player.aerobicLevel = 1f;
                     player.exhausted = true;
 
-                    if (!IsAttunedSlugcat)
+                    if (!IsAttunedSlugcat || IsHardmodeSlugcat)
                     {
                         player.lungsExhausted = true;
 
                         if (player.SlugCatClass == MoreSlugcatsEnums.SlugcatStatsName.Saint)
                         {
-                            player.SaintStagger((int)(Random.value * 120f));
+                            player.SaintStagger(120 + (int)(Random.value * 60f));
                         }
                         else
                         {
                             player.airInLungs *= 0.2f;
                             player.aerobicLevel = 1f;
 
-                            player.room?.AddObject(new CreatureSpasmer(player, allowDead: false, 40));
+                            int stunTime = IsHardmodeSlugcat ? 80 : 40;
 
-                            player.Stun(80);
+                            player.room?.AddObject(new CreatureSpasmer(player, allowDead: false, stunTime));
+
+                            player.Stun(stunTime);
                         }
                     }
 
@@ -521,7 +554,7 @@ public sealed class PossessionManager : IDisposable
         {
             TargetSelector.ExceededTimeLimit = true;
 
-            instance = MindBlast.CreateInstance(player, IsAttunedSlugcat ? 1.5f : IsHardmodeSlugcat ? 0.5f : 1f);
+            instance = MindBlast.CreateInstance(player, Power);
 
             PossessionTime = 0f;
 

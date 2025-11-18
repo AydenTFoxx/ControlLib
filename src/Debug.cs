@@ -20,7 +20,7 @@ namespace ControlLib;
 ///     <code>
 ///     > invoke ControlLib.Debug.{MethodNameHere}
 ///     </code>
-///     Note most methods also require the player's index as their first argument, which is <c>0</c> in singleplayer.
+///     Note most methods also require the player's ID or index as their first argument, which is <c>0</c> in singleplayer.
 /// </remarks>
 public static class Debug
 {
@@ -111,8 +111,8 @@ public static class Debug
     }
 
     private static readonly Result GameNotFoundResult = new(false, "Game instance could not be found.");
+    private static readonly Result InvalidCreatureIDResult = new(false, "Creature ID is not valid.");
     private static readonly Result NoTargetFoundResult = new(false, "No valid target was found.");
-
 
     /// <summary>
     ///     Returns a list of all registered methods whose command syntax is known at runtime,
@@ -219,33 +219,40 @@ public static class Debug
     ///     If successful, a <see cref="Result"/> instance containing the targeted creature and the explosion type;
     ///     Otherwise, a <see cref="Result"/> object with a string detailing why the method call failed.
     /// </returns>
-    [CommandSyntax(nameof(ExplodeCreature), "creatureID", "singularity?")]
+    [CommandSyntax(nameof(ExplodeCreature), "creatureID", "isSingularity?")]
     public static Result ExplodeCreature(string creatureID) => ExplodeCreature(creatureID, bool.FalseString);
 
     /// <summary>
     ///     Explodes the creature with the given ID, using a <see cref="ScavengerBomb"/> or <see cref="MoreSlugcats.SingularityBomb"/> as the object type.
     /// </summary>
     /// <param name="creatureID">The ID of the creature to target.</param>
-    /// <param name="singularity">If true, the object type will be a Singularity Bomb. Otherwise, it will be a Scavenger Bomb.</param>
+    /// <param name="isSingularity">If true, the object type will be a Singularity Bomb. Otherwise, it will be a Scavenger Bomb.</param>
     /// <returns>
     ///     If successful, a <see cref="Result"/> instance containing the targeted creature and the explosion type;
     ///     Otherwise, a <see cref="Result"/> object with a string detailing why the method call failed.
     /// </returns>
-    public static Result ExplodeCreature(string creatureID, string singularity)
+    public static Result ExplodeCreature(string creatureID, string isSingularity)
     {
         if (GetMainLoopProcess() is not RainWorldGame game) return GameNotFoundResult;
 
-        if (!TryParseInt(creatureID, out int targetID, allowSigns: true))
-            return new Result(false, "Creature ID is not valid.");
+        if (!TryParseInt(creatureID, out int inputID, allowSigns: true))
+            return InvalidCreatureIDResult;
 
-        if (!bool.TryParse(singularity, out bool spawnSingularity))
+        EntityID targetID = new(-1, inputID);
+
+        Main.Logger?.LogDebug($"Target ID: {targetID}");
+
+        if (!bool.TryParse(isSingularity, out bool spawnSingularity))
             spawnSingularity = false;
 
-        Creature? target = game.world.abstractRooms.SelectMany(ar => ar.creatures).FirstOrDefault(ac => ac.ID.number == targetID)?.realizedCreature;
+        AbstractCreature? target = game.world.abstractRooms.SelectMany(ar => ar.creatures).FirstOrDefault(ac => ac.ID == targetID);
 
-        if (target is null) return NoTargetFoundResult;
+        if (target is null || target.realizedCreature is null)
+            return NoTargetFoundResult;
 
-        ExplosionManager.ExplodeCreature(target, spawnSingularity ? DLCSharedEnums.AbstractObjectType.SingularityBomb : AbstractPhysicalObject.AbstractObjectType.ScavengerBomb);
+        Main.Logger?.LogDebug($"Selected target is: {target}");
+
+        ExplosionManager.ExplodeCreature(target.realizedCreature, spawnSingularity ? DLCSharedEnums.AbstractObjectType.SingularityBomb : AbstractPhysicalObject.AbstractObjectType.ScavengerBomb);
 
         return new Result(true, $"CRIT: {target} | BOMB: {(spawnSingularity ? "Singularity" : "ScavengerBomb")}");
     }
@@ -258,24 +265,24 @@ public static class Debug
     ///     If successful, a <see cref="Result"/> instance containing the targeted player and the explosion type;
     ///     Otherwise, a <see cref="Result"/> object with a string detailing why the method call failed.
     /// </returns>
-    [CommandSyntax(nameof(ExplodePlayer), "playerIndex", "singularity?")]
+    [CommandSyntax(nameof(ExplodePlayer), "playerIndex", "isSingularity?")]
     public static Result ExplodePlayer(string playerIndex) => ExplodePlayer(playerIndex, bool.FalseString);
 
     /// <summary>
     ///     Explodes the given player using either a <see cref="ScavengerBomb"/> or <see cref="MoreSlugcats.SingularityBomb"/> as the object type.
     /// </summary>
     /// <param name="playerIndex">The index of the player to be targeted.</param>
-    /// <param name="singularity">If true, the object type will be a Singularity Bomb. Otherwise, it will be a Scavenger Bomb.</param>
+    /// <param name="isSingularity">If true, the object type will be a Singularity Bomb. Otherwise, it will be a Scavenger Bomb.</param>
     /// <returns>
     ///     If successful, a <see cref="Result"/> instance containing the targeted player and the explosion type;
     ///     Otherwise, a <see cref="Result"/> object with a string detailing why the method call failed.
     /// </returns>
-    public static Result ExplodePlayer(string playerIndex, string singularity)
+    public static Result ExplodePlayer(string playerIndex, string isSingularity)
     {
         if (!ValidatePlayerIndex(playerIndex, out Player player, out Result validationResult))
             return validationResult;
 
-        if (!bool.TryParse(singularity, out bool spawnSingularity))
+        if (!bool.TryParse(isSingularity, out bool spawnSingularity))
             spawnSingularity = false;
 
         ExplosionManager.ExplodeCreature(player, spawnSingularity ? DLCSharedEnums.AbstractObjectType.SingularityBomb : AbstractPhysicalObject.AbstractObjectType.ScavengerBomb);
@@ -293,7 +300,7 @@ public static class Debug
     ///     If successful, a <see cref="Result"/> instance containing the targeted position and the explosion type;
     ///     Otherwise, a <see cref="Result"/> object with a string detailing why the method call failed.
     /// </returns>
-    [CommandSyntax(nameof(ExplodePos), "playerIndex", "singularity?")]
+    [CommandSyntax(nameof(ExplodePos), "playerIndex", "isSingularity?")]
     public static Result ExplodePos(string playerIndex, string x, string y) => ExplodePos(playerIndex, x, y, bool.FalseString);
 
     /// <summary>
@@ -302,12 +309,12 @@ public static class Debug
     /// <param name="playerIndex">The index of the player to be targeted.</param>
     /// <param name="x">The X position to target.</param>
     /// <param name="y">The Y position to target.</param>
-    /// <param name="singularity">If true, the object type will be a Singularity Bomb. Otherwise, it will be a Scavenger Bomb.</param>
+    /// <param name="isSingularity">If true, the object type will be a Singularity Bomb. Otherwise, it will be a Scavenger Bomb.</param>
     /// <returns>
     ///     If successful, a <see cref="Result"/> instance containing the targeted player and the explosion type;
     ///     Otherwise, a <see cref="Result"/> object with a string detailing why the method call failed.
     /// </returns>
-    public static Result ExplodePos(string playerIndex, string x, string y, string singularity)
+    public static Result ExplodePos(string playerIndex, string x, string y, string isSingularity)
     {
         if (!ValidatePlayerIndex(playerIndex, out Player player, out Result validationResult))
             return validationResult;
@@ -315,7 +322,7 @@ public static class Debug
         if (!TryParseInt(x, out int targetX) || !TryParseInt(y, out int targetY))
             return new Result(false, "Target position is not valid.");
 
-        if (!bool.TryParse(singularity, out bool spawnSingularity))
+        if (!bool.TryParse(isSingularity, out bool spawnSingularity))
             spawnSingularity = false;
 
         WorldCoordinate pos = player.room.GetWorldCoordinate(new IntVector2(targetX, targetY));
@@ -379,26 +386,29 @@ public static class Debug
 
         Creature? target = null;
 
-        if (TryParseInt(creatureID, out int targetID, allowSigns: true))
-            target = player.room.physicalObjects.OfType<Creature>().FirstOrDefault(c => c.abstractCreature.ID.number == targetID);
+        if (TryParseInt(creatureID, out int inputID, allowSigns: true))
+        {
+            EntityID targetID = new(-1, inputID);
 
-        target ??= player.grasps.OrderBy(static grasp => grasp?.grabbed as Creature, new TargetSelector.TargetSorter(player.mainBodyChunk.pos)).FirstOrDefault()?.grabbed as Creature;
+            Main.Logger?.LogDebug($"Target ID: {targetID}");
 
-        target ??= player.dangerGrasp?.grabber;
-        target ??= player.grabbedBy.FirstOrDefault()?.grabber;
+            target = player.room.physicalObjects.OfType<Creature>().FirstOrDefault(c => c.abstractCreature.ID == targetID);
+        }
 
         target ??= player.room.physicalObjects.OfType<Creature>().OrderBy(static crit => crit, new TargetSelector.TargetSorter(player.mainBodyChunk.pos)).FirstOrDefault();
 
         if (target is null)
             return NoTargetFoundResult;
 
+        Main.Logger?.LogDebug($"Selected target is: {target}");
+
         if (target.TryGetPossession(out Player other)
             && other.TryGetPossessionManager(out PossessionManager otherManager))
         {
-            otherManager.StopPossession(target);
+            otherManager.StopCreaturePossession(target);
         }
 
-        manager.StartPossession(target);
+        manager.StartCreaturePossession(target);
 
         return new Result(true, target.abstractCreature.controlled);
     }
@@ -438,12 +448,14 @@ public static class Debug
                 targetItem = null;
         }
 
-        targetItem ??= player.room.updateList.OfType<PlayerCarryableItem>().OrderBy(static item => item, new TargetSelector.TargetItemSorter(player.mainBodyChunk.pos)).FirstOrDefault(p => p.grabbedBy.Count == 0);
+        targetItem ??= player.room.updateList.OfType<PlayerCarryableItem>().OrderBy(static item => item, new TargetSelector.TargetSorter(player.mainBodyChunk.pos)).FirstOrDefault(p => p.grabbedBy.Count == 0);
 
         targetItem ??= player.room.updateList.OfType<Creature>().FirstOrDefault(c => c.grabbedBy.Count == 0 && player.IsCreatureLegalToHoldWithoutStun(c));
 
         if (targetItem is null)
             return NoTargetFoundResult;
+
+        Main.Logger?.LogDebug($"Selected target is: {targetItem}");
 
         AbstractPhysicalObject abstractController = new(
             player.abstractCreature.world,
@@ -525,21 +537,37 @@ public static class Debug
     /// <summary>
     ///     Toggles protection against all harm and death causes for the given player.
     /// </summary>
-    /// <param name="playerIndex">The index number of the player to target.</param>
-    /// <returns></returns>
-    [CommandSyntax(nameof(ToggleDeathProtection), "playerIndex")]
-    public static Result ToggleDeathProtection(string playerIndex)
+    /// <param name="creatureID">The ID of the creature to target.</param>
+    /// <returns>
+    ///     If successful, a <see cref="Result"/> instance determining whether or not the given creature is being protected.
+    ///     Otherwise, a <see cref="Result"/> object with a string detailing why the method call failed.
+    /// </returns>
+    [CommandSyntax(nameof(ToggleDeathProtection), "creatureID")]
+    public static Result ToggleDeathProtection(string creatureID)
     {
-        if (!ValidatePlayerIndex(playerIndex, out Player? player, out Result validationResult))
-            return validationResult;
+        if (GetMainLoopProcess() is not RainWorldGame game) return GameNotFoundResult;
 
-        if (DeathProtection.TryGetProtection(player, out DeathProtection protection))
+        if (!TryParseInt(creatureID, out int inputID, allowSigns: true))
+            return InvalidCreatureIDResult;
+
+        EntityID targetID = new(-1, inputID);
+
+        Main.Logger?.LogDebug($"Target ID: {targetID}");
+
+        Creature? target = game.world.abstractRooms.SelectMany(ar => ar.creatures).FirstOrDefault(ac => ac.ID == targetID)?.realizedCreature;
+
+        if (target is null)
+            return NoTargetFoundResult;
+
+        Main.Logger?.LogDebug($"Selected target is: {target}");
+
+        if (DeathProtection.TryGetProtection(target, out DeathProtection protection))
         {
             protection.Destroy();
         }
         else
         {
-            DeathProtection.CreateInstance(player, DeathProtection.NullCondition);
+            DeathProtection.CreateInstance(target, DeathProtection.NullCondition);
         }
 
         return new Result(true, protection is null);

@@ -13,6 +13,8 @@ public class MindBlast : CosmeticSprite
 {
     private static readonly WeakDictionary<Player, MindBlast> _activeInstances = [];
 
+    private static readonly System.Predicate<Creature> PlayerProtectionCondition = static (c) => c is Player { canJump: > 0 };
+
     private readonly Player player;
     private readonly DynamicSoundLoop soundLoop;
     private readonly Color explodeColor;
@@ -42,9 +44,9 @@ public class MindBlast : CosmeticSprite
             Pitch = 0.5f
         };
 
-        explodeColor = power < 1f
+        explodeColor = Power < 1f
             ? RainWorld.AntiGold.rgb
-            : power > 1f
+            : Power > 1f
                 ? RainWorld.RippleGold
                 : RainWorld.GoldRGB;
 
@@ -132,7 +134,7 @@ public class MindBlast : CosmeticSprite
 
         Expired = true;
 
-        DeathProtection.CreateInstance(player, (p) => p.canJump > 0, player.abstractCreature.pos);
+        DeathProtection.CreateInstance(player, PlayerProtectionCondition, player.abstractCreature.pos);
     }
 
     public override void Update(bool eu)
@@ -180,7 +182,7 @@ public class MindBlast : CosmeticSprite
 
                     if (physicalObject is Creature crit)
                     {
-                        if (crit.Template.baseDamageResistance <= 0.1f * Power)
+                        if (crit is not Player && crit.Template.baseDamageResistance <= 0.1f * Power)
                         {
                             Main.Logger?.LogDebug($"Die! {crit} (Too weak to withstand MindBlast)");
 
@@ -202,6 +204,13 @@ public class MindBlast : CosmeticSprite
                         {
                             AscendOracle(oracle);
                         }
+                    }
+
+                    if (!room.game.IsArenaSession && physicalObject is Player plr && plr != player && (plr.dead || velocity > 0f))
+                    {
+                        Main.Logger?.LogDebug($"Protecting other slugcat: {plr}");
+
+                        DeathProtection.CreateInstance(plr, PlayerProtectionCondition);
                     }
 
                     if (velocity > 0f)
@@ -245,47 +254,45 @@ public class MindBlast : CosmeticSprite
                     }
                 }
 
-                if (ModManager.Watcher)
+                if (ModManager.Watcher && room.locusts is not null)
                 {
-                    int locustCount = 0;
+                    room.locusts.AddAvoidancePoint(pos, 480f * Power, (int)(200 * Power));
+                    room.locusts.AddAvoidancePoint(player.mainBodyChunk.pos, 240f * Power, (int)(100 * Power));
 
-                    foreach (LocustSystem locustSystem in room.updateList.OfType<LocustSystem>())
+                    int locustCount = room.locusts.cloudLocusts.Count + room.locusts.groundLocusts.Count;
+
+                    Main.Logger?.LogDebug($"Locusts found: {locustCount}");
+
+                    foreach (LocustSystem.GroundLocust locust in room.locusts.groundLocusts)
                     {
-                        locustSystem.AddAvoidancePoint(pos, 480f * Power, (int)(200 * Power));
-                        locustSystem.KillInRadius(pos, 360 * Power);
-
-                        int locustsFound = locustSystem.cloudLocusts.Count + locustSystem.groundLocusts.Count;
-
-                        locustCount += locustsFound;
-
-                        Main.Logger?.LogDebug($"Locusts found: {locustsFound}");
-
-                        foreach (LocustSystem.GroundLocust locust in locustSystem.groundLocusts)
+                        if (Custom.DistLess(locust.pos, pos, stunFactor * 0.5f * Power))
                         {
-                            if (locust.Poisoned)
-                            {
-                                locust.alive = false;
-                                continue;
-                            }
-
-                            locust.scared = true;
+                            locust.alive = false;
                         }
-
-                        for (int j = 0; j < locustSystem.cloudLocusts.Count; j++)
+                        else
                         {
-                            LocustSystem.CloudLocust locust = locustSystem.cloudLocusts[j];
-
-                            locust.alive = !Custom.DistLess(locust.pos, pos, stunFactor * 0.5f * Power);
-
-                            locustSystem.cloudLocusts[j] = locust;
+                            locust.scared = true;
                         }
                     }
 
+                    for (int j = 0; j < room.locusts.cloudLocusts.Count; j++)
+                    {
+                        LocustSystem.CloudLocust locust = room.locusts.cloudLocusts[j];
+
+                        if (Custom.DistLess(locust.pos, pos, stunFactor * 0.75f * Power))
+                        {
+                            locust.alive = false;
+                            room.locusts.cloudLocusts[j] = locust;
+
+                            room.locusts.groundLocusts.Add(new LocustSystem.GroundLocust(locust) { Poisoned = true });
+                        }
+                    }
+
+                    room.locusts.DoGrounding();
+
                     if (locustCount > 0)
                     {
-                        Main.Logger?.LogDebug($"Total locusts: {locustCount}");
-
-                        player.repelLocusts = (int)(stunFactor * Power * 0.1f * locustCount);
+                        player.repelLocusts = Mathf.Max(player.repelLocusts, (int)(stunFactor * Power * 0.1f * locustCount));
 
                         Main.Logger?.LogDebug($"Locust repellant duration: {player.repelLocusts}");
                     }
@@ -317,7 +324,7 @@ public class MindBlast : CosmeticSprite
             {
                 volume = 0.8f,
                 impactType = 3,
-                lightningType = 0.1f
+                lightningType = 0.1f * Power
             };
 
             room.AddObject(activateLightning);
@@ -330,7 +337,7 @@ public class MindBlast : CosmeticSprite
             float num3 = Mathf.Clamp(killFac, 0.2f, 1f);
             activateLightning.startPoint = new Vector2(Mathf.Lerp(pos.x, 150f, (num3 * 2f) - 2f), pos.y);
             activateLightning.endPoint = new Vector2(Mathf.Lerp(pos.x, 150f, (num3 * 2f) - 2f), pos.y + 10f);
-            activateLightning.chance = Custom.SCurve(0.7f, num3);
+            activateLightning.chance = Custom.SCurve(0.7f * Power, num3);
         }
 
         soundLoop.Volume = Mathf.Lerp(15f, 5f, killFac);
@@ -481,7 +488,7 @@ public class MindBlast : CosmeticSprite
         }
 
         power ??= player.TryGetPossessionManager(out PossessionManager manager)
-            ? manager.IsAttunedSlugcat ? 1.5f : manager.IsHardmodeSlugcat ? 0.5f : 1f
+            ? manager.Power
             : 1f;
 
         MindBlast mindBlast = new(player, power.Value);
@@ -495,9 +502,18 @@ public class MindBlast : CosmeticSprite
         return mindBlast;
     }
 
-    public static bool HasInstance(Player player) => _activeInstances.ContainsKey(player);
+    public static bool HasInstance(Player? player) => player is not null && _activeInstances.ContainsKey(player);
 
-    public static bool TryGetInstance(Player player, out MindBlast instance) => _activeInstances.TryGetValue(player, out instance);
+    public static bool TryGetInstance(Player? player, out MindBlast instance)
+    {
+        if (player is null)
+        {
+            instance = null!;
+            return false;
+        }
+
+        return _activeInstances.TryGetValue(player, out instance);
+    }
 
     private static bool RippleLayerCheck(AbstractPhysicalObject x, AbstractPhysicalObject y) =>
         x.rippleLayer == y.rippleLayer || x.rippleBothSides || y.rippleBothSides;

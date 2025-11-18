@@ -12,10 +12,13 @@ using UnityEngine;
 
 - Object receives player input, and flies akin to Saint's Attunement ability.
   When receiving a throw input, the object is thrown as if Slugcat had thrown it, with the same behaviors and limitations.
+    Done!
 
 - The object can be dropped with the same inputs for dropping items (down + pickup)
+    Done!
 
 - If the object is thrown or dropped, or Slugcat is unconscious, the possession ends.
+    Done!
 
 - OPTIONAL: Scavengers within line of sight of the player and the held object will have their `tempLike` influenced
   by their current opinion of Slugcat; Friendly scavengers will gain a greater respect, while afraid or aggressive scavs will be even more aggressive
@@ -49,7 +52,7 @@ public class ObjectController : PlayerCarryableItem
                 originalGravity = value.GetLocalGravity();
                 value.SetLocalGravity(0f);
 
-                targetPos = new Vector2[value.bodyChunks.Length];
+                targetPosAndVel = new Vector2[value.bodyChunks.Length, 2];
 
                 _activeInstances[value] = this;
             }
@@ -73,9 +76,7 @@ public class ObjectController : PlayerCarryableItem
     private Creature.Grasp? TargetGrasp;
 
     private Vector2 targetRotation;
-    private Vector2[]? targetPos;
-
-    public override float VisibilityBonus => 0.1f + (Target is not null ? Target.VisibilityBonus : 0f);
+    private Vector2[,]? targetPosAndVel;
 
     public ObjectController(AbstractPhysicalObject abstractController, PhysicalObject? target, Player? owner)
         : base(abstractController)
@@ -165,20 +166,17 @@ public class ObjectController : PlayerCarryableItem
             Owner ??= upPicker as Player;
         }
 
+        Main.Logger?.LogDebug($"ObjectController was picked up by {upPicker}!");
+
         if (Target is null || Owner is null) return;
 
         if (Target is PlayerCarryableItem carryableItem)
         {
+            carryableItem.PickedUp(upPicker);
+
             if (carryableItem is Spear spear)
             {
-                spear.PulledOutOfStuckObject();
-                spear.hasHorizontalBeamState = true;
-                spear.PickedUp(upPicker);
-                spear.ChangeMode(Weapon.Mode.Free);
-            }
-            else
-            {
-                carryableItem.PickedUp(upPicker);
+                spear.spinning = true;
             }
         }
         else
@@ -190,8 +188,6 @@ public class ObjectController : PlayerCarryableItem
         {
             Target.graphicsModule.BringSpritesToFront();
         }
-
-        base.PickedUp(upPicker);
     }
 
     public override void PlaceInRoom(Room placeRoom)
@@ -243,17 +239,19 @@ public class ObjectController : PlayerCarryableItem
 
         input = Owner.GetRawInput();
 
-        targetPos ??= new Vector2[Target.bodyChunks.Length];
-
-        Vector2 moveDir = GetMoveDirection();
-        for (int i = 0; i < Target.bodyChunks.Length; i++)
+        if (targetPosAndVel is not null)
         {
-            BodyChunk bodyChunk = Target.bodyChunks[i];
+            Vector2 moveDir = GetMoveDirection();
+            for (int i = 0; i < Target.bodyChunks.Length; i++)
+            {
+                BodyChunk bodyChunk = Target.bodyChunks[i];
 
-            if (moveDir != Vector2.zero)
-                targetPos[i] = bodyChunk.pos + (moveDir * 10f);
+                if (moveDir != Vector2.zero)
+                    targetPosAndVel[i, 0] = bodyChunk.pos + (moveDir * 10f);
 
-            bodyChunk.pos = Vector2.SmoothDamp(bodyChunk.pos, targetPos[i], ref bodyChunk.vel, 2f, 6f);
+                bodyChunk.pos = Vector2.SmoothDamp(bodyChunk.pos, targetPosAndVel[i, 0], ref targetPosAndVel[i, 1], 0.5f, 8f);
+                bodyChunk.vel = targetPosAndVel[i, 1];
+            }
         }
 
         if (input.thrw && TargetGrasp is not null)
@@ -292,6 +290,8 @@ public class ObjectController : PlayerCarryableItem
             room.AddObject(new ShockWave(firstChunk.pos, 16f, 0.1f, module, false));
         }
     }
+
+    public override string ToString() => $"{nameof(ObjectController)}: Target: {Target} | Owner: {Owner}";
 
     // Adapted from Player.PointDir() method
     private Vector2 GetMoveDirection()

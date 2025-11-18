@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using ModLib;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
@@ -8,7 +9,7 @@ using MonoMod.RuntimeDetour;
 namespace ControlLib.Telekinetics;
 
 // Notice: The following methods are not included here, but must be hooked to as well to actually prevent death:
-//      Creature.Die(), Player.Destroy()
+//      Creature.Die(), UpdatableAndDeletable.Destroy()
 //
 // The implementation for these hooks can be found in the Possession.PossessionHooks class
 public static class DeathProtectionHooks
@@ -18,21 +19,25 @@ public static class DeathProtectionHooks
     public static void ApplyHooks()
     {
         IL.BigEel.JawsSnap += Extras.WrapILHook(IgnoreLeviathanBiteILHook);
-        IL.BigEelAI.IUseARelationshipTracker_UpdateDynamicRelationship += Extras.WrapILHook(IgnoreProtectedPlayerILHook);
+        IL.BigEelAI.IUseARelationshipTracker_UpdateDynamicRelationship += Extras.WrapILHook(IgnoreProtectedCreatureILHook);
 
         IL.BulletDrip.Strike += Extras.WrapILHook(PreventRainDropStunILHook);
         IL.RoomRain.ThrowAroundObjects += Extras.WrapILHook(PreventRoomRainPushILHook);
 
-        IL.WormGrass.WormGrassPatch.Update += Extras.WrapILHook(IgnoreRepulsivePlayerILHook);
+        IL.WormGrass.WormGrassPatch.Update += Extras.WrapILHook(IgnoreRepulsiveCreatureILHook);
 
-        On.AbstractWorldEntity.Destroy += PreventPlayerDestructionHook;
+        On.AbstractWorldEntity.Destroy += PreventCreatureDestructionHook;
+
+        On.Player.Destroy += PreventPlayerDestructionHook;
+
+        On.RainWorldGame.GameOver += InterruptGameOverHook;
 
         On.RoomRain.CreatureSmashedInGround += IgnorePlayerRainDeathHook;
 
         manualHooks = new Hook[2];
 
         manualHooks[0] = new Hook(
-            typeof(Player).GetProperty(nameof(Player.windAffectiveness)).GetGetMethod(),
+            typeof(Creature).GetProperty(nameof(Creature.windAffectiveness)).GetGetMethod(),
             IgnoreWindAffectivenessHook);
 
         manualHooks[1] = new Hook(
@@ -48,14 +53,16 @@ public static class DeathProtectionHooks
     public static void RemoveHooks()
     {
         IL.BigEel.JawsSnap -= Extras.WrapILHook(IgnoreLeviathanBiteILHook);
-        IL.BigEelAI.IUseARelationshipTracker_UpdateDynamicRelationship -= Extras.WrapILHook(IgnoreProtectedPlayerILHook);
+        IL.BigEelAI.IUseARelationshipTracker_UpdateDynamicRelationship -= Extras.WrapILHook(IgnoreProtectedCreatureILHook);
 
         IL.BulletDrip.Strike -= Extras.WrapILHook(PreventRainDropStunILHook);
         IL.RoomRain.ThrowAroundObjects -= Extras.WrapILHook(PreventRoomRainPushILHook);
 
-        IL.WormGrass.WormGrassPatch.Update -= Extras.WrapILHook(IgnoreRepulsivePlayerILHook);
+        IL.WormGrass.WormGrassPatch.Update -= Extras.WrapILHook(IgnoreRepulsiveCreatureILHook);
 
-        On.AbstractWorldEntity.Destroy -= PreventPlayerDestructionHook;
+        On.AbstractWorldEntity.Destroy -= PreventCreatureDestructionHook;
+
+        On.RainWorldGame.GameOver += InterruptGameOverHook;
 
         On.RoomRain.CreatureSmashedInGround -= IgnorePlayerRainDeathHook;
 
@@ -72,7 +79,7 @@ public static class DeathProtectionHooks
     /// <summary>
     /// Grants the player Worm Grass immunity when protected from death.
     /// </summary>
-    private static bool AvoidImmunePlayerHook(Func<Player, bool> orig, Player self) =>
+    private static bool AvoidImmunePlayerHook(Func<Creature, bool> orig, Creature self) =>
         DeathProtection.HasProtection(self) || orig.Invoke(self);
 
     /// <summary>
@@ -80,7 +87,7 @@ public static class DeathProtectionHooks
     /// </summary>
     private static void IgnorePlayerRainDeathHook(On.RoomRain.orig_CreatureSmashedInGround orig, RoomRain self, Creature crit, float speed)
     {
-        if (crit is Player player && DeathProtection.HasProtection(player)) return;
+        if (DeathProtection.HasProtection(crit)) return;
 
         orig.Invoke(self, crit, speed);
     }
@@ -88,25 +95,43 @@ public static class DeathProtectionHooks
     /// <summary>
     /// Prevents the player from being affected by wind while protected.
     /// </summary>
-    private static float IgnoreWindAffectivenessHook(Func<Player, float> orig, Player self) =>
+    private static float IgnoreWindAffectivenessHook(Func<Creature, float> orig, Creature self) =>
         DeathProtection.HasProtection(self)
             ? 0f
             : orig.Invoke(self);
 
     /// <summary>
-    /// Prevents the player's abstract representation from being destroyed while death-immune.
+    /// Prevents the game over screen from showing up if a player is currently being protected.
     /// </summary>
-    private static void PreventPlayerDestructionHook(On.AbstractWorldEntity.orig_Destroy orig, AbstractWorldEntity self)
+    private static void InterruptGameOverHook(On.RainWorldGame.orig_GameOver orig, RainWorldGame self, Creature.Grasp dependentOnGrasp)
+    {
+        if (self.Players.Any(ac => DeathProtection.HasProtection(ac.realizedCreature as Player))) return;
+
+        orig.Invoke(self, dependentOnGrasp);
+    }
+
+    /// <summary>
+    /// Prevents a creature's abstract representation from being destroyed while death-immune.
+    /// </summary>
+    private static void PreventCreatureDestructionHook(On.AbstractWorldEntity.orig_Destroy orig, AbstractWorldEntity self)
     {
         if (self is AbstractCreature abstractCreature
-            && abstractCreature.realizedCreature is Player player
-            && DeathProtection.TryGetProtection(player, out _)) return;
+            && DeathProtection.HasProtection(abstractCreature.realizedCreature)) return;
 
         orig.Invoke(self);
     }
 
     /// <summary>
-    /// Prevents Leviathan bites from targeting the player, just like it can (no longer) affect the Safari mode Overseer.
+    /// Prevents the destruction of players who are under death protection.
+    /// </summary>
+    private static void PreventPlayerDestructionHook(On.Player.orig_Destroy orig, Player self)
+    {
+        if (!DeathProtection.HasProtection(self))
+            orig.Invoke(self);
+    }
+
+    /// <summary>
+    /// Causes Leviathan bites to ignore death-protected creatures, just like it now ignores the Safari mode Overseer.
     /// </summary>
     private static void IgnoreLeviathanBiteILHook(ILContext context)
     {
@@ -129,18 +154,18 @@ public static class DeathProtectionHooks
          .Emit(OpCodes.Ldelem_Ref)
          .Emit(OpCodes.Ldloc_S, (byte)7)
          .Emit(OpCodes.Callvirt, typeof(List<PhysicalObject>).GetMethod("get_Item"))
-         .Emit(OpCodes.Isinst, typeof(Player))
+         .Emit(OpCodes.Isinst, typeof(Creature))
          .EmitDelegate(DeathProtection.HasProtection);
 
         c.Emit(OpCodes.Brtrue, target);
 
-        // Result: if (!(this.room.physicalObjects[j][k] is BigEel) && !DeathProtection.HasProtection(this.room.physicalObjects[j][k] as Player) && ...) { ... }
+        // Result: if (!(this.room.physicalObjects[j][k] is BigEel) && !DeathProtection.HasProtection(this.room.physicalObjects[j][k] as Creature) && ...) { ... }
     }
 
     /// <summary>
-    ///     Causes Leviathans to ignore players under death protection.
+    ///     Causes Leviathans to ignore creatures under death protection.
     /// </summary>
-    private static void IgnoreProtectedPlayerILHook(ILContext context)
+    private static void IgnoreProtectedCreatureILHook(ILContext context)
     {
         ILCursor c = new(context);
         ILLabel? target = null;
@@ -157,18 +182,17 @@ public static class DeathProtectionHooks
          .Emit(OpCodes.Ldfld, typeof(RelationshipTracker.DynamicRelationship).GetField(nameof(RelationshipTracker.DynamicRelationship.trackerRep)))
          .Emit(OpCodes.Ldfld, typeof(Tracker.CreatureRepresentation).GetField(nameof(Tracker.CreatureRepresentation.representedCreature)))
          .Emit(OpCodes.Callvirt, typeof(AbstractCreature).GetProperty(nameof(AbstractCreature.realizedCreature)).GetGetMethod())
-         .Emit(OpCodes.Isinst, typeof(Player))
          .EmitDelegate(DeathProtection.HasProtection);
 
         c.Emit(OpCodes.Brtrue, target);
 
-        // Result: if (this.eel.AmIHoldingCreature(dRelation.trackerRep.representedCreature) || DeathProtection.HasProtection(dRelation.trackerRep.representedCreature.realizedCreature as Player) || dRelation.trackerRep.representedCreature.creatureTemplate.smallCreature) { ... }
+        // Result: if (this.eel.AmIHoldingCreature(dRelation.trackerRep.representedCreature) || DeathProtection.HasProtection(dRelation.trackerRep.representedCreature.realizedCreature) || dRelation.trackerRep.representedCreature.creatureTemplate.smallCreature) { ... }
     }
 
     /// <summary>
-    /// Causes Worm Grass patches to fully ignore the player while protected.
+    /// Causes Worm Grass patches to fully ignore death-protected creatures.
     /// </summary>
-    private static void IgnoreRepulsivePlayerILHook(ILContext context)
+    private static void IgnoreRepulsiveCreatureILHook(ILContext context)
     {
         ILCursor c = new(context);
         ILLabel? target = null;
@@ -182,16 +206,15 @@ public static class DeathProtectionHooks
         //                                     ^ HERE (Insert)
 
         c.Emit(OpCodes.Ldloc_0)
-         .Emit(OpCodes.Isinst, typeof(Player))
          .EmitDelegate(DeathProtection.HasProtection);
 
         c.Emit(OpCodes.Brtrue, target);
 
-        // Result: if (realizedCreature != null && !DeathProtection.HasProtection(realizedCreature as Player) && ...) { ... }
+        // Result: if (realizedCreature != null && !DeathProtection.HasProtection(realizedCreature) && ...) { ... }
     }
 
     /// <summary>
-    /// Prevents rain drops from stunning Slugcat while protected.
+    /// Prevents rain drops from stunning creatures while protected.
     /// </summary>
     private static void PreventRainDropStunILHook(ILContext context)
     {
@@ -209,16 +232,16 @@ public static class DeathProtectionHooks
         c.Emit(OpCodes.Ldloc_2)
          .Emit(OpCodes.Ldfld, typeof(SharedPhysics.CollisionResult).GetField(nameof(SharedPhysics.CollisionResult.chunk)))
          .Emit(OpCodes.Callvirt, typeof(BodyChunk).GetProperty(nameof(BodyChunk.owner)).GetGetMethod())
-         .Emit(OpCodes.Isinst, typeof(Player))
+         .Emit(OpCodes.Isinst, typeof(Creature))
          .EmitDelegate(DeathProtection.HasProtection);
 
         c.Emit(OpCodes.Brtrue, target);
 
-        // Result: if (collisionResult.chunk.owner is Creature && !DeathProtection.HasProtection(collisionResult.chunk.owner as Player)) { ... }
+        // Result: if (collisionResult.chunk.owner is Creature && !DeathProtection.HasProtection(collisionResult.chunk.owner as Creature)) { ... }
     }
 
     /// <summary>
-    /// Prevents the rain from pushing Slugcat around if protected.
+    /// Prevents the rain from pushing and stunning protected creatures.
     /// </summary>
     private static void PreventRoomRainPushILHook(ILContext context)
     {
@@ -243,11 +266,11 @@ public static class DeathProtectionHooks
          .Emit(OpCodes.Ldelem_Ref)
          .Emit(OpCodes.Ldloc_1)
          .Emit(OpCodes.Callvirt, typeof(List<PhysicalObject>).GetMethod("get_Item"))
-         .Emit(OpCodes.Isinst, typeof(Player))
+         .Emit(OpCodes.Isinst, typeof(Creature))
          .EmitDelegate(DeathProtection.HasProtection);
 
         c.Emit(OpCodes.Brtrue, target);
 
-        // Result: if (!DeathProtection.HasProtection(this.room.physicalObjects[i][j] as Player) && (!ModManager.Watcher || !this.room.game.IsStorySession || this.room.physicalObjects[i][j].abstractPhysicalObject.rippleLayer == 0)) { ... }
+        // Result: if (!DeathProtection.HasProtection(this.room.physicalObjects[i][j] as Creature) && (!ModManager.Watcher || !this.room.game.IsStorySession || this.room.physicalObjects[i][j].abstractPhysicalObject.rippleLayer == 0)) { ... }
     }
 }

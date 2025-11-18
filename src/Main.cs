@@ -52,7 +52,7 @@ public class Main : ModPlugin
         }
     }
 
-    private static readonly IMyLogger? RWCustomLogger;
+    private static IMyLogger? RWCustomLogger;
 
     private static readonly Dictionary<string, ConfigValue> TempOptions = [];
 
@@ -68,11 +68,6 @@ public class Main : ModPlugin
 
         TempOptions.Add("mind_blast_stun_factor", new ConfigValue(600f));
         TempOptions.Add("stun_death_threshold", new ConfigValue(100));
-
-        if (RainWorld.ShowLogs && !Extras.IsMeadowEnabled)
-        {
-            RWCustomLogger = LoggingAdapter.CreateLogger(BepInEx.Logging.Logger.CreateLogSource("RWCustom"));
-        }
     }
 
     public Main()
@@ -138,13 +133,7 @@ public class Main : ModPlugin
 
         TelekineticsHooks.ApplyHooks();
 
-        if (RWCustomLogger is not null)
-        {
-            IL.RWCustom.Custom.LogImportant += Extras.WrapILHook(RedirectImportantCustomLoggingILHook);
-            IL.RWCustom.Custom.LogWarning += Extras.WrapILHook(RedirectImportantCustomLoggingILHook);
-
-            On.RWCustom.Custom.Log += RedirectCustomLoggingHook;
-        }
+        On.RainWorld.PostModsInit += PostModsInitHook;
     }
 
     protected override void RemoveHooks()
@@ -157,12 +146,29 @@ public class Main : ModPlugin
 
         TelekineticsHooks.RemoveHooks();
 
+        On.RainWorld.PostModsInit -= PostModsInitHook;
+
         if (RWCustomLogger is not null)
         {
-            IL.RWCustom.Custom.LogImportant -= Extras.WrapILHook(RedirectImportantCustomLoggingILHook);
-            IL.RWCustom.Custom.LogWarning -= Extras.WrapILHook(RedirectImportantCustomLoggingILHook);
+            IL.RWCustom.Custom.LogImportant -= Extras.WrapILHook(RedirectImportantCustomLogsILHook);
+            IL.RWCustom.Custom.LogWarning -= Extras.WrapILHook(RedirectWarningCustomLogsILHook);
 
             On.RWCustom.Custom.Log -= RedirectCustomLoggingHook;
+        }
+    }
+
+    private void PostModsInitHook(On.RainWorld.orig_PostModsInit orig, RainWorld self)
+    {
+        orig.Invoke(self);
+
+        if (RainWorld.ShowLogs && !Extras.IsMeadowEnabled)
+        {
+            RWCustomLogger = LoggingAdapter.CreateLogger(BepInEx.Logging.Logger.CreateLogSource("RWCustom"));
+
+            IL.RWCustom.Custom.LogImportant += Extras.WrapILHook(RedirectImportantCustomLogsILHook);
+            IL.RWCustom.Custom.LogWarning += Extras.WrapILHook(RedirectWarningCustomLogsILHook);
+
+            On.RWCustom.Custom.Log += RedirectCustomLoggingHook;
         }
     }
 
@@ -173,7 +179,7 @@ public class Main : ModPlugin
         RWCustomLogger?.LogInfo(string.Join(" ", values));
     }
 
-    private static void RedirectImportantCustomLoggingILHook(ILContext context)
+    private static void RedirectImportantCustomLogsILHook(ILContext context)
     {
         ILCursor c = new(context);
         ILLabel? target = null;
@@ -186,10 +192,36 @@ public class Main : ModPlugin
         // Target: if (RainWorld.ShowLogs) { UnityEngine.Debug.Log(string.Join(" ", values)); }
         //                                  ^ HERE (Prepend)
 
-        c.Emit(OpCodes.Ldarg_1).EmitDelegate(LogToCustomLogger);
+        c.Emit(OpCodes.Ldc_I4_0).Emit(OpCodes.Ldarg_1).EmitDelegate(LogToCustomLogger);
 
-        // Result: if (RainWorld.ShowLogs) { RedirectCustomLogging(values); UnityEngine.Debug.Log(string.Join(" ", values)); }
+        // Result: if (RainWorld.ShowLogs) { RedirectCustomLogging(false, values); UnityEngine.Debug.Log(string.Join(" ", values)); }
     }
 
-    private static void LogToCustomLogger(params string[] values) => RWCustomLogger?.LogInfo(string.Join(" ", values));
+    private static void RedirectWarningCustomLogsILHook(ILContext context)
+    {
+        ILCursor c = new(context);
+        ILLabel? target = null;
+
+        c.GotoNext(MoveType.Before,
+            static x => x.MatchLdsfld(typeof(RainWorld).GetField(nameof(RainWorld.ShowLogs))),
+            x => x.MatchBrfalse(out target)
+        ).MoveAfterLabels();
+
+        // Target: if (RainWorld.ShowLogs) { UnityEngine.Debug.Log(string.Join(" ", values)); }
+        //                                  ^ HERE (Prepend)
+
+        c.Emit(OpCodes.Ldc_I4_1).Emit(OpCodes.Ldarg_1).EmitDelegate(LogToCustomLogger);
+
+        // Result: if (RainWorld.ShowLogs) { RedirectCustomLogging(true, values); UnityEngine.Debug.LogWarning(string.Join(" ", values)); }
+    }
+
+    private static void LogToCustomLogger(bool isWarning, params string[] values)
+    {
+        if (RWCustomLogger is null) return;
+
+        if (isWarning)
+            RWCustomLogger.LogWarning(string.Join(" ", values));
+        else
+            RWCustomLogger.LogMessage(string.Join(" ", values));
+    }
 }

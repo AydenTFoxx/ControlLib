@@ -31,6 +31,8 @@ public static class PossessionExts
         PossessionManager newManager = new(self);
 
         _possessionHolders.Add(self, newManager);
+
+        Main.Logger?.LogInfo($"New {nameof(PossessionManager)} instance! {newManager}");
         return newManager;
     }
 

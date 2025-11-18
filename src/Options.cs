@@ -56,7 +56,7 @@ public class Options : OptionInterface
             "kinetic_abilities",
             false,
             new ConfigurableInfo(
-                "If enabled, Slugcat can \"possess\" carryable items, moving them with its mind. Items can also be thrown or dropped, and have the same behavior as if the player had performed these actions."
+                "If enabled, Slugcat can \"possess\" carryable items, moving them with its mind. Items can also be thrown or dropped, and have the same behavior as if Slugcat had performed these actions."
             )
         );
         MIND_BLAST = config.Bind(
@@ -71,7 +71,7 @@ public class Options : OptionInterface
             8,
             new ConfigurableInfo(
                 "(Requires Kinetic Abilities) The speed at which weapons will rotate when possessed by the player; If set to 0, weapons instead point towards their last directional input.",
-                new ConfigAcceptableRange<int>(0, 20)
+                new ConfigAcceptableRange<int>(0, 100)
             )
         );
         INFINITE_POSSESSION = config.Bind(
@@ -131,9 +131,9 @@ public class Options : OptionInterface
             .AddPadding(Vector2.up * 10)
             .AddCheckBoxOption("Kinetic Abilities", KINETIC_ABILITIES)
             .AddPadding(Vector2.up * 10)
-            .AddSliderOption("Weapon Rotation Speed", WEAPON_ROTATION_SPEED, out OpSlider sliderWRS, multi: 8f)
+            .AddSliderOption("Weapon Rotation Speed", WEAPON_ROTATION_SPEED, out OpSlider sliderWRS, multi: 1.5f)
             .AddPadding(Vector2.up * 20)
-            .AddCheckBoxOption("Mind Blast", MIND_BLAST, default, MenuColorEffect.rgbDarkRed)
+            .AddCheckBoxOption("Mind Blast", MIND_BLAST, default, RainWorld.GoldRGB)
             .Build();
 
         KINETIC_ABILITIES.BoundUIconfig.OnValueChanged += BuildToggleAction(sliderWRS, "true");
