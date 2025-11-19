@@ -22,10 +22,11 @@ public static class PossessionHooks
         On.Creature.Die += CreatureDeathHook;
 
         On.Player.AddFood += AddPossessionTimeHook;
+        On.Player.Destroy += DisposePossessionManagerHook;
         On.Player.OneWayPlacement += WarpPlayerAccessoriesHook;
         On.Player.Update += UpdatePlayerPossessionHook;
 
-        On.UpdatableAndDeletable.Destroy += DisposePossessionManagerHook;
+        On.UpdatableAndDeletable.Destroy += PreventCreatureDestructionHook;
     }
 
     /// <summary>
@@ -38,10 +39,11 @@ public static class PossessionHooks
         On.Creature.Die -= CreatureDeathHook;
 
         On.Player.AddFood -= AddPossessionTimeHook;
+        On.Player.Destroy -= DisposePossessionManagerHook;
         On.Player.OneWayPlacement -= WarpPlayerAccessoriesHook;
         On.Player.Update -= UpdatePlayerPossessionHook;
 
-        On.UpdatableAndDeletable.Destroy -= DisposePossessionManagerHook;
+        On.UpdatableAndDeletable.Destroy -= PreventCreatureDestructionHook;
     }
 
     /// <summary>
@@ -76,15 +78,25 @@ public static class PossessionHooks
     }
 
     /// <summary>
-    /// Disposes of the player's PossessionManager when Slugcat is destroyed. Also prevents death-protected creatures from being destroyed.
+    /// Prevents the destruction of creatures who are under death protection.
     /// </summary>
-    private static void DisposePossessionManagerHook(On.UpdatableAndDeletable.orig_Destroy orig, UpdatableAndDeletable self)
+    private static void PreventCreatureDestructionHook(On.UpdatableAndDeletable.orig_Destroy orig, UpdatableAndDeletable self)
     {
-        if (self is Creature crit && TrySaveFromDestruction(crit)) return;
+        if (self is Creature crit and not Player && TrySaveFromDestruction(crit)) return;
+
+        orig.Invoke(self);
+    }
+
+    /// <summary>
+    /// Disposes of the player's PossessionManager when Slugcat is destroyed. Also prevents death-protected players from being destroyed.
+    /// </summary>
+    private static void DisposePossessionManagerHook(On.Player.orig_Destroy orig, Player self)
+    {
+        if (TrySaveFromDestruction(self)) return;
 
         orig.Invoke(self);
 
-        if (self is Player player && player.TryGetPossessionManager(out PossessionManager manager))
+        if (self.TryGetPossessionManager(out PossessionManager manager))
         {
             manager.Dispose();
         }
@@ -150,13 +162,49 @@ public static class PossessionHooks
     /// </summary>
     /// <param name="creature">The creature to be saved.</param>
     /// <returns><c>true</c> if the creature has been saved (in this method call or another), <c>false</c> otherwise.</returns>
-    private static bool TrySaveFromDestruction(Creature creature)
+    internal static bool TrySaveFromDestruction(Creature creature)
     {
-        if (creature.room is null
+        if (creature.inShortcut
             || !DeathProtection.TryGetProtection(creature, out DeathProtection protection)
             || !protection.SafePos.HasValue) return false;
 
         if (protection.SaveCooldown > 0) return true;
+
+        if (creature.room is null)
+        {
+            Main.Logger?.LogWarning($"{creature} not found in a room! Setting to last protection room: {protection.room?.abstractRoom.FileName}");
+
+            creature.room = protection.room;
+
+            if (creature.room is null)
+            {
+                Main.Logger?.LogWarning($"{protection} not found in a room! Defaulting to first realized player: {creature.abstractCreature.world.game.FirstRealizedPlayer}");
+
+                creature.room = creature.abstractCreature.world.game.FirstRealizedPlayer?.room;
+            }
+
+            if (creature.room is null)
+            {
+                Main.Logger?.LogWarning($"Fallback player room not found! Trying to use game camera as a last resort...");
+
+                foreach (RoomCamera camera in creature.abstractCreature.world.game.cameras)
+                {
+                    creature.room = camera.room;
+
+                    if (creature.room is not null)
+                    {
+                        Main.Logger?.LogInfo($"Using camera room {creature.room.abstractRoom.FileName}!");
+                        break;
+                    }
+                }
+            }
+
+            if (creature.room is null)
+            {
+                Main.Logger?.LogError($"Failed to retrieve any valid room for {creature}! Destruction will not be prevented.");
+                return false;
+            }
+        }
 
         Vector2 revivePos = creature.room.MiddleOfTile(protection.SafePos.Value);
 

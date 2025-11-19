@@ -23,7 +23,7 @@ public partial class TargetSelector
 
         public abstract void UpdatePhase(TargetSelector selector);
 
-        public virtual TargetSelectionState MoveToState(TargetSelectionState state)
+        public TargetSelectionState MoveToState(TargetSelectionState state)
         {
             if (state == this)
                 throw new InvalidOperationException($"The state machine is already at the given state.");
@@ -53,13 +53,14 @@ public partial class TargetSelector
 
             selector.Player.controller = PossessionManager.GetFadeOutController(selector.Player);
 
-            if (selector.targetCursor is null)
+            if (selector.targetCursor is not null)
             {
-                selector.queryCreatures = QueryCreatures(selector.Player, selector.targetCursor);
+                selector.targetCursor.ResetCursor(true, forceAlpha: false);
+                selector.targetCursor.room?.AddObject(new ShockWave(selector.targetCursor.GetPos(), 20f, 0.075f, 4, true));
             }
             else
             {
-                selector.targetCursor.ResetCursor(true);
+                selector.queryCreatures = QueryCreatures(selector.Player, selector.targetCursor);
             }
 
             selector.MoveToState(Querying);

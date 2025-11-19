@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using MoreSlugcats;
 using RWCustom;
 using UnityEngine;
@@ -16,8 +17,17 @@ public class PossessionTimer(PossessionManager manager)
 
     private float rubberRadius;
 
-    private bool IsPlayerVisible => player?.room is not null && !player.dead;
-    private bool ShouldShowPips => IsPlayerVisible && (Manager.IsPossessing || Manager.PossessionTime < Manager.MaxPossessionTime);
+    private bool IsPlayerVisible
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => player?.room is not null && !player.dead;
+    }
+
+    private bool ShouldShowPips
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => IsPlayerVisible && (Manager.IsPossessing || Manager.PossessionTime < Manager.MaxPossessionTime);
+    }
 
     private Color PipColor =>
         player.graphicsModule is PlayerGraphics playerGraphics
@@ -33,7 +43,7 @@ public class PossessionTimer(PossessionManager manager)
 
     public override void DrawSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, float timeStacker, Vector2 camPos)
     {
-        pos = GetMarkPos(camPos, timeStacker);
+        pos = IsPlayerVisible ? Vector2.SmoothDamp(lastPos, GetMarkPos(camPos, timeStacker), ref vel, 0.05f) : GetMarkPos(camPos, timeStacker);
 
         alpha += ((ShouldShowPips ? 1f : 0f) - alpha) * 0.05f;
 

@@ -52,7 +52,7 @@ public class ObjectController : PlayerCarryableItem
                 originalGravity = value.GetLocalGravity();
                 value.SetLocalGravity(0f);
 
-                targetPosAndVel = new Vector2[value.bodyChunks.Length, 2];
+                targetVel = new Vector2[value.bodyChunks.Length];
 
                 _activeInstances[value] = this;
             }
@@ -74,9 +74,9 @@ public class ObjectController : PlayerCarryableItem
     private int life;
 
     private Creature.Grasp? TargetGrasp;
+    private Vector2[]? targetVel;
 
-    private Vector2 targetRotation;
-    private Vector2[,]? targetPosAndVel;
+    private readonly bool spinClockwise = UnityEngine.Random.value <= 0.5f;
 
     public ObjectController(AbstractPhysicalObject abstractController, PhysicalObject? target, Player? owner)
         : base(abstractController)
@@ -173,15 +173,10 @@ public class ObjectController : PlayerCarryableItem
         if (Target is PlayerCarryableItem carryableItem)
         {
             carryableItem.PickedUp(upPicker);
-
-            if (carryableItem is Spear spear)
-            {
-                spear.spinning = true;
-            }
         }
         else
         {
-            room.PlaySound(SoundID.Slugcat_Pick_Up_Misc_Inanimate, Target.firstChunk, false, 1f, 1f);
+            base.PickedUp(upPicker);
         }
 
         if (Target.graphicsModule != null && Owner.Grabability(Target) < (Player.ObjectGrabability)5)
@@ -239,7 +234,7 @@ public class ObjectController : PlayerCarryableItem
 
         input = Owner.GetRawInput();
 
-        if (targetPosAndVel is not null)
+        if (targetVel is not null)
         {
             Vector2 moveDir = GetMoveDirection();
             for (int i = 0; i < Target.bodyChunks.Length; i++)
@@ -247,10 +242,11 @@ public class ObjectController : PlayerCarryableItem
                 BodyChunk bodyChunk = Target.bodyChunks[i];
 
                 if (moveDir != Vector2.zero)
-                    targetPosAndVel[i, 0] = bodyChunk.pos + (moveDir * 10f);
+                    targetVel[i] = moveDir * 4f;
+                else
+                    targetVel[i] -= targetVel[i] * 0.05f;
 
-                bodyChunk.pos = Vector2.SmoothDamp(bodyChunk.pos, targetPosAndVel[i, 0], ref targetPosAndVel[i, 1], 0.5f, 8f);
-                bodyChunk.vel = targetPosAndVel[i, 1];
+                bodyChunk.vel = Vector2.MoveTowards(bodyChunk.vel, targetVel[i], 240f);
             }
         }
 
@@ -271,13 +267,13 @@ public class ObjectController : PlayerCarryableItem
 
             if (speedVel > 0)
             {
-                weapon.rotationSpeed = speedVel;
+                weapon.rotationSpeed = spinClockwise ? speedVel : -speedVel;
             }
             else
             {
-                targetRotation = Custom.DegToVec(Custom.AimFromOneVectorToAnother(Vector2.zero, new Vector2(lastInput.x, lastInput.y)));
+                Vector2 targetRotation = Custom.DegToVec(Custom.AimFromOneVectorToAnother(Vector2.zero, new Vector2(lastInput.x, lastInput.y)));
 
-                weapon.rotation = Vector2.Lerp(weapon.lastRotation, targetRotation, weapon.room.game.myTimeStacker);
+                weapon.rotation = Vector2.Lerp(weapon.lastRotation, targetRotation, weapon.lastRotation.magnitude / targetRotation.magnitude);
             }
         }
 

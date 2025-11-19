@@ -9,7 +9,7 @@ using MonoMod.RuntimeDetour;
 namespace ControlLib.Telekinetics;
 
 // Notice: The following methods are not included here, but must be hooked to as well to actually prevent death:
-//      Creature.Die(), UpdatableAndDeletable.Destroy()
+//      Creature.Die(), UpdatableAndDeletable.Destroy(), Player.Destroy()
 //
 // The implementation for these hooks can be found in the Possession.PossessionHooks class
 public static class DeathProtectionHooks
@@ -27,8 +27,6 @@ public static class DeathProtectionHooks
         IL.WormGrass.WormGrassPatch.Update += Extras.WrapILHook(IgnoreRepulsiveCreatureILHook);
 
         On.AbstractWorldEntity.Destroy += PreventCreatureDestructionHook;
-
-        On.Player.Destroy += PreventPlayerDestructionHook;
 
         On.RainWorldGame.GameOver += InterruptGameOverHook;
 
@@ -119,15 +117,6 @@ public static class DeathProtectionHooks
             && DeathProtection.HasProtection(abstractCreature.realizedCreature)) return;
 
         orig.Invoke(self);
-    }
-
-    /// <summary>
-    /// Prevents the destruction of players who are under death protection.
-    /// </summary>
-    private static void PreventPlayerDestructionHook(On.Player.orig_Destroy orig, Player self)
-    {
-        if (!DeathProtection.HasProtection(self))
-            orig.Invoke(self);
     }
 
     /// <summary>

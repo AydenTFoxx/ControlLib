@@ -91,7 +91,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
         Input.QueriedCursor = true;
 
-        targetCursor?.ResetCursor();
+        targetCursor?.ResetCursor(false, forceAlpha: true);
     }
 
     /// <summary>
@@ -102,6 +102,11 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     {
         try
         {
+            if (state == TargetSelectionState.Idle)
+            {
+                (player.graphicsModule as PlayerGraphics)?.LookAtNothing();
+            }
+
             State = State.MoveToState(state);
         }
         catch (Exception ex)
@@ -127,7 +132,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
         if (HasMindBlast || forceReset)
         {
-            targetCursor?.ResetCursor();
+            targetCursor?.ResetCursor(false, forceAlpha: true);
 
             MoveToState(TargetSelectionState.Idle);
         }
@@ -177,7 +182,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
         {
             if (targetCursor is not null)
             {
-                playerGraphics.LookAtPoint(targetCursor.GetPos(), 9000f);
+                playerGraphics.LookAtPoint(targetCursor.GetPos(), 1000f);
             }
             else if (hasValidTargets)
             {
@@ -193,7 +198,6 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
             Vector2 targetPos = targetCursor?.GetPos() ?? (hasValidTargets ? Targets[0].mainBodyChunk.pos : Vector2.zero);
             targetPos = RWCustomExts.ClampedDist(targetPos, player.mainBodyChunk.pos, 80f);
 
-            playerGraphics.hands[handIndex].reachingForObject = true;
             playerGraphics.hands[handIndex].mode = Limb.Mode.HuntAbsolutePosition;
             playerGraphics.hands[handIndex].absoluteHuntPos = targetPos;
         }

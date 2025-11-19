@@ -262,7 +262,7 @@ public sealed class PossessionManager : IDisposable
 
         if (target.room is not null && target.room.BeingViewed)
         {
-            target.room.AddObject(new TemplarCircle(target, target.mainBodyChunk.pos, 48f, 8f, 2f, 12, true));
+            target.room.AddObject(new TemplarCircle(target, target.firstChunk.pos, 48f, 8f, 2f, 12, true));
             target.room.AddObject(new ShockWave(target.mainBodyChunk.pos, 100f, 0.08f, 4, false));
         }
 
@@ -305,7 +305,7 @@ public sealed class PossessionManager : IDisposable
             PossessionCooldown = 20;
         }
 
-        if (PossessionTime == 0)
+        if (PossessionTime <= 0)
         {
             for (int k = 0; k < 20; k++)
             {
@@ -380,7 +380,7 @@ public sealed class PossessionManager : IDisposable
             PossessionCooldown = 20;
         }
 
-        if (PossessionTime == 0)
+        if (PossessionTime <= 0)
         {
             for (int k = 0; k < 20; k++)
             {

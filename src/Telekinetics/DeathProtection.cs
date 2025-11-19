@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
+using ControlLib.Possession;
 
 namespace ControlLib.Telekinetics;
 
@@ -177,6 +178,12 @@ public class DeathProtection : UpdatableAndDeletable
                 }
             } */
         }
+        else if (!Target.inShortcut && SafePos.HasValue)
+        {
+            Main.Logger?.LogWarning($"{Target} not found in a room while being protected! Performing saving throw to prevent destruction.");
+
+            PossessionHooks.TrySaveFromDestruction(Target);
+        }
 
         if (SaveCooldown > 0)
             SaveCooldown--;
@@ -315,8 +322,5 @@ public class DeathProtection : UpdatableAndDeletable
         target.lavaImmune = enable;
         target.tentacleImmune = enable;
         target.HypothermiaImmune = enable;
-
-        if (!target.rippleCreature && target.realizedCreature is not Player { isCamo: true })
-            target.rippleLayer = enable ? 2 : target.world.game.ActiveRippleLayer;
     }
 }

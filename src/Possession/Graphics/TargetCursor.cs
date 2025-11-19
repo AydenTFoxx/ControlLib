@@ -13,6 +13,8 @@ public class TargetCursor(PossessionManager manager)
 
     private float targetAlpha;
 
+    private FSprite? cursorSprite;
+
     private float CursorSpeed =>
         Extras.IsMultiplayer
         && !OptionUtils.IsOptionEnabled(Options.MULTIPLAYER_SLOWDOWN)
@@ -25,29 +27,37 @@ public class TargetCursor(PossessionManager manager)
 
     public Vector2 GetPos() => targetPos + camPos;
 
-    public void ResetCursor(bool isVisible = false)
+    public void ResetCursor(bool isVisible, bool forceAlpha = false)
     {
         targetPos = pos;
         lastTargetPos = targetPos;
 
         targetAlpha = isVisible ? 1f : 0f;
+
+        if (forceAlpha)
+        {
+            alpha = targetAlpha;
+            cursorSprite?.alpha = alpha;
+        }
+
+        if (isVisible)
+        {
+            cursorSprite?.SetPosition(targetPos);
+        }
     }
 
     public void UpdateCursor(in Vector2 input)
     {
         lastTargetPos = targetPos;
 
-        Vector2 goalPos = targetPos + (input * CursorSpeed);
-        float maxDist = TargetSelector.GetPossessionRange();
-
-        targetPos = RWCustomExts.ClampedDist(goalPos, pos, maxDist);
+        targetPos = RWCustomExts.ClampedDist(targetPos + (input * CursorSpeed), pos, TargetSelector.GetPossessionRange());
     }
 
     public override void TryRealizeInRoom(Room playerRoom)
     {
         base.TryRealizeInRoom(playerRoom);
 
-        ResetCursor();
+        ResetCursor(false, forceAlpha: true);
     }
 
     public override void Update(bool eu)
@@ -78,9 +88,7 @@ public class TargetCursor(PossessionManager manager)
 
         sLeaser.sprites[0].color = Color.Lerp(Color.white, FlashColor, colorTime);
 
-        float smoothTime = timeStacker * timeStacker * (3f + (2f * timeStacker));
-
-        sLeaser.sprites[0].SetPosition(Vector2.Lerp(lastTargetPos, targetPos, smoothTime));
+        sLeaser.sprites[0].SetPosition(Vector2.SmoothDamp(sLeaser.sprites[0].GetPosition(), targetPos, ref vel, 0.1f));
 
         base.DrawSprites(sLeaser, rCam, timeStacker, camPos);
     }
@@ -89,7 +97,7 @@ public class TargetCursor(PossessionManager manager)
     {
         sLeaser.sprites = new FSprite[1];
 
-        sLeaser.sprites[0] = new FSprite("guardEye");
+        sLeaser.sprites[0] = cursorSprite = new FSprite("guardEye");
 
         base.InitiateSprites(sLeaser, rCam);
     }

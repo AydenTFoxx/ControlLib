@@ -240,8 +240,6 @@ public static class Debug
 
         EntityID targetID = new(-1, inputID);
 
-        Main.Logger?.LogDebug($"Target ID: {targetID}");
-
         if (!bool.TryParse(isSingularity, out bool spawnSingularity))
             spawnSingularity = false;
 
@@ -249,8 +247,6 @@ public static class Debug
 
         if (target is null || target.realizedCreature is null)
             return NoTargetFoundResult;
-
-        Main.Logger?.LogDebug($"Selected target is: {target}");
 
         ExplosionManager.ExplodeCreature(target.realizedCreature, spawnSingularity ? DLCSharedEnums.AbstractObjectType.SingularityBomb : AbstractPhysicalObject.AbstractObjectType.ScavengerBomb);
 
@@ -390,8 +386,6 @@ public static class Debug
         {
             EntityID targetID = new(-1, inputID);
 
-            Main.Logger?.LogDebug($"Target ID: {targetID}");
-
             target = player.room.physicalObjects.OfType<Creature>().FirstOrDefault(c => c.abstractCreature.ID == targetID);
         }
 
@@ -399,8 +393,6 @@ public static class Debug
 
         if (target is null)
             return NoTargetFoundResult;
-
-        Main.Logger?.LogDebug($"Selected target is: {target}");
 
         if (target.TryGetPossession(out Player other)
             && other.TryGetPossessionManager(out PossessionManager otherManager))
@@ -552,14 +544,10 @@ public static class Debug
 
         EntityID targetID = new(-1, inputID);
 
-        Main.Logger?.LogDebug($"Target ID: {targetID}");
-
         Creature? target = game.world.abstractRooms.SelectMany(ar => ar.creatures).FirstOrDefault(ac => ac.ID == targetID)?.realizedCreature;
 
         if (target is null)
             return NoTargetFoundResult;
-
-        Main.Logger?.LogDebug($"Selected target is: {target}");
 
         if (DeathProtection.TryGetProtection(target, out DeathProtection protection))
         {
