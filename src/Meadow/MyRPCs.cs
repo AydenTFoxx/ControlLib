@@ -11,7 +11,7 @@ public static class MyRPCs
     {
         if (onlineTarget.realizedCreature is not Creature target || target.room is null)
         {
-            Main.Logger?.LogWarning($"Target or room is invalid; Target: {onlineTarget.realizedCreature} | Room: {onlineTarget.realizedCreature?.room}");
+            Main.Logger.LogWarning($"Target or room is invalid; Target: {onlineTarget.realizedCreature} | Room: {onlineTarget.realizedCreature?.room}");
 
             rpcEvent.Resolve(new GenericResult.Fail(rpcEvent));
             return;
@@ -35,7 +35,7 @@ public static class MyRPCs
     {
         if (onlineTarget.realizedCreature is not Creature target)
         {
-            Main.Logger?.LogWarning($"{onlineTarget} is not a controllable creature.");
+            Main.Logger.LogWarning($"{onlineTarget} is not a controllable creature.");
 
             rpcEvent.Resolve(new GenericResult.Fail(rpcEvent));
             return;
@@ -43,7 +43,7 @@ public static class MyRPCs
 
         target.abstractCreature.controlled = controlled;
 
-        Main.Logger?.LogInfo($"{target} is {(controlled ? "now" : "no longer")} being controlled by {rpcEvent.from}.");
+        Main.Logger.LogInfo($"{target} is {(controlled ? "now" : "no longer")} being controlled by {rpcEvent.from}.");
     }
 
     public static void SyncCreaturePossession(Creature creature, bool isPossession)

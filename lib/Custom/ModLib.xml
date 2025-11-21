@@ -607,187 +607,130 @@
         </member>
         <member name="T:ModLib.Logging.FallbackLogger">
             <summary>
-                Default wrapper for a <see cref="T:BepInEx.Logging.ManualLogSource" />; Used when LogUtils is not avaliable at runtime.
+                A logger type which logs to a custom file with basic formatting and timestamps.
             </summary>
         </member>
         <member name="M:ModLib.Logging.FallbackLogger.#ctor(BepInEx.Logging.ManualLogSource)">
             <summary>
-                Default wrapper for a <see cref="T:BepInEx.Logging.ManualLogSource" />; Used when LogUtils is not avaliable at runtime.
+                A logger type which logs to a custom file with basic formatting and timestamps.
             </summary>
         </member>
-        <member name="M:ModLib.Logging.FallbackLogger.Log(System.Object)">
+        <member name="M:ModLib.Logging.FallbackLogger.GetLogSource">
             <inheritdoc />
         </member>
         <member name="M:ModLib.Logging.FallbackLogger.Log(BepInEx.Logging.LogLevel,System.Object)">
             <inheritdoc />
         </member>
-        <member name="M:ModLib.Logging.FallbackLogger.LogDebug(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.FallbackLogger.LogError(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.FallbackLogger.LogFatal(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.FallbackLogger.LogInfo(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.FallbackLogger.LogMessage(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.FallbackLogger.LogWarning(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.FallbackLogger.GetLogSource">
-            <inheritdoc />
-        </member>
-        <member name="T:ModLib.Logging.IMyLogger">
+        <member name="T:ModLib.Logging.FilteredLogWrapper">
             <summary>
-                Base interface providing the same methods of a <see cref="T:BepInEx.Logging.ManualLogSource" /> object.
+                A wrapper around an <see cref="T:ModLib.Logging.ModLogger" /> instance, where logs are only processed
+                if they meet a minimal threshold logging level.
             </summary>
+            <param name="logger">The logger instance to be wrapped.</param>
+            <param name="maxLogLevel">The max log level allowed for logging.</param>
+        </member>
+        <member name="M:ModLib.Logging.FilteredLogWrapper.#ctor(ModLib.Logging.ModLogger,BepInEx.Logging.LogLevel)">
+            <summary>
+                A wrapper around an <see cref="T:ModLib.Logging.ModLogger" /> instance, where logs are only processed
+                if they meet a minimal threshold logging level.
+            </summary>
+            <param name="logger">The logger instance to be wrapped.</param>
+            <param name="maxLogLevel">The max log level allowed for logging.</param>
+        </member>
+        <member name="P:ModLib.Logging.FilteredLogWrapper.MaxLogLevel">
+            <summary>
+                The max "priority" level allowed for logging; Any message whose level is lower than this will be ignored.
+            </summary>
+        </member>
+        <member name="M:ModLib.Logging.FilteredLogWrapper.#ctor(ModLib.Logging.ModLogger)">
+            <summary>
+                Creates a log wrapper with ModLib's default logging verbosity settings; All logs of type <c>Debug</c> or lower are ignored, unless in Debug Mode.
+            </summary>
+            <param name="logger">The logger instance to be wrapped.</param>
+        </member>
+        <member name="M:ModLib.Logging.FilteredLogWrapper.GetLogSource">
+            <inheritdoc />
+        </member>
+        <member name="M:ModLib.Logging.FilteredLogWrapper.Log(BepInEx.Logging.LogLevel,System.Object)">
+            <inheritdoc />
             <remarks>
-                Implementation of this interface will depend on whether LogUtils is present at runtime.
+                This method will only process log requests if <paramref name="level" /> is of equal importance or higher than the max <see cref="T:BepInEx.Logging.LogLevel" /> allowed.
             </remarks>
         </member>
-        <member name="M:ModLib.Logging.IMyLogger.Log(System.Object)">
+        <member name="M:ModLib.Logging.FilteredLogWrapper.ToString">
             <summary>
-                Logs a message with the default logging level.
+                Returns a string representing the current object and its wrapped <see cref="T:ModLib.Logging.ModLogger" /> instance.
             </summary>
-            <param name="message">Message to log.</param>
-        </member>
-        <member name="M:ModLib.Logging.IMyLogger.Log(BepInEx.Logging.LogLevel,System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.Log(BepInEx.Logging.LogLevel,System.Object)" />
-        </member>
-        <member name="M:ModLib.Logging.IMyLogger.LogDebug(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogDebug(System.Object)" />
-        </member>
-        <member name="M:ModLib.Logging.IMyLogger.LogError(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogError(System.Object)" />
-        </member>
-        <member name="M:ModLib.Logging.IMyLogger.LogFatal(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogFatal(System.Object)" />
-        </member>
-        <member name="M:ModLib.Logging.IMyLogger.LogInfo(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogInfo(System.Object)" />
-        </member>
-        <member name="M:ModLib.Logging.IMyLogger.LogMessage(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogMessage(System.Object)" />
-        </member>
-        <member name="M:ModLib.Logging.IMyLogger.LogWarning(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogWarning(System.Object)" />
-        </member>
-        <member name="M:ModLib.Logging.IMyLogger.GetLogSource">
-            <summary>
-                Retrieves the internal log source of this logger implementation.
-            </summary>
-            <returns>The log source of this logger implementation.</returns>
+            <returns>A string representing the current object and its wrapped <see cref="T:ModLib.Logging.ModLogger" /> instance.</returns>
         </member>
         <member name="T:ModLib.Logging.LoggingAdapter">
             <summary>
                 Intermediary helper for creating loggers with the appropriate logging backend.
             </summary>
         </member>
-        <member name="M:ModLib.Logging.LoggingAdapter.CreateLogger(BepInEx.Logging.ManualLogSource)">
+        <member name="M:ModLib.Logging.LoggingAdapter.CreateLogger(BepInEx.Logging.ManualLogSource,System.Boolean)">
             <summary>
                 Creates a logger instance employing a safe encapsulation technique.
             </summary>
+            <param name="logSource">The BepInEx source to use for identification and logging.</param>
+            <param name="wrapLogger">
+                If true, the generated logger will be a <see cref="T:ModLib.Logging.FilteredLogWrapper" />,
+                which ignores certain logs based on their level and the current type of ModLib's build.
+            </param>
         </member>
-        <member name="T:ModLib.Logging.LogUtilsAdapter">
+        <member name="T:ModLib.Logging.LogUtilsLogger">
             <summary>
                 Wrapper class for a LogUtils logger instance.
             </summary>
         </member>
-        <member name="M:ModLib.Logging.LogUtilsAdapter.#ctor(LogUtils.ILogger)">
+        <member name="M:ModLib.Logging.LogUtilsLogger.#ctor(LogUtils.ILogger)">
             <summary>
                 Wrapper class for a LogUtils logger instance.
             </summary>
         </member>
-        <member name="M:ModLib.Logging.LogUtilsAdapter.LogDebug(System.Object)">
+        <member name="M:ModLib.Logging.LogUtilsLogger.Log(BepInEx.Logging.LogLevel,System.Object)">
             <inheritdoc />
         </member>
-        <member name="M:ModLib.Logging.LogUtilsAdapter.LogError(System.Object)">
+        <member name="M:ModLib.Logging.LogUtilsLogger.GetLogSource">
             <inheritdoc />
         </member>
-        <member name="M:ModLib.Logging.LogUtilsAdapter.LogFatal(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.LogUtilsAdapter.LogInfo(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.LogUtilsAdapter.LogMessage(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.LogUtilsAdapter.LogWarning(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.LogUtilsAdapter.Log(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.LogUtilsAdapter.Log(BepInEx.Logging.LogLevel,System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.LogUtilsAdapter.GetLogSource">
-            <inheritdoc />
-        </member>
-        <member name="T:ModLib.Logging.LogWrapper">
+        <member name="T:ModLib.Logging.ModLogger">
             <summary>
-                A wrapper around an <see cref="T:ModLib.Logging.IMyLogger" /> instance, where logs are only processed
-                if they meet a minimal threshold logging level.
+                Base class providing a compatibility layer between loggers from various potential sources (e.g. BepInEx, Unity, LogUtils, etc.)
             </summary>
-            <param name="logger">The logger instance to be wrapped.</param>
-            <param name="maxLogLevel">The max log level allowed for logging.</param>
         </member>
-        <member name="M:ModLib.Logging.LogWrapper.#ctor(ModLib.Logging.IMyLogger,BepInEx.Logging.LogLevel)">
+        <member name="M:ModLib.Logging.ModLogger.GetLogSource">
             <summary>
-                A wrapper around an <see cref="T:ModLib.Logging.IMyLogger" /> instance, where logs are only processed
-                if they meet a minimal threshold logging level.
+                Retrieves the internal log source of this logger implementation.
             </summary>
-            <param name="logger">The logger instance to be wrapped.</param>
-            <param name="maxLogLevel">The max log level allowed for logging.</param>
+            <returns>The log source of this logger implementation.</returns>
         </member>
-        <member name="M:ModLib.Logging.LogWrapper.#ctor(ModLib.Logging.IMyLogger)">
+        <member name="M:ModLib.Logging.ModLogger.Log(BepInEx.Logging.LogLevel,System.Object)">
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.Log(BepInEx.Logging.LogLevel,System.Object)" />
+        </member>
+        <member name="M:ModLib.Logging.ModLogger.Log(System.Object)">
             <summary>
-                Creates a log wrapper with ModLib's default logging verbosity settings;
-                All logs below <c>Message</c> level (i.e. whose number is greater than <c>8</c>) are ignored, unless the Dev Tools mod is enabled.
+                Logs a message with the default logging level.
             </summary>
-            <param name="logger">The logger instance to be wrapped.</param>
+            <param name="message">Message to log.</param>
         </member>
-        <member name="M:ModLib.Logging.LogWrapper.GetLogSource">
-            <inheritdoc />
+        <member name="M:ModLib.Logging.ModLogger.LogDebug(System.Object)">
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogDebug(System.Object)" />
         </member>
-        <member name="M:ModLib.Logging.LogWrapper.Log(System.Object)">
-            <inheritdoc cref="M:ModLib.Logging.LogWrapper.Log(BepInEx.Logging.LogLevel,System.Object)" />
+        <member name="M:ModLib.Logging.ModLogger.LogError(System.Object)">
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogError(System.Object)" />
         </member>
-        <member name="M:ModLib.Logging.LogWrapper.Log(BepInEx.Logging.LogLevel,System.Object)">
-            <inheritdoc />
-            <remarks>
-                This method will only process log requests if <paramref name="level" /> is of equal importance or higher than the max <see cref="T:BepInEx.Logging.LogLevel" /> allowed.
-            </remarks>
+        <member name="M:ModLib.Logging.ModLogger.LogFatal(System.Object)">
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogFatal(System.Object)" />
         </member>
-        <member name="M:ModLib.Logging.LogWrapper.LogDebug(System.Object)">
-            <inheritdoc />
+        <member name="M:ModLib.Logging.ModLogger.LogInfo(System.Object)">
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogInfo(System.Object)" />
         </member>
-        <member name="M:ModLib.Logging.LogWrapper.LogError(System.Object)">
-            <inheritdoc />
+        <member name="M:ModLib.Logging.ModLogger.LogMessage(System.Object)">
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogMessage(System.Object)" />
         </member>
-        <member name="M:ModLib.Logging.LogWrapper.LogFatal(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.LogWrapper.LogInfo(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.LogWrapper.LogMessage(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.LogWrapper.LogWarning(System.Object)">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Logging.LogWrapper.ToString">
-            <summary>
-                Returns a string representing the current object and its wrapped <see cref="T:ModLib.Logging.IMyLogger" /> instance.
-            </summary>
-            <returns>A string representing the current object and its wrapped <see cref="T:ModLib.Logging.IMyLogger" /> instance.</returns>
+        <member name="M:ModLib.Logging.ModLogger.LogWarning(System.Object)">
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogWarning(System.Object)" />
         </member>
         <member name="T:ModLib.Meadow.MeadowGameModes">
             <summary>
@@ -1050,7 +993,7 @@
             </summary>
             <param name="options">The mod's REMIX option interface class, if any.</param>
         </member>
-        <member name="M:ModLib.ModPlugin.#ctor(OptionInterface,ModLib.Logging.IMyLogger)">
+        <member name="M:ModLib.ModPlugin.#ctor(OptionInterface,ModLib.Logging.ModLogger)">
             <summary>
                 Creates a new ModPlugin instance with the provided REMIX option interface and logger instance.
             </summary>
@@ -1666,7 +1609,7 @@
             <param name="logSource">The log source of this mod. If LogUtils is present, a <see cref="T:LogUtils.Logger" /> will be created with this parameter as its <c>LogSource</c> value.</param>
             <exception cref="T:System.InvalidOperationException">The current mod assembly is already registered to ModLib.</exception>
         </member>
-        <member name="M:ModLib.Registry.RegisterMod(BepInEx.BaseUnityPlugin,System.Type,ModLib.Logging.IMyLogger)">
+        <member name="M:ModLib.Registry.RegisterMod(BepInEx.BaseUnityPlugin,System.Type,ModLib.Logging.ModLogger)">
             <summary>
                 Registers the current mod assembly to ModLib. This should be done sometime during the mod-loading process,
                 typically from the <c>Main</c>/<c>Plugin</c> class constructor, <c>Awake()</c> or <c>OnEnable()</c> methods.
@@ -1694,7 +1637,7 @@
             <returns>The mod metadata registered for the given assembly.</returns>
             <exception cref="T:ModLib.Registry.ModNotFoundException">The provided assembly was not registered to ModLib.</exception>
         </member>
-        <member name="M:ModLib.Registry.RegisterAssembly(System.Reflection.Assembly,BepInEx.BepInPlugin,System.Type,ModLib.Logging.IMyLogger)">
+        <member name="M:ModLib.Registry.RegisterAssembly(System.Reflection.Assembly,BepInEx.BepInPlugin,System.Type,ModLib.Logging.ModLogger)">
             <summary>
                 Registers the given assembly to ModLib, binding the provided arguments as its metadata.
             </summary>

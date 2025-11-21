@@ -91,7 +91,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
         Input.QueriedCursor = true;
 
-        targetCursor?.ResetCursor(false, forceAlpha: true);
+        targetCursor?.ResetCursor(false, forceAlpha: queryCreatures.Count > 0);
     }
 
     /// <summary>
@@ -111,8 +111,8 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
         }
         catch (Exception ex)
         {
-            Main.Logger?.LogError($"Failed to move to state {state}!");
-            Main.Logger?.LogError(ex);
+            Main.Logger.LogError($"Failed to move to state {state}!");
+            Main.Logger.LogError(ex);
         }
     }
 
@@ -142,12 +142,12 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     {
         if (targetCursor is null && !IsClientOptionValue(Options.SELECTION_MODE, "ascension")) return;
 
-        Main.Logger?.LogInfo($"Resetting selector sprites from {player}!");
+        Main.Logger.LogInfo($"Resetting selector sprites from {player}!");
 
         targetCursor?.Destroy();
         targetCursor = new TargetCursor(Manager);
 
-        Main.Logger?.LogInfo($"TargetCursor is: {targetCursor}");
+        Main.Logger.LogInfo($"TargetCursor is: {targetCursor}");
     }
 
     /// <summary>
@@ -161,7 +161,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
         if (ExceededTimeLimit || Manager.PossessionCooldown > 0)
         {
-            if (ExceededTimeLimit && !HasMindBlast)
+            if (this is { ExceededTimeLimit: true, HasMindBlast: false })
             {
                 Manager.PossessionCooldown = 80;
 
@@ -198,7 +198,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
             Vector2 targetPos = targetCursor?.GetPos() ?? (hasValidTargets ? Targets[0].mainBodyChunk.pos : Vector2.zero);
             targetPos = RWCustomExts.ClampedDist(targetPos, player.mainBodyChunk.pos, 80f);
 
-            playerGraphics.hands[handIndex].mode = Limb.Mode.HuntAbsolutePosition;
+            playerGraphics.hands[handIndex].reachingForObject = true;
             playerGraphics.hands[handIndex].absoluteHuntPos = targetPos;
         }
 
@@ -286,7 +286,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
         if (!IsValidSelectionTarget(target))
         {
-            Main.Logger?.LogWarning($"{target} is not a valid possession target.");
+            Main.Logger.LogWarning($"{target} is not a valid possession target.");
 
             queryCreatures.Remove(target);
 
@@ -329,7 +329,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     {
         if (player.room is null)
         {
-            Main.Logger?.LogError($"{player} is not in a room; Cannot query for creatures there.");
+            Main.Logger.LogError($"{player} is not in a room; Cannot query for creatures there.");
             return [];
         }
 
@@ -517,7 +517,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
     public void Dispose()
     {
-        Main.Logger?.LogDebug($"Disposing of {nameof(TargetSelector)} from {player}!");
+        Main.Logger.LogDebug($"Disposing of {nameof(TargetSelector)} from {player}!");
 
         Dispose(disposing: true);
         GC.SuppressFinalize(this);

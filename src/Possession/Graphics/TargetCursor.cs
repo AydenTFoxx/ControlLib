@@ -5,13 +5,10 @@ using UnityEngine;
 
 namespace ControlLib.Possession.Graphics;
 
-public class TargetCursor(PossessionManager manager)
-    : PlayerAccessory(manager)
+public class TargetCursor(PossessionManager manager) : PlayerAccessory(manager)
 {
     public Vector2 targetPos;
     public Vector2 lastTargetPos;
-
-    private float targetAlpha;
 
     private FSprite? cursorSprite;
 
@@ -53,9 +50,9 @@ public class TargetCursor(PossessionManager manager)
         targetPos = RWCustomExts.ClampedDist(targetPos + (input * CursorSpeed), pos, TargetSelector.GetPossessionRange());
     }
 
-    public override void TryRealizeInRoom(Room playerRoom)
+    public override void TryRealizeInRoom(Room newRoom, Vector2 newPos)
     {
-        base.TryRealizeInRoom(playerRoom);
+        base.TryRealizeInRoom(newRoom, newPos);
 
         ResetCursor(false, forceAlpha: true);
     }
@@ -71,12 +68,9 @@ public class TargetCursor(PossessionManager manager)
     {
         pos = GetMarkPos(camPos, timeStacker);
 
-        if (targetAlpha != alpha)
-        {
-            alpha = Mathf.Clamp(alpha + ((targetAlpha - alpha) * 0.05f), 0f, 1f);
-        }
+        cursorSprite ??= sLeaser.sprites[0];
 
-        sLeaser.sprites[0].alpha = alpha;
+        cursorSprite.alpha = UpdateAlpha();
 
         if (alpha <= 0f)
         {
@@ -84,11 +78,11 @@ public class TargetCursor(PossessionManager manager)
             return;
         }
 
-        UpdateColorLerp(Manager.TargetSelector is not null && Manager.TargetSelector.ExceededTimeLimit);
+        UpdateColorLerp(Manager is { TargetSelector: not null, TargetSelector.ExceededTimeLimit: true });
 
-        sLeaser.sprites[0].color = Color.Lerp(Color.white, FlashColor, colorTime);
+        cursorSprite.color = Color.Lerp(Color.white, FlashColor, colorTime);
 
-        sLeaser.sprites[0].SetPosition(Vector2.SmoothDamp(sLeaser.sprites[0].GetPosition(), targetPos, ref vel, 0.1f));
+        cursorSprite.SetPosition(Vector2.SmoothDamp(cursorSprite.GetPosition(), targetPos, ref velocity, 0.1f));
 
         base.DrawSprites(sLeaser, rCam, timeStacker, camPos);
     }

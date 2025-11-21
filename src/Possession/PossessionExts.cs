@@ -32,7 +32,7 @@ public static class PossessionExts
 
         _possessionHolders.Add(self, newManager);
 
-        Main.Logger?.LogInfo($"New {nameof(PossessionManager)} instance! {newManager}");
+        Main.Logger.LogInfo($"New {nameof(PossessionManager)} instance! {newManager}");
         return newManager;
     }
 
@@ -42,15 +42,15 @@ public static class PossessionExts
     /// Attempts to retrieve the given creature's possessing player. If none is found, <c>null</c> is returned instead.
     /// </summary>
     /// <param name="self">The creature to be queried.</param>
-    /// <param name="possession">The output value; May be a <c>Player</c> instance or <c>null</c>.</param>
+    /// <param name="possessor">The output value; May be a <c>Player</c> instance or <c>null</c>.</param>
     /// <returns><c>true</c> if a value was found, <c>false</c> otherwise.</returns>
-    public static bool TryGetPossession(this Creature self, out Player possession)
+    public static bool TryGetPossession(this Creature self, out Player possessor)
     {
-        possession = null!;
+        possessor = null!;
 
         if (_cachedPossessions.TryGetValue(self, out Player player))
         {
-            possession = player;
+            possessor = player;
             return true;
         }
 
@@ -75,9 +75,9 @@ public static class PossessionExts
         if (_cachedPossessions.TryGetValue(self, out Player possession))
         {
             if (possession.TryGetPossessionManager(out PossessionManager manager)
-                && !manager.HasPossession(self))
+                && !manager.HasCreaturePossession(self))
             {
-                Main.Logger?.LogDebug($"- {self} is no longer being possessed by {manager.GetPlayer()}.");
+                Main.Logger.LogDebug($"- {self} is no longer being possessed by {manager.GetPlayer()}.");
 
                 _cachedPossessions.Remove(self);
             }
@@ -86,9 +86,9 @@ public static class PossessionExts
         {
             foreach (PossessionManager manager in _possessionHolders.Values)
             {
-                if (manager.HasPossession(self))
+                if (manager.HasCreaturePossession(self))
                 {
-                    Main.Logger?.LogDebug($"+ {self} is now being possessed by {manager.GetPlayer()}.");
+                    Main.Logger.LogDebug($"+ {self} is now being possessed by {manager.GetPlayer()}.");
 
                     _cachedPossessions.Add(self, manager.GetPlayer());
                 }

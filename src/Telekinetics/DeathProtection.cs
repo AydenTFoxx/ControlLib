@@ -1,6 +1,8 @@
 using System;
-using System.Runtime.CompilerServices;
+using System.Collections.Generic;
+using System.Linq;
 using ControlLib.Possession;
+using ModLib.Collections;
 
 namespace ControlLib.Telekinetics;
 
@@ -10,7 +12,7 @@ namespace ControlLib.Telekinetics;
 /// </summary>
 public class DeathProtection : UpdatableAndDeletable
 {
-    private static readonly ConditionalWeakTable<Creature, DeathProtection> _activeInstances = new();
+    private static readonly WeakDictionary<Creature, DeathProtection> _activeInstances = [];
 
     /// <summary>
     ///     The positive condition for removing the protection instance; Always returns <c>true</c>.
@@ -69,6 +71,11 @@ public class DeathProtection : UpdatableAndDeletable
     private readonly bool isWaterBreathingCrit;
 
     /// <summary>
+    ///     The BodyChunk to use as reference for setting and retrieving the target creature's "safe position".
+    /// </summary>
+    private readonly int safeChunkIndex;
+
+    /// <summary>
     ///     Creates a new death protection instance which lasts until the given condition returns <c>true</c>.
     /// </summary>
     /// <param name="target">The creature to protect.</param>
@@ -90,6 +97,8 @@ public class DeathProtection : UpdatableAndDeletable
         isWaterBreathingCrit = target.abstractCreature.creatureTemplate.waterRelationship == CreatureTemplate.WaterRelationship.Amphibious
                             || target.abstractCreature.creatureTemplate.waterRelationship == CreatureTemplate.WaterRelationship.WaterOnly;
 
+        safeChunkIndex = Target is Player ? 1 : Target.mainBodyChunkIndex;
+
         ToggleImmunities(target.abstractCreature, true);
     }
 
@@ -99,8 +108,8 @@ public class DeathProtection : UpdatableAndDeletable
 
         if (Target is null)
         {
-            Main.Logger?.LogWarning($"Target was destroyed while being protected! Removing protection object.");
-            Destroy();
+            Main.Logger.LogWarning($"Target was destroyed while being protected! Removing protection object.");
+            Destroy(false);
             return;
         }
 
@@ -142,45 +151,45 @@ public class DeathProtection : UpdatableAndDeletable
         {
             if (Target.room != room)
             {
-                Main.Logger?.LogInfo($"Moving DeathProtection object to Target room.");
+                Main.Logger.LogInfo($"Moving DeathProtection object to Target room.");
 
                 room?.RemoveObject(this);
                 Target.room.AddObject(this);
             }
 
-            foreach (RoomCamera camera in room!.game.cameras)
+            foreach (RoomCamera camera in Target.room.game.cameras)
             {
                 camera.hud?.textPrompt?.gameOverMode = false;
             }
 
             if (SafePos is null || ShouldUpdateSafePos())
             {
-                SafePos = room.GetWorldCoordinate(Target.bodyChunks[1].pos);
+                SafePos = Target.room.GetWorldCoordinate(Target.bodyChunks[safeChunkIndex].pos);
             }
 
-            /* if (!Target.abstractCreature.creatureTemplate.wormGrassImmune)
+            if (!Target.abstractCreature.creatureTemplate.wormGrassImmune)
             {
-                foreach (WormGrass wormGrass in room.updateList.OfType<WormGrass>())
+                foreach (WormGrass wormGrass in Target.room.updateList.OfType<WormGrass>())
                 {
                     foreach (WormGrass.WormGrassPatch patch in wormGrass.patches)
                     {
                         patch.trackedCreatures.RemoveAll(tc => tc.creature == Target);
                     }
 
-                    foreach (WormGrass.Worm? worm in from WormGrass.Worm worm in wormGrass.worms
-                                                     where worm.focusCreature == Target
-                                                     select worm)
+                    foreach (WormGrass.Worm worm in from WormGrass.Worm worm in wormGrass.worms
+                                                    where worm.focusCreature == Target
+                                                    select worm)
                     {
                         worm.focusCreature = null;
                     }
 
                     wormGrass.AddNewRepulsiveObject(Target);
                 }
-            } */
+            }
         }
-        else if (!Target.inShortcut && SafePos.HasValue)
+        else if (this is { Target.inShortcut: false, SafePos: not null })
         {
-            Main.Logger?.LogWarning($"{Target} not found in a room while being protected! Performing saving throw to prevent destruction.");
+            Main.Logger.LogWarning($"{Target} not found in a room while being protected! Performing saving throw to prevent destruction.");
 
             PossessionHooks.TrySaveFromDestruction(Target);
         }
@@ -190,9 +199,9 @@ public class DeathProtection : UpdatableAndDeletable
 
         if (Target.dead)
         {
-            bool canRevive = forceRevive && SaveCooldown == 0;
+            bool canRevive = this is { forceRevive: true, SaveCooldown: 0 };
 
-            Main.Logger?.LogWarning($"{Target} was killed while protected! Will revive? {canRevive}");
+            Main.Logger.LogWarning($"{Target} was killed while protected! Will revive? {canRevive}");
 
             if (canRevive)
                 ReviveTarget();
@@ -211,18 +220,38 @@ public class DeathProtection : UpdatableAndDeletable
             Destroy();
     }
 
-    public override void Destroy()
+    public override void Destroy() => Destroy(true);
+
+    public void Destroy(bool warnIfNull)
     {
         base.Destroy();
 
         if (Target is not null)
         {
+            ToggleImmunities(Target.abstractCreature, false);
+
             _activeInstances.Remove(Target);
 
-            ToggleImmunities(Target.abstractCreature, false);
+            Main.Logger.LogDebug($"{Target} is no longer being protected.");
         }
+        else
+        {
+            if (warnIfNull)
+                Main.Logger.LogWarning($"Protection object was destroyed while Target was null! Attempting to remove instance directly.");
 
-        Main.Logger?.LogDebug($"{Target} is no longer being protected.");
+            foreach (KeyValuePair<Creature, DeathProtection> kvp in _activeInstances)
+            {
+                if (kvp.Value == this)
+                {
+                    Main.Logger.LogInfo($"Removing detached protection instance from: {kvp.Key}");
+
+                    _activeInstances.Remove(kvp.Key);
+                    return;
+                }
+            }
+
+            Main.Logger.LogWarning($"Protection instance not found within active instances; Assumed to be inaccessible or managed by someone else.");
+        }
     }
 
     private void ReviveTarget()
@@ -248,20 +277,22 @@ public class DeathProtection : UpdatableAndDeletable
 
         SaveCooldown = 10;
 
-        Main.Logger?.LogDebug($"Revived {Target}!");
+        Main.Logger.LogDebug($"Revived {Target}!");
     }
 
     private bool ShouldUpdateSafePos()
     {
-        if (SaveCooldown != 0
-            || Target is { dead: false, grabbedBy.Count: 0 }
-            || !Target.IsTileSolid(1, 0, -1)
-            || Target.IsTileSolid(1, 0, 0)
-            || Target.IsTileSolid(1, 0, 1)) return false;
+        if (this is { SaveCooldown: 0, Target.dead: false, Target.grabbedBy.Count: 0 }
+            && Target.IsTileSolid(1, 0, -1)
+            && !Target.IsTileSolid(1, 0, 0)
+            && !Target.IsTileSolid(1, 0, 1))
+        {
+            Room.Tile tile = Target.room.GetTile(Target.bodyChunks[safeChunkIndex].pos);
 
-        Room.Tile tile = room.GetTile((Target is Player ? Target.bodyChunks[1] : Target.mainBodyChunk).pos);
+            return (!tile.DeepWater || isWaterBreathingCrit) && !tile.wormGrass;
+        }
 
-        return (!tile.DeepWater || isWaterBreathingCrit) && !tile.wormGrass;
+        return false;
     }
 
     /// <summary>
@@ -274,14 +305,14 @@ public class DeathProtection : UpdatableAndDeletable
     public static void CreateInstance(Creature target, int lifespan, WorldCoordinate? safePos = null, bool forceRevive = true)
     {
         if (CreateInstanceInternal(target, null, lifespan, safePos, forceRevive))
-            Main.Logger?.LogInfo($"Preventing all death from {target} for {lifespan} ticks.");
+            Main.Logger.LogInfo($"Preventing all death from {target} for {lifespan} ticks.");
     }
 
     /// <inheritdoc cref="DeathProtection(Player,Predicate{Player},int,WorldCoordinate?,bool)"/>
     public static void CreateInstance(Creature target, Predicate<Creature> condition, WorldCoordinate? safePos = null, bool forceRevive = true)
     {
         if (CreateInstanceInternal(target, condition, 40, safePos, forceRevive))
-            Main.Logger?.LogInfo($"Preventing all death from {target} {(condition == NullCondition ? "indefinitely" : "conditionally")}.");
+            Main.Logger.LogInfo($"Preventing all death from {target} {(condition == NullCondition ? "indefinitely" : "conditionally")}.");
     }
 
     public static bool HasProtection(Creature? target) => target is not null && _activeInstances.TryGetValue(target, out _);

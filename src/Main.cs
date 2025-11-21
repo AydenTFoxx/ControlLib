@@ -11,8 +11,6 @@ using Kittehface.Framework20;
 using ModLib;
 using ModLib.Logging;
 using ModLib.Options;
-using Mono.Cecil.Cil;
-using MonoMod.Cil;
 
 #pragma warning disable CS0618 // Type or member is obsolete
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
@@ -27,7 +25,7 @@ public class Main : ModPlugin
     public const string PLUGIN_GUID = "ynhzrfxn.controllib";
     public const string PLUGIN_VERSION = "0.5.0";
 
-    internal static new IMyLogger? Logger { get; private set; }
+    internal static new ModLogger Logger { get; private set; }
 
     internal static new ManualLogSource LogSource
     {
@@ -52,9 +50,11 @@ public class Main : ModPlugin
         }
     }
 
-    private static IMyLogger? RWCustomLogger;
+    private static ModLogger? RWCustomLogger;
 
     private static readonly Dictionary<string, ConfigValue> TempOptions = [];
+
+#nullable disable warnings
 
     static Main()
     {
@@ -70,10 +70,12 @@ public class Main : ModPlugin
         TempOptions.Add("stun_death_threshold", new ConfigValue(100));
     }
 
+#nullable restore warnings
+
     public Main()
-        : base(new Options(), new LogWrapper(LoggingAdapter.CreateLogger(LogSource)))
+        : base(new Options(), LoggingAdapter.CreateLogger(LogSource, true))
     {
-        Logger = base.Logger;
+        Logger = base.Logger ?? new FallbackLogger(LogSource);
     }
 
     public override void OnEnable()
@@ -91,12 +93,11 @@ public class Main : ModPlugin
             OptionUtils.SharedOptions.AddTemporaryOption(optionPair.Key, optionPair.Value, false);
         }
 
-#if DEBUG
         try
         {
             if (Achievements.implementation is null)
             {
-                Logger?.LogMessage($"Setting AchievementsImpl instance to {nameof(Achievements.StandaloneAchievementsImpl)}");
+                Logger.LogMessage($"Setting AchievementsImpl instance to {nameof(Achievements.StandaloneAchievementsImpl)}");
 
                 Achievements.implementation = new Achievements.StandaloneAchievementsImpl();
                 Achievements.implementation.Initialize();
@@ -104,9 +105,8 @@ public class Main : ModPlugin
         }
         catch (Exception ex)
         {
-            Logger?.LogError($"Could not replace AchievementsImpl instance: {ex}");
+            Logger.LogError($"Could not replace AchievementsImpl instance: {ex}");
         }
-#endif
     }
 
     public override void OnDisable()
@@ -150,10 +150,11 @@ public class Main : ModPlugin
 
         if (RWCustomLogger is not null)
         {
-            IL.RWCustom.Custom.LogImportant -= Extras.WrapILHook(RedirectImportantCustomLogsILHook);
-            IL.RWCustom.Custom.LogWarning -= Extras.WrapILHook(RedirectWarningCustomLogsILHook);
-
             On.RWCustom.Custom.Log -= RedirectCustomLoggingHook;
+            On.RWCustom.Custom.LogImportant -= RedirectImportantCustomLogsHook;
+            On.RWCustom.Custom.LogWarning -= RedirectWarningCustomLogsHook;
+
+            RWCustomLogger = null;
         }
     }
 
@@ -161,14 +162,13 @@ public class Main : ModPlugin
     {
         orig.Invoke(self);
 
-        if (RainWorld.ShowLogs && !Extras.IsMeadowEnabled)
+        if (RainWorld.ShowLogs && !Extras.IsMeadowEnabled && RWCustomLogger is null)
         {
             RWCustomLogger = LoggingAdapter.CreateLogger(BepInEx.Logging.Logger.CreateLogSource("RWCustom"));
 
-            IL.RWCustom.Custom.LogImportant += Extras.WrapILHook(RedirectImportantCustomLogsILHook);
-            IL.RWCustom.Custom.LogWarning += Extras.WrapILHook(RedirectWarningCustomLogsILHook);
-
             On.RWCustom.Custom.Log += RedirectCustomLoggingHook;
+            On.RWCustom.Custom.LogImportant += RedirectImportantCustomLogsHook;
+            On.RWCustom.Custom.LogWarning += RedirectWarningCustomLogsHook;
         }
     }
 
@@ -179,49 +179,17 @@ public class Main : ModPlugin
         RWCustomLogger?.LogInfo(string.Join(" ", values));
     }
 
-    private static void RedirectImportantCustomLogsILHook(ILContext context)
+    private static void RedirectImportantCustomLogsHook(On.RWCustom.Custom.orig_LogImportant orig, string[] values)
     {
-        ILCursor c = new(context);
-        ILLabel? target = null;
+        orig.Invoke(values);
 
-        c.GotoNext(MoveType.Before,
-            static x => x.MatchLdsfld(typeof(RainWorld).GetField(nameof(RainWorld.ShowLogs))),
-            x => x.MatchBrfalse(out target)
-        ).MoveAfterLabels();
-
-        // Target: if (RainWorld.ShowLogs) { UnityEngine.Debug.Log(string.Join(" ", values)); }
-        //                                  ^ HERE (Prepend)
-
-        c.Emit(OpCodes.Ldc_I4_0).Emit(OpCodes.Ldarg_1).EmitDelegate(LogToCustomLogger);
-
-        // Result: if (RainWorld.ShowLogs) { RedirectCustomLogging(false, values); UnityEngine.Debug.Log(string.Join(" ", values)); }
+        RWCustomLogger?.LogMessage(string.Join(" ", values));
     }
 
-    private static void RedirectWarningCustomLogsILHook(ILContext context)
+    private static void RedirectWarningCustomLogsHook(On.RWCustom.Custom.orig_LogWarning orig, string[] values)
     {
-        ILCursor c = new(context);
-        ILLabel? target = null;
+        orig.Invoke(values);
 
-        c.GotoNext(MoveType.Before,
-            static x => x.MatchLdsfld(typeof(RainWorld).GetField(nameof(RainWorld.ShowLogs))),
-            x => x.MatchBrfalse(out target)
-        ).MoveAfterLabels();
-
-        // Target: if (RainWorld.ShowLogs) { UnityEngine.Debug.Log(string.Join(" ", values)); }
-        //                                  ^ HERE (Prepend)
-
-        c.Emit(OpCodes.Ldc_I4_1).Emit(OpCodes.Ldarg_1).EmitDelegate(LogToCustomLogger);
-
-        // Result: if (RainWorld.ShowLogs) { RedirectCustomLogging(true, values); UnityEngine.Debug.LogWarning(string.Join(" ", values)); }
-    }
-
-    private static void LogToCustomLogger(bool isWarning, params string[] values)
-    {
-        if (RWCustomLogger is null) return;
-
-        if (isWarning)
-            RWCustomLogger.LogWarning(string.Join(" ", values));
-        else
-            RWCustomLogger.LogMessage(string.Join(" ", values));
+        RWCustomLogger?.LogWarning(string.Join(" ", values));
     }
 }

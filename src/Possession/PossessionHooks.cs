@@ -1,3 +1,4 @@
+using ControlLib.Possession.Graphics;
 using ControlLib.Telekinetics;
 using ModLib;
 using ModLib.Meadow;
@@ -23,10 +24,16 @@ public static class PossessionHooks
 
         On.Player.AddFood += AddPossessionTimeHook;
         On.Player.Destroy += DisposePossessionManagerHook;
-        On.Player.OneWayPlacement += WarpPlayerAccessoriesHook;
         On.Player.Update += UpdatePlayerPossessionHook;
 
         On.UpdatableAndDeletable.Destroy += PreventCreatureDestructionHook;
+
+        if (ModManager.Watcher)
+        {
+            On.Player.OneWayPlacement += WarpPlayerAccessoriesHook;
+
+            On.Watcher.LizardBlizzardModule.IsForbiddenToPull += ForbidPushingPlayerAccessoriesHook;
+        }
     }
 
     /// <summary>
@@ -40,10 +47,16 @@ public static class PossessionHooks
 
         On.Player.AddFood -= AddPossessionTimeHook;
         On.Player.Destroy -= DisposePossessionManagerHook;
-        On.Player.OneWayPlacement -= WarpPlayerAccessoriesHook;
         On.Player.Update -= UpdatePlayerPossessionHook;
 
         On.UpdatableAndDeletable.Destroy -= PreventCreatureDestructionHook;
+
+        if (ModManager.Watcher)
+        {
+            On.Player.OneWayPlacement -= WarpPlayerAccessoriesHook;
+
+            On.Watcher.LizardBlizzardModule.IsForbiddenToPull -= ForbidPushingPlayerAccessoriesHook;
+        }
     }
 
     /// <summary>
@@ -76,6 +89,12 @@ public static class PossessionHooks
             manager.StopCreaturePossession(self);
         }
     }
+
+    /// <summary>
+    /// Prevents Blizzard Lizards' blizzard shield from pushing around abstract concepts such as player UI.
+    /// </summary>
+    private static bool ForbidPushingPlayerAccessoriesHook(On.Watcher.LizardBlizzardModule.orig_IsForbiddenToPull orig, Watcher.LizardBlizzardModule self, UpdatableAndDeletable uad) =>
+        uad is not PlayerAccessory && orig.Invoke(self, uad);
 
     /// <summary>
     /// Prevents the destruction of creatures who are under death protection.
@@ -172,20 +191,20 @@ public static class PossessionHooks
 
         if (creature.room is null)
         {
-            Main.Logger?.LogWarning($"{creature} not found in a room! Setting to last protection room: {protection.room?.abstractRoom.FileName}");
+            Main.Logger.LogWarning($"{creature} not found in a room! Setting to last protection room: {protection.room?.abstractRoom.name}");
 
             creature.room = protection.room;
 
             if (creature.room is null)
             {
-                Main.Logger?.LogWarning($"{protection} not found in a room! Defaulting to first realized player: {creature.abstractCreature.world.game.FirstRealizedPlayer}");
+                Main.Logger.LogWarning($"{protection} not found in a room! Defaulting to first realized player: {creature.abstractCreature.world.game.FirstRealizedPlayer}");
 
                 creature.room = creature.abstractCreature.world.game.FirstRealizedPlayer?.room;
             }
 
             if (creature.room is null)
             {
-                Main.Logger?.LogWarning($"Fallback player room not found! Trying to use game camera as a last resort...");
+                Main.Logger.LogWarning($"Fallback player room not found! Trying to use game camera as a last resort...");
 
                 foreach (RoomCamera camera in creature.abstractCreature.world.game.cameras)
                 {
@@ -193,7 +212,7 @@ public static class PossessionHooks
 
                     if (creature.room is not null)
                     {
-                        Main.Logger?.LogInfo($"Using camera room {creature.room.abstractRoom.FileName}!");
+                        Main.Logger.LogInfo($"Using camera room {creature.room.abstractRoom.name}!");
                         break;
                     }
                 }
@@ -201,7 +220,7 @@ public static class PossessionHooks
 
             if (creature.room is null)
             {
-                Main.Logger?.LogError($"Failed to retrieve any valid room for {creature}! Destruction will not be prevented.");
+                Main.Logger.LogError($"Failed to retrieve any valid room for {creature}! Destruction will not be prevented.");
                 return false;
             }
         }
@@ -236,7 +255,7 @@ public static class PossessionHooks
 
         creature.room.PlaySound(SoundID.SB_A14, creature.mainBodyChunk, false, 1f, 1.25f + (Random.value * 0.5f));
 
-        Main.Logger?.LogInfo($"{creature} was saved from destruction!");
+        Main.Logger.LogInfo($"{creature} was saved from destruction!");
         return true;
     }
 
@@ -262,7 +281,7 @@ public static class PossessionHooks
             return !isRecursive && UpdateCreaturePossession(self, true);
         }
 
-        if (!manager.HasPossession(self) || !manager.IsPossessionValid(self))
+        if (!manager.HasCreaturePossession(self) || !manager.IsPossessionValid(self))
         {
             manager.StopCreaturePossession(self);
 

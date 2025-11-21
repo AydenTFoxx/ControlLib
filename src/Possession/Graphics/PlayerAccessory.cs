@@ -11,28 +11,50 @@ public abstract class PlayerAccessory : CosmeticSprite
 
     public Vector2 camPos;
     public float alpha;
+    public float targetAlpha;
+
+    protected Vector2 velocity;
 
     protected float colorTime;
     protected bool invertColorLerp;
 
     private Vector2 lastMarkPos;
 
-    public PlayerAccessory(PossessionManager manager)
+    protected bool FollowsPlayer { get; }
+
+    public PlayerAccessory(PossessionManager manager, bool followsPlayer = true)
     {
+        FollowsPlayer = followsPlayer;
+
         Manager = manager;
         player = manager.GetPlayer();
 
         player.room?.AddObject(this);
     }
 
-    public virtual void TryRealizeInRoom(Room playerRoom)
+    public PlayerAccessory(Player owner, bool followsPlayer = true)
+    {
+        FollowsPlayer = followsPlayer;
+
+        Manager = null!;
+        player = owner;
+
+        owner.room?.AddObject(this);
+    }
+
+    public virtual void TryRealizeInRoom(Room newRoom, Vector2 newPos)
     {
         room?.RemoveObject(this);
 
-        playerRoom.AddObject(this);
+        newRoom.AddObject(this);
 
-        pos = player.mainBodyChunk.pos - camPos;
+        pos = newPos;
     }
+
+    public float UpdateAlpha(float speed = 0.05f) =>
+        targetAlpha == alpha
+            ? alpha
+            : (alpha = Mathf.Clamp01(alpha + ((targetAlpha - alpha) * speed)));
 
     public void UpdateColorLerp(bool applyLerp)
     {
@@ -59,9 +81,9 @@ public abstract class PlayerAccessory : CosmeticSprite
             return;
         }
 
-        if (player.room is not null && player.room != room)
+        if (this is { FollowsPlayer: true, player.room: not null } && player.room != room)
         {
-            TryRealizeInRoom(player.room);
+            TryRealizeInRoom(player.room, player.mainBodyChunk.pos - camPos);
         }
     }
 

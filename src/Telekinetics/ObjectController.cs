@@ -94,15 +94,15 @@ public class ObjectController : PlayerCarryableItem
     {
         if (Owner is null || Target is null) return;
 
-        if (input.x == 0 && lastInput.x != 0)
+        if (this is { input.x: 0, lastInput.x: not 0 })
             input.x = lastInput.x;
 
-        if (input.y == 0 && lastInput.y != 0)
+        if (this is { input.y: 0, lastInput.y: not 0 })
             input.y = lastInput.y;
 
         Owner.input[0] = input;
 
-        if (input.x == 0 && input.y != 0)
+        if (input is { x: 0, y: not 0 })
         {
             Owner.animation = Player.AnimationIndex.Flip;
             Owner.jumpBoost = 3f;
@@ -122,7 +122,7 @@ public class ObjectController : PlayerCarryableItem
     {
         base.Destroy();
 
-        if (Target is not null && Owner is not null && Owner.TryGetPossessionManager(out PossessionManager manager))
+        if (this is { Target: not null, Owner: not null } && Owner.TryGetPossessionManager(out PossessionManager manager))
         {
             manager.StopItemPossession(Target);
         }
@@ -166,7 +166,7 @@ public class ObjectController : PlayerCarryableItem
             Owner ??= upPicker as Player;
         }
 
-        Main.Logger?.LogDebug($"ObjectController was picked up by {upPicker}!");
+        Main.Logger.LogDebug($"ObjectController was picked up by {upPicker}!");
 
         if (Target is null || Owner is null) return;
 
@@ -250,12 +250,12 @@ public class ObjectController : PlayerCarryableItem
             }
         }
 
-        if (input.thrw && TargetGrasp is not null)
+        if (this is { input.thrw: true, TargetGrasp: not null })
         {
             ThrowObject(TargetGrasp.graspUsed);
             return;
         }
-        else if (input.y < 0 && input.pckp)
+        else if (input is { y: < 0, pckp: true })
         {
             Destroy();
             return;

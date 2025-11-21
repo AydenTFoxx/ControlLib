@@ -12,6 +12,10 @@ Possessing the same item twice causes it to be thrown at the player's position, 
 
 Possessing a spear stuck in a wall/ceiling leaves behind an invisible beam, which can still be climbed by Slugcat.
 
+TargetSelector sometimes fails to query for targets, as if the player had just queried beforehand. Reusing TargetCursor multiple times eventually fixes the issue.
+
+PossessionTimer lerps kinda funny when changing screens, swiftly jumping between the last position and the new one.
+
 // Green Lizard ID.25063.5154 // Rot Lizor, betrayer of scugs
 
 // Slugpup ID.-1.3172 // Monky
@@ -37,3 +41,6 @@ TODO: Add helper methods to ControlLib.Main to aid in the addition of custom slu
 TODO: Divine Slugcat Blast
 
 TODO: (ModLib) Separate ServerOptions instances and make OptionUtils reference Registry.MyMod to retrieve the correct instance.
+
+TODO: Add "detached" mode for possessed items, where they follow Slugcat around without being explicitly controlled.
+      Optionally also allow some cool interactions, like grabbing these objects or commanding them to attack a creature.

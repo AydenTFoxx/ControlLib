@@ -110,7 +110,7 @@ public class Options : OptionInterface
     {
         base.Initialize();
 
-        Main.Logger?.LogInfo($"{nameof(Options)}: Initialized REMIX menu interface.");
+        Main.Logger.LogInfo($"{nameof(Options)}: Initialized REMIX menu interface.");
 
         Tabs = new OpTab[3];
 
@@ -163,7 +163,7 @@ public class Options : OptionInterface
         }
     }
 
-    private static void OnMindBlastChanged() => Keybinds.ToggleMindBlast(MIND_BLAST.Value);
+    private static void OnMindBlastChanged() => Keybinds.MIND_BLAST.ToggleIICKeybind(MIND_BLAST.Value);
 }
 
 public static class OptionBuilderExts

@@ -1,13 +1,13 @@
 using System.Runtime.CompilerServices;
-using MoreSlugcats;
 using RWCustom;
 using UnityEngine;
 
 namespace ControlLib.Possession.Graphics;
 
-public class PossessionTimer(PossessionManager manager)
-    : PlayerAccessory(manager)
+public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manager)
 {
+    public PossessionMark? FollowMark { get; set; }
+
     private int PipSpritesLength =>
         Manager.IsAttunedSlugcat
             ? 16
@@ -20,7 +20,7 @@ public class PossessionTimer(PossessionManager manager)
     private bool IsPlayerVisible
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => player?.room is not null && !player.dead;
+        get => player is { room: not null, dead: false };
     }
 
     private bool ShouldShowPips
@@ -31,7 +31,7 @@ public class PossessionTimer(PossessionManager manager)
 
     private Color PipColor =>
         player.graphicsModule is PlayerGraphics playerGraphics
-            ? Color.Lerp(GetPlayerColor(playerGraphics), Color.white, 0.5f)
+            ? Color.Lerp(PlayerGraphics.SlugcatColor(playerGraphics.CharacterForColor), Color.white, 0.5f)
             : Color.white;
 
     private Color FlashingPipColor =>
@@ -43,15 +43,15 @@ public class PossessionTimer(PossessionManager manager)
 
     public override void DrawSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, float timeStacker, Vector2 camPos)
     {
-        pos = IsPlayerVisible ? Vector2.SmoothDamp(lastPos, GetMarkPos(camPos, timeStacker), ref vel, 0.05f) : GetMarkPos(camPos, timeStacker);
+        pos = FollowMark is not null
+            ? FollowMark.MarkPos
+            : IsPlayerVisible
+                ? Vector2.SmoothDamp(lastPos, GetMarkPos(camPos, timeStacker), ref velocity, 0.05f)
+                : GetMarkPos(camPos, timeStacker);
 
-        alpha += ((ShouldShowPips ? 1f : 0f) - alpha) * 0.05f;
+        targetAlpha = Mathf.Clamp01(targetAlpha + (((ShouldShowPips ? 1f : 0f) - alpha) * 0.05f));
 
-        if (alpha <= 0f)
-        {
-            this.camPos = camPos;
-            return;
-        }
+        if (UpdateAlpha() <= 0f) return;
 
         float pipScale = Manager.MaxPossessionTime / PipSpritesLength;
 
@@ -70,7 +70,7 @@ public class PossessionTimer(PossessionManager manager)
 
         UpdateColorLerp(Manager.LowPossessionTime || Manager.TargetSelector?.State is TargetSelector.QueryingState);
 
-        float radius = Manager.IsPossessing ? 15f : 6f;
+        float radius = Manager.IsPossessing ? 12f : 6f;
         rubberRadius += (radius - rubberRadius) * 0.045f;
 
         if (rubberRadius < 5f)
@@ -102,13 +102,4 @@ public class PossessionTimer(PossessionManager manager)
 
         base.InitiateSprites(sLeaser, rCam);
     }
-
-    public static Color GetPlayerColor(PlayerGraphics graphics) =>
-        IsSofanthielSlugpup(graphics.player)
-            ? Color.red
-            : PlayerGraphics.SlugcatColor(graphics.CharacterForColor);
-
-    public static bool IsSofanthielSlugpup(Player player) =>
-        player.SlugCatClass == MoreSlugcatsEnums.SlugcatStatsName.Slugpup
-        && player.room?.world.game.rainWorld.progression.miscProgressionData.currentlySelectedSinglePlayerSlugcat == MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel;
 }

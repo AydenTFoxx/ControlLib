@@ -57,7 +57,7 @@ public class MindBlast : CosmeticSprite
     {
         if (room is null || killFac < 0.3f)
         {
-            Main.Logger?.LogDebug($"{nameof(MindBlast)}: Got interrupted but cannot go kaboom; Ignoring. (Room is: {room} | killFac is {killFac})");
+            Main.Logger.LogDebug($"{nameof(MindBlast)}: Got interrupted but cannot go kaboom; Ignoring. (Room is: {room} | killFac is {killFac})");
 
             Destroy();
             return;
@@ -102,7 +102,7 @@ public class MindBlast : CosmeticSprite
             room.AddObject(new CreatureSpasmer(player, false, stunTime / 2));
         }
 
-        Main.Logger?.LogDebug($"{nameof(MindBlast)}: Interrupted! Progress was: {killFac}");
+        Main.Logger.LogDebug($"{nameof(MindBlast)}: Interrupted! Progress was: {killFac}");
 
         Destroy();
     }
@@ -166,7 +166,7 @@ public class MindBlast : CosmeticSprite
                 }
             }
 
-            if (FadeProgress <= 0.5f && !enlightenedRoom)
+            if (this is { FadeProgress: <= 0.5f, enlightenedRoom: false })
             {
                 enlightenedRoom = true;
 
@@ -184,7 +184,7 @@ public class MindBlast : CosmeticSprite
                     {
                         if (crit is not Player && crit.Template.baseDamageResistance <= 0.1f * Power)
                         {
-                            Main.Logger?.LogDebug($"Die! {crit} (Too weak to withstand MindBlast)");
+                            Main.Logger.LogDebug($"Die! {crit} (Too weak to withstand MindBlast)");
 
                             stunPower = int.MaxValue;
 
@@ -195,7 +195,7 @@ public class MindBlast : CosmeticSprite
                         }
                         else
                         {
-                            Main.Logger?.LogDebug($"Target: ({physicalObject}); Stun power: {stunPower} | Velocity: {velocity}");
+                            Main.Logger.LogDebug($"Target: ({physicalObject}); Stun power: {stunPower} | Velocity: {velocity}");
                         }
                     }
                     else if (physicalObject is Oracle oracle && stunPower > 0f)
@@ -208,7 +208,7 @@ public class MindBlast : CosmeticSprite
 
                     if (!room.game.IsArenaSession && physicalObject is Player plr && plr != player && (plr.dead || velocity > 0f))
                     {
-                        Main.Logger?.LogDebug($"Protecting other slugcat: {plr}");
+                        Main.Logger.LogDebug($"Protecting other slugcat: {plr}");
 
                         DeathProtection.CreateInstance(plr, PlayerProtectionCondition);
                     }
@@ -261,7 +261,7 @@ public class MindBlast : CosmeticSprite
 
                     int locustCount = room.locusts.cloudLocusts.Count + room.locusts.groundLocusts.Count;
 
-                    Main.Logger?.LogDebug($"Locusts found: {locustCount}");
+                    Main.Logger.LogDebug($"Locusts found: {locustCount}");
 
                     foreach (LocustSystem.GroundLocust locust in room.locusts.groundLocusts)
                     {
@@ -294,7 +294,7 @@ public class MindBlast : CosmeticSprite
                     {
                         player.repelLocusts = Mathf.Max(player.repelLocusts, (int)(stunFactor * Power * 0.1f * locustCount));
 
-                        Main.Logger?.LogDebug($"Locust repellant duration: {player.repelLocusts}");
+                        Main.Logger.LogDebug($"Locust repellant duration: {player.repelLocusts}");
                     }
                 }
 
@@ -318,18 +318,18 @@ public class MindBlast : CosmeticSprite
 
             Explode();
         }
-        else if (activateLightning is null && killFac >= 0.15f)
+        else if (this is { activateLightning: null, killFac: >= 0.15f })
         {
             activateLightning = new LightningMachine(pos, pos, new Vector2(pos.x, pos.y + 10f), 0f, false, true, 0.5f, 0.5f * Power, 1f)
             {
                 volume = 0.8f,
                 impactType = 3,
-                lightningType = 0.1f * Power
+                lightningType = Mathf.Pow(0.1f, Power)
             };
 
             room.AddObject(activateLightning);
 
-            Main.Logger?.LogDebug($"{nameof(MindBlast)}: Creating lightning machine!");
+            Main.Logger.LogDebug($"{nameof(MindBlast)}: Creating lightning machine!");
         }
 
         if (activateLightning is not null)
@@ -362,7 +362,7 @@ public class MindBlast : CosmeticSprite
             manager.TargetSelector?.ResetSelectorInput(true);
         }
 
-        Main.Logger?.LogDebug($"{nameof(MindBlast)} from {player} was destroyed!");
+        Main.Logger.LogDebug($"{nameof(MindBlast)} from {player} was destroyed!");
     }
 
     public override void InitiateSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam)
@@ -463,13 +463,13 @@ public class MindBlast : CosmeticSprite
 
         bool result = room.game.session.creatureCommunities.LikeOfPlayer(creature.creatureTemplate.communityID, room.world?.RegionNumber ?? 0, player.playerState.playerNumber) >= 0.5f;
 
-        Main.Logger?.LogDebug($"# Community of {creature} likes player? {result}");
+        Main.Logger.LogDebug($"# Community of {creature} likes player? {result}");
 
         if (!result)
         {
             result = creature.abstractAI.RealAI.friendTracker?.friend == player;
 
-            Main.Logger?.LogDebug($"# Is {creature} friend of player? {result}");
+            Main.Logger.LogDebug($"# Is {creature} friend of player? {result}");
         }
 
         return result;
@@ -483,7 +483,7 @@ public class MindBlast : CosmeticSprite
                 ? "Room or player is null"
                 : "Player already has an active instance";
 
-            Main.Logger?.LogDebug($"Could not create MindBlast instance: {reason}.");
+            Main.Logger.LogDebug($"Could not create MindBlast instance: {reason}.");
             return null!;
         }
 
@@ -498,7 +498,7 @@ public class MindBlast : CosmeticSprite
         if (!allowMultiple)
             _activeInstances.Add(player, mindBlast);
 
-        Main.Logger?.LogDebug($"Created new MindBlast for {player}!");
+        Main.Logger.LogDebug($"Created new MindBlast for {player}!");
         return mindBlast;
     }
 

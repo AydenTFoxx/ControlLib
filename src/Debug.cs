@@ -344,7 +344,12 @@ public static class Debug
 
         if (player.TryGetPossessionManager(out PossessionManager manager))
         {
-            player.RemovePossessionManager();
+            if (manager.GetPlayer() != player)
+            {
+                Main.Logger.LogWarning($"PossessionManager owner mismatch! Manager is bound to: {player}; But owner is: {manager.GetPlayer()}! Removing bound manager from {player}.");
+
+                player.RemovePossessionManager();
+            }
 
             manager.Dispose();
         }
@@ -447,7 +452,7 @@ public static class Debug
         if (targetItem is null)
             return NoTargetFoundResult;
 
-        Main.Logger?.LogDebug($"Selected target is: {targetItem}");
+        Main.Logger.LogDebug($"Selected target is: {targetItem}");
 
         AbstractPhysicalObject abstractController = new(
             player.abstractCreature.world,
@@ -476,7 +481,7 @@ public static class Debug
             abstractController.Destroy();
             abstractController.realizedObject?.Destroy();
 
-            Main.Logger?.LogWarning("Failed to realize controller object, aborting operation.");
+            Main.Logger.LogWarning("Failed to realize controller object, aborting operation.");
 
             return Result.GenericFailure;
         }
@@ -508,11 +513,11 @@ public static class Debug
 
             if (controlledCrits.Count > 0)
             {
-                Main.Logger?.LogWarning($"Found controlled creatures with no controlling player! Affected crits are: {PossessionManager.FormatPossessions(controlledCrits)}.");
+                Main.Logger.LogWarning($"Found controlled creatures with no controlling player! Affected crits are: {PossessionManager.FormatPossessions(controlledCrits)}.");
 
                 foreach (AbstractCreature creature in controlledCrits)
                 {
-                    Main.Logger?.LogInfo($"Setting controlled field of {creature} to false.");
+                    Main.Logger.LogInfo($"Setting controlled field of {creature} to false.");
 
                     creature.controlled = false;
 
@@ -600,7 +605,7 @@ public static class Debug
         }
         else
         {
-            Main.Logger?.LogWarning($"Failed to retrieve the player with index {playerIndex}: {(isIndexValid ? "Game instance not found" : "Not a valid positive number")}.");
+            Main.Logger.LogWarning($"Failed to retrieve the player with index {playerIndex}: {(isIndexValid ? "Game instance not found" : "Not a valid positive number")}.");
 
             player = null!;
             result = isIndexValid ? GameNotFoundResult : new Result(false, "Index number is not valid.");

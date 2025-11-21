@@ -64,7 +64,7 @@ public static class ExplosionManager
 
         if (realizedBomb is null)
         {
-            Main.Logger?.LogWarning($"Failed to realize explosion for {caller}! Destroying abstract object.");
+            Main.Logger.LogWarning($"Failed to realize explosion for {caller}! Destroying abstract object.");
 
             abstractBomb.Destroy();
             return;
@@ -92,7 +92,7 @@ public static class ExplosionManager
         }
         else
         {
-            Main.Logger?.LogWarning($"{realizedBomb} is not a supported kaboom type; Destroying object.");
+            Main.Logger.LogWarning($"{realizedBomb} is not a supported kaboom type; Destroying object.");
 
             realizedBomb?.Destroy();
             abstractBomb.Destroy();

@@ -29,28 +29,28 @@ public static class Keybinds
         POSSESS = Keybind.Register("Possess", KeyCode.V, KeyCode.Joystick1Button1);
         MIND_BLAST = Keybind.Register("Mind Blast", KeyCode.B, KeyCode.Joystick1Button2);
 
-        if (OptionUtils.IsOptionEnabled("modlib.debug"))
-            POSSESS_ITEM = Keybind.Register("Possess Item", KeyCode.F, KeyCode.Joystick1Button10);
+        POSSESS_ITEM = Keybind.Register("Possess Item", KeyCode.F, KeyCode.Joystick1Button10);
 
-        ToggleMindBlast(Options.MIND_BLAST.Value);
+        MIND_BLAST.ToggleIICKeybind(Options.MIND_BLAST.Value);
+        POSSESS_ITEM.ToggleIICKeybind(OptionUtils.IsOptionEnabled("modlib.debug"));
     }
 
-    public static void ToggleMindBlast(bool enable)
+    public static void ToggleIICKeybind(this Keybind self, bool enable)
     {
         if (!Extras.IsIICEnabled) return;
 
         try
         {
-            ImprovedInputAccess.ToggleMindBlast(enable);
+            ImprovedInputAccess.ToggleKeybind(self, enable);
         }
         catch (Exception ex)
         {
-            Main.Logger?.LogError($"Failed to toggle Mind Blast option: {ex}");
+            Main.Logger.LogError($"Failed to toggle Mind Blast option: {ex}");
         }
     }
 
     private static class ImprovedInputAccess
     {
-        public static void ToggleMindBlast(bool enable) => ((PlayerKeybind)MIND_BLAST).HideConfig = !enable;
+        public static void ToggleKeybind(Keybind keybind, bool enable) => ((PlayerKeybind)keybind).HideConfig = !enable;
     }
 }

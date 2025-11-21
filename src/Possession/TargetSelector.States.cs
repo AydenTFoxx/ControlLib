@@ -31,7 +31,7 @@ public partial class TargetSelector
             if (Order > state.Order && WrapsTo != state.Order)
                 throw new InvalidOperationException($"Cannot move backwards from state {this} to {state}.");
 
-            Main.Logger?.LogInfo($"Moving into state: {state}");
+            Main.Logger.LogInfo($"Moving into state: {state}");
 
             return state;
         }
@@ -56,7 +56,7 @@ public partial class TargetSelector
             if (selector.targetCursor is not null)
             {
                 selector.targetCursor.ResetCursor(true, forceAlpha: false);
-                selector.targetCursor.room?.AddObject(new ShockWave(selector.targetCursor.GetPos(), 20f, 0.075f, 4, true));
+                selector.targetCursor.room?.AddObject(new ShockWave(selector.targetCursor.GetPos(), 24f, 0.1f, 5, true));
             }
             else
             {
@@ -99,12 +99,12 @@ public partial class TargetSelector
                 }
                 else
                 {
-                    Main.Logger?.LogInfo("Target was invalid, ignoring.");
+                    Main.Logger.LogInfo("Target was invalid, ignoring.");
                 }
             }
             else if (!isRecursive)
             {
-                Main.Logger?.LogInfo("Query is empty; Refreshing.");
+                Main.Logger.LogInfo("Query is empty; Refreshing.");
 
                 selector.queryCreatures = QueryCreatures(selector.Player, selector.targetCursor);
 
@@ -119,7 +119,7 @@ public partial class TargetSelector
                     selector.Player.mushroomCounter = SetMushroomCounter(selector.Player, 20);
                 }
 
-                Main.Logger?.LogWarning("Failed to query for creatures in the room; Aborting operation.");
+                Main.Logger.LogWarning("Failed to query for creatures in the room; Aborting operation.");
 
                 selector.MoveToState(Idle);
             }
@@ -134,7 +134,7 @@ public partial class TargetSelector
 
             if (selector.Targets is null or { Count: 0 })
             {
-                Main.Logger?.LogError("List is null or empty; Aborting operation.");
+                Main.Logger.LogError("List is null or empty; Aborting operation.");
 
                 selector.MoveToState(Idle);
                 return;
@@ -142,7 +142,7 @@ public partial class TargetSelector
 
             if (selector.ExceededTimeLimit)
             {
-                Main.Logger?.LogInfo("Player took too long, ignoring input.");
+                Main.Logger.LogInfo("Player took too long, ignoring input.");
 
                 selector.Targets.Clear();
 
@@ -158,7 +158,7 @@ public partial class TargetSelector
                 }
             }
 
-            Main.Logger?.LogInfo($"Started the possession of {selector.Targets.Count} target(s): {PossessionManager.FormatPossessions(selector.Targets)}");
+            Main.Logger.LogInfo($"Started the possession of {selector.Targets.Count} target(s): {PossessionManager.FormatPossessions(selector.Targets)}");
 
             selector.Player.monkAscension = false;
             selector.Targets.Clear();

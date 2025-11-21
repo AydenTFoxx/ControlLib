@@ -64,7 +64,7 @@ public static class TelekineticsHooks
 
             firstFrameTraceFromPos = self.firstChunk.pos - (throwDir.ToVector2() * 10f);
 
-            Main.Logger?.LogDebug($"Throwing weapon from {thrownPos}; Direction: {throwDir} (first frame trace: {firstFrameTraceFromPos})");
+            Main.Logger.LogDebug($"Throwing weapon from {thrownPos}; Direction: {throwDir} (first frame trace: {firstFrameTraceFromPos})");
         }
 
         orig.Invoke(self, thrownBy, thrownPos, firstFrameTraceFromPos, throwDir, frc, eu);

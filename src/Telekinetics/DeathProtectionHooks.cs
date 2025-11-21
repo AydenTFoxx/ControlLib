@@ -32,6 +32,9 @@ public static class DeathProtectionHooks
 
         On.RoomRain.CreatureSmashedInGround += IgnorePlayerRainDeathHook;
 
+        if (ModManager.Watcher)
+            On.Watcher.WarpPoint.SpawnPendingObject += WarpDeathProtectionHook;
+
         manualHooks = new Hook[2];
 
         manualHooks[0] = new Hook(
@@ -63,6 +66,9 @@ public static class DeathProtectionHooks
         On.RainWorldGame.GameOver += InterruptGameOverHook;
 
         On.RoomRain.CreatureSmashedInGround -= IgnorePlayerRainDeathHook;
+
+        if (ModManager.Watcher)
+            On.Watcher.WarpPoint.SpawnPendingObject -= WarpDeathProtectionHook;
 
         if (manualHooks is not null)
         {
@@ -117,6 +123,22 @@ public static class DeathProtectionHooks
             && DeathProtection.HasProtection(abstractCreature.realizedCreature)) return;
 
         orig.Invoke(self);
+    }
+
+    private static bool WarpDeathProtectionHook(On.Watcher.WarpPoint.orig_SpawnPendingObject orig, Watcher.WarpPoint self, AbstractPhysicalObject nextObject, bool immediateSpawn)
+    {
+        if (orig.Invoke(self, nextObject, immediateSpawn))
+        {
+            if (nextObject is AbstractCreature abstractCreature
+                && DeathProtection.TryGetProtection(abstractCreature.realizedCreature, out DeathProtection protection))
+            {
+                protection.RemoveFromRoom();
+
+                self.room.AddObject(protection);
+            }
+            return true;
+        }
+        return false;
     }
 
     /// <summary>
