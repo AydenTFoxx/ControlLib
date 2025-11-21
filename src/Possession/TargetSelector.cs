@@ -182,7 +182,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
         {
             if (targetCursor is not null)
             {
-                playerGraphics.LookAtPoint(targetCursor.GetPos(), 1000f);
+                playerGraphics.LookAtPoint(targetCursor.GetPos(), 800f);
             }
             else if (hasValidTargets)
             {
@@ -193,13 +193,10 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
                 playerGraphics.LookAtNothing();
             }
 
-            int handIndex = playerGraphics.hands[0].mode == Limb.Mode.Retracted ? 0 : 1;
-
-            Vector2 targetPos = targetCursor?.GetPos() ?? (hasValidTargets ? Targets[0].mainBodyChunk.pos : Vector2.zero);
-            targetPos = RWCustomExts.ClampedDist(targetPos, player.mainBodyChunk.pos, 80f);
+            int handIndex = player.grasps[0] is null ? 0 : 1;
 
             playerGraphics.hands[handIndex].reachingForObject = true;
-            playerGraphics.hands[handIndex].absoluteHuntPos = targetPos;
+            playerGraphics.hands[handIndex].absoluteHuntPos = RWCustomExts.ClampedDist(GetTargetPos(), player.mainBodyChunk.pos, 80f);
         }
 
         if (hasValidTargets)

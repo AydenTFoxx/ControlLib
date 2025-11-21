@@ -22,6 +22,16 @@
 		</Reference>
 	</ItemGroup>
 
+	<!-- Determinism config -->
+	<PropertyGroup>
+		<Deterministic>true</Deterministic>
+		<DeterministicSourcePaths>true</DeterministicSourcePaths>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<SourceRoot Include="$(MSBuildThisFileDirectory)/" />
+	</ItemGroup>
+
 	<!-- Post-compile tasks -->
 	<Target Name="GenerateLibrary" AfterTargets="PostBuildEvent">
 		<ItemGroup>
