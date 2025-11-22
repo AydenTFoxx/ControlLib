@@ -24,16 +24,12 @@ public static class PossessionHooks
 
         On.Player.AddFood += AddPossessionTimeHook;
         On.Player.Destroy += DisposePossessionManagerHook;
+        On.Player.OneWayPlacement += WarpPlayerAccessoriesHook;
         On.Player.Update += UpdatePlayerPossessionHook;
 
         On.UpdatableAndDeletable.Destroy += PreventCreatureDestructionHook;
 
-        if (ModManager.Watcher)
-        {
-            On.Player.OneWayPlacement += WarpPlayerAccessoriesHook;
-
-            On.Watcher.LizardBlizzardModule.IsForbiddenToPull += ForbidPushingPlayerAccessoriesHook;
-        }
+        On.Watcher.LizardBlizzardModule.IsForbiddenToPull += ForbidPushingPlayerAccessoriesHook;
     }
 
     /// <summary>
@@ -47,16 +43,12 @@ public static class PossessionHooks
 
         On.Player.AddFood -= AddPossessionTimeHook;
         On.Player.Destroy -= DisposePossessionManagerHook;
+        On.Player.OneWayPlacement -= WarpPlayerAccessoriesHook;
         On.Player.Update -= UpdatePlayerPossessionHook;
 
         On.UpdatableAndDeletable.Destroy -= PreventCreatureDestructionHook;
 
-        if (ModManager.Watcher)
-        {
-            On.Player.OneWayPlacement -= WarpPlayerAccessoriesHook;
-
-            On.Watcher.LizardBlizzardModule.IsForbiddenToPull -= ForbidPushingPlayerAccessoriesHook;
-        }
+        On.Watcher.LizardBlizzardModule.IsForbiddenToPull -= ForbidPushingPlayerAccessoriesHook;
     }
 
     /// <summary>

@@ -204,9 +204,7 @@ public static class Debug
 
         MindBlast? mindBlast = MindBlast.CreateInstance(player, null, true);
 
-        mindBlast.pos = player.TryGetPossessionManager(out PossessionManager manager) && manager.TargetSelector is not null
-            ? manager.TargetSelector.GetTargetPos()
-            : player.mainBodyChunk.pos;
+        mindBlast.pos = player.mainBodyChunk.pos;
 
         return new Result(true, mindBlast);
     }

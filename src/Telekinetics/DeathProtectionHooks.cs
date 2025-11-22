@@ -32,8 +32,7 @@ public static class DeathProtectionHooks
 
         On.RoomRain.CreatureSmashedInGround += IgnorePlayerRainDeathHook;
 
-        if (ModManager.Watcher)
-            On.Watcher.WarpPoint.SpawnPendingObject += WarpDeathProtectionHook;
+        On.Watcher.WarpPoint.SpawnPendingObject += WarpDeathProtectionHook;
 
         manualHooks = new Hook[2];
 
@@ -67,8 +66,7 @@ public static class DeathProtectionHooks
 
         On.RoomRain.CreatureSmashedInGround -= IgnorePlayerRainDeathHook;
 
-        if (ModManager.Watcher)
-            On.Watcher.WarpPoint.SpawnPendingObject -= WarpDeathProtectionHook;
+        On.Watcher.WarpPoint.SpawnPendingObject -= WarpDeathProtectionHook;
 
         if (manualHooks is not null)
         {
