@@ -10,20 +10,6 @@ namespace ControlLib;
 public static class ExplosionManager
 {
     /// <summary>
-    ///     Creates and immediately explodes a bomb of the given type at the target player's position.<br/>
-    ///     Guaranteed to kill, or have your porls back.
-    /// </summary>
-    /// <param name="player">The player to be targeted by and blamed for the explosion.</param>
-    /// <param name="bombType">The type of the explosive object to create.</param>
-    /// <param name="onRealizedCallback">
-    ///     If present, a method which is invoked with the created bomb as its argument,
-    ///     before the actual explosion occurs.
-    /// </param>
-    [Obsolete("Use ExplodeCreature instead.")]
-    public static void ExplodePlayer(Player player, AbstractPhysicalObject.AbstractObjectType bombType, Action<PhysicalObject>? onRealizedCallback = null) =>
-        ExplodePos(player, player.room, player.abstractCreature.pos, bombType, onRealizedCallback);
-
-    /// <summary>
     ///     Creates and immediately explodes a bomb of the given type at the target creature's position.<br/>
     ///     Nearly guaranteed to kill, or have your porls back.
     /// </summary>
@@ -89,6 +75,7 @@ public static class ExplosionManager
                 singularity.explodeColor = new Color(1f, 0.2f, 0.2f);
 
             singularity.Explode();
+            singularity.Destroy();
         }
         else
         {

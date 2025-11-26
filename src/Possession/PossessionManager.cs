@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Text;
 using ControlLib.Meadow;
@@ -36,23 +35,22 @@ public sealed class PossessionManager : IDisposable
         typeof(Rattler)
     ];
 
-    public int PossessionTimePotential { get; }
-    public bool IsHardmodeSlugcat { get; }
-    public bool IsAttunedSlugcat { get; }
-    public int MaxPossessionTime { get; }
-
-    public float Power => IsAttunedSlugcat ? 1.5f : IsHardmodeSlugcat ? 0.5f : 1f;
-
     private readonly WeakList<Creature> MyPossessions = [];
     private readonly WeakList<PhysicalObject> PossessedItems = [];
 
-    private Player player;
+    private readonly Player player;
     private PossessionTimer possessionTimer;
 
     private bool didReachLowPossessionTime;
     private bool disposedValue;
 
-    public TargetSelector TargetSelector { get; private set; }
+    public bool IsAttunedSlugcat { get; }
+    public bool IsHardmodeSlugcat { get; }
+
+    public int MaxPossessionTime { get; }
+    public int PossessionTimePotential { get; }
+
+    public TargetSelector TargetSelector { get; }
 
     public int PossessionCooldown { get; set; }
     public float PossessionTime
@@ -61,94 +59,30 @@ public sealed class PossessionManager : IDisposable
         set => field = !IsOptionEnabled(Options.INFINITE_POSSESSION) ? value : MaxPossessionTime;
     }
 
-    public bool IsPossessing
-    {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => MyPossessions.Count > 0 || PossessedItems.Count > 0;
-    }
-
-    public bool LowPossessionTime => (IsPossessing || OnMindBlastCooldown) && PossessionTime / MaxPossessionTime < 0.34f;
-
     public bool OnMindBlastCooldown { get; set; }
     public bool SpritesNeedReset { get; set; }
+
+    public bool IsPossessing => MyPossessions.Count > 0 || PossessedItems.Count > 0;
+    public bool LowPossessionTime => (IsPossessing || OnMindBlastCooldown) && PossessionTime / MaxPossessionTime < 0.34f;
+
+    public float Power => IsAttunedSlugcat ? 1.5f : IsHardmodeSlugcat ? 0.5f : 1f;
 
     public PossessionManager(Player player)
     {
         this.player = player;
 
-        string attunedSlugcats = FormatSlugcatNames(GetOptionValue<string>("attuned_slugcats")); // Default: "Monk, Saint"
-        string hardmodeSlugcats = FormatSlugcatNames(GetOptionValue<string>("hardmode_slugcats")); // Default: "Hunter, Artificer, Sofanthiel"
+        SlugcatPotential dynamicPotential = SlugcatPotential.PotentialForPlayer(player, out SlugcatPotential staticPotential);
 
-        IsAttunedSlugcat = attunedSlugcats.Contains(player.SlugCatClass.ToString());
+        IsAttunedSlugcat = dynamicPotential.IsAttuned;
+        IsHardmodeSlugcat = dynamicPotential.IsHardmode;
 
-        IsHardmodeSlugcat = hardmodeSlugcats.Contains(player.SlugCatClass.ToString());
-
-        PossessionTimePotential = player.SlugCatClass == MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel
-            ? GetOptionValue<int>("sofanthiel_possession_potential") // Default: 1
-            : IsAttunedSlugcat
-                ? GetOptionValue<int>("attuned_possession_potential") // Default: 480
-                : IsHardmodeSlugcat
-                    ? GetOptionValue<int>("hardmode_possession_potential") // Default: 240
-                    : GetOptionValue<int>("default_possession_potential"); // Default: 360
-
-        int? karmaValue = player.OutsideWatcherCampaign
-            ? player.room?.game.GetStorySession?.saveState.deathPersistentSaveData.karma + 1
-            : (int?)(player.room?.game.GetStorySession?.saveState.deathPersistentSaveData.rippleLevel * 2f);
-
-        if (karmaValue is not null)
-        {
-            if (!IsAttunedSlugcat && karmaValue >= 10)
-            {
-                PossessionTimePotential = IsHardmodeSlugcat
-                    ? GetOptionValue<int>("default_possession_potential")
-                    : GetOptionValue<int>("attuned_possession_potential");
-
-                IsAttunedSlugcat = true;
-            }
-            else if (IsAttunedSlugcat && karmaValue <= 1)
-            {
-                PossessionTimePotential = GetOptionValue<int>("default_possession_potential");
-
-                IsAttunedSlugcat = false;
-            }
-        }
-
-        MaxPossessionTime = GetMaxPossessionForSlugcat(player, PossessionTimePotential);
+        MaxPossessionTime = dynamicPotential.Potential;
         PossessionTime = MaxPossessionTime;
 
+        PossessionTimePotential = staticPotential.Potential;
+
         TargetSelector = new(player, this);
-
         possessionTimer = new(this);
-
-        static string FormatSlugcatNames(string? slugcatNames)
-        {
-            if (string.IsNullOrWhiteSpace(slugcatNames)) return string.Empty;
-
-            StringBuilder stringBuilder = new(slugcatNames);
-
-            stringBuilder.Replace("Hunter", "Red")
-                .Replace("Monk", "Yellow")
-                .Replace("Survivor", "White")
-                .Replace("Inv", "Sofanthiel")
-                .Replace("Enot", "Sofanthiel")
-                .Replace("Gorbo", "Sofanthiel");
-
-            return stringBuilder.ToString();
-        }
-
-        static int GetMaxPossessionForSlugcat(Player player, int potential)
-        {
-            if (player?.room is null || !player.room.game.IsStorySession) return potential;
-
-            DeathPersistentSaveData saveData = player.room.game.GetStorySession.saveState.deathPersistentSaveData;
-
-            int extraTime = (player.OutsideWatcherCampaign ? saveData.karma : (int)(saveData.rippleLevel * 2f)) * 40;
-
-            if (saveData.reinforcedKarma)
-                extraTime = (int)(extraTime * 1.5f);
-
-            return potential + extraTime;
-        }
     }
 
     /// <summary>
@@ -169,7 +103,8 @@ public sealed class PossessionManager : IDisposable
     /// <param name="target">The creature to be tested.</param>
     /// <returns><c>true</c> if the player can use their possession ability, <c>false</c> otherwise.</returns>
     public bool CanPossessCreature(Creature target) =>
-        CanPossess()
+        target != player
+        && CanPossess()
         && !IsBannedPossessionTarget(target)
         && IsPossessionValid(target);
 
@@ -700,10 +635,6 @@ public sealed class PossessionManager : IDisposable
         }
 
         MyPossessions.Clear();
-
-        player = null!;
-        possessionTimer = null!;
-        TargetSelector = null!;
 
         disposedValue = true;
     }

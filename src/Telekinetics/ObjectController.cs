@@ -1,29 +1,11 @@
 using System;
+using System.Linq;
 using ControlLib.Possession;
 using ModLib.Collections;
 using ModLib.Input;
 using ModLib.Options;
 using RWCustom;
 using UnityEngine;
-
-/**
-- Player "possesses" object, and can move it freely in air.
-  Slugcat's eyes remain open, and follow the object around (but can still look at predators if they're closer)
-
-- Object receives player input, and flies akin to Saint's Attunement ability.
-  When receiving a throw input, the object is thrown as if Slugcat had thrown it, with the same behaviors and limitations.
-    Done!
-
-- The object can be dropped with the same inputs for dropping items (down + pickup)
-    Done!
-
-- If the object is thrown or dropped, or Slugcat is unconscious, the possession ends.
-    Done!
-
-- OPTIONAL: Scavengers within line of sight of the player and the held object will have their `tempLike` influenced
-  by their current opinion of Slugcat; Friendly scavengers will gain a greater respect, while afraid or aggressive scavs will be even more aggressive
--- Probably also use ShockReaction(), and influence `fear` (reduced by `know`), if possible.
-*/
 
 namespace ControlLib.Telekinetics;
 
@@ -52,7 +34,7 @@ public class ObjectController : PlayerCarryableItem
                 originalGravity = value.GetLocalGravity();
                 value.SetLocalGravity(0f);
 
-                targetVel = new Vector2[value.bodyChunks.Length];
+                targetVel = new Vector2[value.bodyChunks.Length, 2];
 
                 _activeInstances[value] = this;
             }
@@ -74,7 +56,9 @@ public class ObjectController : PlayerCarryableItem
     private int life;
 
     private Creature.Grasp? TargetGrasp;
-    private Vector2[]? targetVel;
+    private Vector2[,]? targetVel;
+
+    private float velMultiplier;
 
     private readonly bool spinClockwise = UnityEngine.Random.value <= 0.5f;
 
@@ -241,12 +225,24 @@ public class ObjectController : PlayerCarryableItem
             {
                 BodyChunk bodyChunk = Target.bodyChunks[i];
 
-                if (moveDir != Vector2.zero)
-                    targetVel[i] = moveDir * 4f;
-                else
-                    targetVel[i] -= targetVel[i] * 0.05f;
+                targetVel[i, 1] = targetVel[i, 0];
 
-                bodyChunk.vel = Vector2.MoveTowards(bodyChunk.vel, targetVel[i], 240f);
+                if (moveDir != Vector2.zero)
+                {
+                    targetVel[i, 0] = moveDir * (4 + velMultiplier);
+
+                    velMultiplier = targetVel[i, 1].normalized == targetVel[i, 0].normalized
+                        ? Mathf.Min(velMultiplier + 0.01f, 4f)
+                        : Mathf.Max(velMultiplier - 0.001f, 0f);
+                }
+                else
+                {
+                    targetVel[i, 0] -= targetVel[i, 0] * 0.05f;
+
+                    velMultiplier = Mathf.Max(velMultiplier - 0.005f, 0f);
+                }
+
+                bodyChunk.vel = Vector2.MoveTowards(bodyChunk.vel, targetVel[i, 0], 240f);
             }
         }
 
@@ -274,6 +270,15 @@ public class ObjectController : PlayerCarryableItem
                 Vector2 targetRotation = Custom.DegToVec(Custom.AimFromOneVectorToAnother(Vector2.zero, new Vector2(lastInput.x, lastInput.y)));
 
                 weapon.rotation = Vector2.Lerp(weapon.lastRotation, targetRotation, weapon.lastRotation.magnitude / targetRotation.magnitude);
+            }
+
+            if (weapon.room is not null)
+            {
+                foreach (ScavengerAI scavAI in weapon.room.updateList.OfType<Scavenger>().Select(scav => scav.AI))
+                {
+                    if (scavAI.idleCounter > 0)
+                        scavAI.MakeLookHere(weapon.firstChunk.pos);
+                }
             }
         }
 

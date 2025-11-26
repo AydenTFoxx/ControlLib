@@ -2,15 +2,25 @@ using UnityEngine;
 
 namespace ControlLib.Possession.Graphics;
 
-public class PossessionMark(Creature target, Player owner) : PlayerAccessory(owner, false)
+public class PossessionMark : PlayerAccessory
 {
-    private readonly float targetSize = target.firstChunk.rad * 8;
+    private readonly float targetSize;
     private bool invalidated;
 
-    public Creature Target { get; } = target;
-    public Player Owner { get; } = owner;
+    public Creature Target { get; }
+    public Player Owner { get; }
 
     public Vector2 MarkPos => new Vector2(Target.firstChunk.pos.x, Target.firstChunk.pos.y + targetSize) - camPos;
+
+    public PossessionMark(Creature target, Player owner) : base(owner)
+    {
+        targetSize = target.firstChunk.rad * 8;
+
+        Target = target;
+        Owner = owner;
+
+        FollowCreature = target;
+    }
 
     public override void Update(bool eu)
     {

@@ -1,3 +1,5 @@
+using System;
+using System.Reflection;
 using ControlLib.Possession.Graphics;
 using ControlLib.Telekinetics;
 using ModLib;
@@ -5,6 +7,7 @@ using ModLib.Meadow;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using UnityEngine;
+using Watcher;
 
 namespace ControlLib.Possession;
 
@@ -19,6 +22,8 @@ public static class PossessionHooks
     public static void ApplyHooks()
     {
         IL.Creature.Update += Extras.WrapILHook(UpdatePossessedCreatureILHook);
+
+        IL.Watcher.LizardRotModule.Act += Extras.WrapILHook(PerformProperNullCheckingILHook);
 
         On.Creature.Die += CreatureDeathHook;
 
@@ -38,6 +43,8 @@ public static class PossessionHooks
     public static void RemoveHooks()
     {
         IL.Creature.Update -= Extras.WrapILHook(UpdatePossessedCreatureILHook);
+
+        IL.Watcher.LizardRotModule.Act -= Extras.WrapILHook(PerformProperNullCheckingILHook);
 
         On.Creature.Die -= CreatureDeathHook;
 
@@ -85,7 +92,7 @@ public static class PossessionHooks
     /// <summary>
     /// Prevents Blizzard Lizards' blizzard shield from pushing around abstract concepts such as player UI.
     /// </summary>
-    private static bool ForbidPushingPlayerAccessoriesHook(On.Watcher.LizardBlizzardModule.orig_IsForbiddenToPull orig, Watcher.LizardBlizzardModule self, UpdatableAndDeletable uad) =>
+    private static bool ForbidPushingPlayerAccessoriesHook(On.Watcher.LizardBlizzardModule.orig_IsForbiddenToPull orig, LizardBlizzardModule self, UpdatableAndDeletable uad) =>
         uad is not PlayerAccessory && orig.Invoke(self, uad);
 
     /// <summary>
@@ -144,6 +151,45 @@ public static class PossessionHooks
     }
 
     /// <summary>
+    ///     Prevents a silly base game bug where fully-rotted Lizards may cause a <see cref="NullReferenceException"/> when controlled via Safari mode,
+    ///     freezing the game's main loop process.
+    /// </summary>
+    private static void PerformProperNullCheckingILHook(ILContext context)
+    {
+        ILCursor c = new(context);
+        ILLabel? target = null;
+
+        c.GotoNext(
+            static x => x.MatchLdfld(typeof(LizardRotModule).GetField(nameof(LizardRotModule.moving))),
+            static x => x.MatchBrtrue(out _)
+        ); // Used to skip an earlier check for this.lizard.inputWithDiagonals.Value.jmp
+
+        c.GotoNext(
+            static x => x.MatchCall(typeof(Player.InputPackage?).GetProperty(nameof(Nullable<>.Value)).GetGetMethod()),
+            static x => x.MatchLdfld(typeof(Player.InputPackage).GetField(nameof(Player.InputPackage.jmp))),
+            x => x.MatchBrfalse(out target)
+        );
+
+        c.GotoPrev(static x => x.MatchLdarg(0)).MoveAfterLabels(); // Cannot check for ldflda directly, so a workaround is necessary
+
+        // Target: if (this.lizard.inputWithDiagonals.Value.jmp) { ... }
+        //             ^ HERE (Prepend)
+
+        c.Emit(OpCodes.Ldarg_0)
+         .Emit(OpCodes.Ldfld, typeof(LizardRotModule).GetField(nameof(LizardRotModule.lizard), BindingFlags.Instance | BindingFlags.NonPublic))
+         .EmitDelegate(HasInputWithDiagonals);
+
+        c.Emit(OpCodes.Brfalse_S, target);
+
+        // Result: if (HasInputWithDiagonals(this.lizard) && this.lizard.inputWithDiagonals.Value.jmp) { ... }
+
+        static bool HasInputWithDiagonals(Lizard self)
+        {
+            return self.inputWithDiagonals.HasValue;
+        }
+    }
+
+    /// <summary>
     /// Conditionally overrides the game's default behavior for taking control of creatures in Safari Mode.
     /// Also adds basic behaviors for validating a creature's possession state.
     /// </summary>
@@ -183,36 +229,12 @@ public static class PossessionHooks
 
         if (creature.room is null)
         {
-            Main.Logger.LogWarning($"{creature} not found in a room! Setting to last protection room: {protection.room?.abstractRoom.name}");
-
-            creature.room = protection.room;
-
-            if (creature.room is null)
-            {
-                Main.Logger.LogWarning($"{protection} not found in a room! Defaulting to first realized player: {creature.abstractCreature.world.game.FirstRealizedPlayer}");
-
-                creature.room = creature.abstractCreature.world.game.FirstRealizedPlayer?.room;
-            }
+            creature.room = creature.abstractCreature.Room.realizedRoom;
+            creature.room ??= protection.room;
 
             if (creature.room is null)
             {
-                Main.Logger.LogWarning($"Fallback player room not found! Trying to use game camera as a last resort...");
-
-                foreach (RoomCamera camera in creature.abstractCreature.world.game.cameras)
-                {
-                    creature.room = camera.room;
-
-                    if (creature.room is not null)
-                    {
-                        Main.Logger.LogInfo($"Using camera room {creature.room.abstractRoom.name}!");
-                        break;
-                    }
-                }
-            }
-
-            if (creature.room is null)
-            {
-                Main.Logger.LogError($"Failed to retrieve any valid room for {creature}! Destruction will not be prevented.");
+                Main.Logger.LogWarning($"Could not retrieve a room for {creature}; Protection will not be avoided.");
                 return false;
             }
         }
@@ -245,7 +267,7 @@ public static class PossessionHooks
         creature.room.AddObject(new KarmicShockwave(creature, revivePos, 80, 48f * protection.Power, 64f * protection.Power));
         creature.room.AddObject(new Explosion.ExplosionLight(revivePos, 180f * protection.Power, 1f, 80, RainWorld.GoldRGB));
 
-        creature.room.PlaySound(SoundID.SB_A14, creature.mainBodyChunk, false, 1f, 1.25f + (Random.value * 0.5f));
+        creature.room.PlaySound(SoundID.SB_A14, creature.mainBodyChunk, false, 1f, 1.25f + (UnityEngine.Random.value * 0.5f));
 
         Main.Logger.LogInfo($"{creature} was saved from destruction!");
         return true;

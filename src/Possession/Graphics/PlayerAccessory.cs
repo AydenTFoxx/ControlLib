@@ -20,24 +20,24 @@ public abstract class PlayerAccessory : CosmeticSprite
 
     private Vector2 lastMarkPos;
 
-    protected bool FollowsPlayer { get; }
+    protected Creature? FollowCreature { get; set => field = value ?? player; }
 
-    public PlayerAccessory(PossessionManager manager, bool followsPlayer = true)
+    public PlayerAccessory(PossessionManager manager)
     {
-        FollowsPlayer = followsPlayer;
-
         Manager = manager;
         player = manager.GetPlayer();
+
+        FollowCreature = player;
 
         player.room?.AddObject(this);
     }
 
-    public PlayerAccessory(Player owner, bool followsPlayer = true)
+    public PlayerAccessory(Player owner)
     {
-        FollowsPlayer = followsPlayer;
-
         Manager = null!;
         player = owner;
+
+        FollowCreature = owner;
 
         owner.room?.AddObject(this);
     }
@@ -81,9 +81,9 @@ public abstract class PlayerAccessory : CosmeticSprite
             return;
         }
 
-        if (this is { FollowsPlayer: true, player.room: not null } && player.room != room)
+        if (FollowCreature?.room is not null && FollowCreature.room != room)
         {
-            TryRealizeInRoom(player.room, player.mainBodyChunk.pos - camPos);
+            TryRealizeInRoom(FollowCreature.room, FollowCreature.mainBodyChunk.pos - camPos);
         }
     }
 

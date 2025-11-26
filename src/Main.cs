@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Permissions;
 using BepInEx;
@@ -10,7 +9,6 @@ using ControlLib.Telekinetics;
 using Kittehface.Framework20;
 using ModLib;
 using ModLib.Logging;
-using ModLib.Options;
 
 #pragma warning disable CS0618 // Type or member is obsolete
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
@@ -23,11 +21,15 @@ public class Main : ModPlugin
 {
     public const string PLUGIN_NAME = "ControlLib";
     public const string PLUGIN_GUID = "ynhzrfxn.controllib";
-    public const string PLUGIN_VERSION = "0.5.0";
+    public const string PLUGIN_VERSION = "0.6.0";
+
+#nullable disable warnings
 
     internal static new ModLogger Logger { get; private set; }
 
-    internal static new ManualLogSource LogSource
+#nullable restore warnings
+
+    private static new ManualLogSource LogSource
     {
         get
         {
@@ -39,7 +41,7 @@ public class Main : ModPlugin
             }
             return field;
         }
-        private set
+        set
         {
             if (field is not null)
             {
@@ -49,28 +51,6 @@ public class Main : ModPlugin
             field = value;
         }
     }
-
-    private static ModLogger? RWCustomLogger;
-
-    private static readonly Dictionary<string, ConfigValue> TempOptions = [];
-
-#nullable disable warnings
-
-    static Main()
-    {
-        TempOptions.Add("default_possession_potential", new ConfigValue(360));
-        TempOptions.Add("attuned_possession_potential", new ConfigValue(480));
-        TempOptions.Add("hardmode_possession_potential", new ConfigValue(240));
-        TempOptions.Add("sofanthiel_possession_potential", new ConfigValue(1));
-
-        TempOptions.Add("attuned_slugcats", new ConfigValue("Monk,Saint"));
-        TempOptions.Add("hardmode_slugcats", new ConfigValue("Artificer,Hunter,Inv"));
-
-        TempOptions.Add("mind_blast_stun_factor", new ConfigValue(600f));
-        TempOptions.Add("stun_death_threshold", new ConfigValue(100));
-    }
-
-#nullable restore warnings
 
     public Main()
         : base(new Options(), LoggingAdapter.CreateLogger(LogSource, true))
@@ -88,24 +68,19 @@ public class Main : ModPlugin
 
         AbstractObjectTypes.RegisterValues();
 
-        foreach (KeyValuePair<string, ConfigValue> optionPair in TempOptions)
+        if (Achievements.implementation is null)
         {
-            OptionUtils.SharedOptions.AddTemporaryOption(optionPair.Key, optionPair.Value, false);
-        }
-
-        try
-        {
-            if (Achievements.implementation is null)
+            try
             {
                 Logger.LogMessage($"Setting AchievementsImpl instance to {nameof(Achievements.StandaloneAchievementsImpl)}");
 
                 Achievements.implementation = new Achievements.StandaloneAchievementsImpl();
                 Achievements.implementation.Initialize();
             }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError($"Could not replace AchievementsImpl instance: {ex}");
+            catch (Exception ex)
+            {
+                Logger.LogError($"Could not replace AchievementsImpl instance: {ex}");
+            }
         }
     }
 
@@ -116,11 +91,6 @@ public class Main : ModPlugin
         base.OnDisable();
 
         AbstractObjectTypes.UnregisterValues();
-
-        foreach (string optionKey in TempOptions.Keys)
-        {
-            OptionUtils.SharedOptions.RemoveTemporaryOption(optionKey);
-        }
     }
 
     protected override void ApplyHooks()
@@ -132,8 +102,6 @@ public class Main : ModPlugin
         PossessionHooks.ApplyHooks();
 
         TelekineticsHooks.ApplyHooks();
-
-        On.RainWorld.PostModsInit += PostModsInitHook;
     }
 
     protected override void RemoveHooks()
@@ -145,51 +113,5 @@ public class Main : ModPlugin
         PossessionHooks.RemoveHooks();
 
         TelekineticsHooks.RemoveHooks();
-
-        On.RainWorld.PostModsInit -= PostModsInitHook;
-
-        if (RWCustomLogger is not null)
-        {
-            On.RWCustom.Custom.Log -= RedirectCustomLoggingHook;
-            On.RWCustom.Custom.LogImportant -= RedirectImportantCustomLogsHook;
-            On.RWCustom.Custom.LogWarning -= RedirectWarningCustomLogsHook;
-
-            RWCustomLogger = null;
-        }
-    }
-
-    private void PostModsInitHook(On.RainWorld.orig_PostModsInit orig, RainWorld self)
-    {
-        orig.Invoke(self);
-
-        if (RainWorld.ShowLogs && !Extras.IsMeadowEnabled && RWCustomLogger is null)
-        {
-            RWCustomLogger = LoggingAdapter.CreateLogger(BepInEx.Logging.Logger.CreateLogSource("RWCustom"));
-
-            On.RWCustom.Custom.Log += RedirectCustomLoggingHook;
-            On.RWCustom.Custom.LogImportant += RedirectImportantCustomLogsHook;
-            On.RWCustom.Custom.LogWarning += RedirectWarningCustomLogsHook;
-        }
-    }
-
-    private void RedirectCustomLoggingHook(On.RWCustom.Custom.orig_Log orig, string[] values)
-    {
-        orig.Invoke(values);
-
-        RWCustomLogger?.LogInfo(string.Join(" ", values));
-    }
-
-    private static void RedirectImportantCustomLogsHook(On.RWCustom.Custom.orig_LogImportant orig, string[] values)
-    {
-        orig.Invoke(values);
-
-        RWCustomLogger?.LogMessage(string.Join(" ", values));
-    }
-
-    private static void RedirectWarningCustomLogsHook(On.RWCustom.Custom.orig_LogWarning orig, string[] values)
-    {
-        orig.Invoke(values);
-
-        RWCustomLogger?.LogWarning(string.Join(" ", values));
     }
 }

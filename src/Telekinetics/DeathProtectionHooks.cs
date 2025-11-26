@@ -34,7 +34,7 @@ public static class DeathProtectionHooks
 
         On.Watcher.WarpPoint.SpawnPendingObject += WarpDeathProtectionHook;
 
-        manualHooks = new Hook[2];
+        manualHooks = new Hook[3];
 
         manualHooks[0] = new Hook(
             typeof(Creature).GetProperty(nameof(Creature.windAffectiveness)).GetGetMethod(),
@@ -43,6 +43,11 @@ public static class DeathProtectionHooks
         manualHooks[1] = new Hook(
             typeof(Creature).GetProperty(nameof(Creature.WormGrassGooduckyImmune)).GetGetMethod(),
             AvoidImmunePlayerHook);
+
+        manualHooks[2] = new Hook(
+            typeof(PhysicalObject).GetProperty(nameof(PhysicalObject.SandstormImmune)).GetGetMethod(),
+            GrantSandstormImmunityHook
+        );
 
         foreach (Hook hook in manualHooks)
         {
@@ -83,6 +88,12 @@ public static class DeathProtectionHooks
     /// </summary>
     private static bool AvoidImmunePlayerHook(Func<Creature, bool> orig, Creature self) =>
         DeathProtection.HasProtection(self) || orig.Invoke(self);
+
+    /// <summary>
+    /// Makes death-immune creatures also immune to end-of-cycle sandstorms.
+    /// </summary>
+    private static bool GrantSandstormImmunityHook(Func<PhysicalObject, bool> orig, PhysicalObject self) =>
+        self is Creature crit && DeathProtection.HasProtection(crit);
 
     /// <summary>
     /// Prevents the end of cycle rain from affecting Slugcat if protected.

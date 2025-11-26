@@ -1,7 +1,6 @@
 using System.Linq;
 using ControlLib.Possession;
 using ModLib.Collections;
-using ModLib.Options;
 using MoreSlugcats;
 using Noise;
 using RWCustom;
@@ -11,8 +10,10 @@ namespace ControlLib.Telekinetics;
 
 public class MindBlast : CosmeticSprite
 {
-    private static readonly WeakDictionary<Player, MindBlast> _activeInstances = [];
+    private const float StunFactor = 600f;
+    private const int StunDeathThreshold = 100;
 
+    private static readonly WeakDictionary<Player, MindBlast> _activeInstances = [];
     private static readonly System.Predicate<Creature> PlayerProtectionCondition = static (c) => c is Player { canJump: > 0 };
 
     private readonly Player player;
@@ -170,14 +171,11 @@ public class MindBlast : CosmeticSprite
             {
                 enlightenedRoom = true;
 
-                float stunFactor = OptionUtils.GetOptionValue<float>("mind_blast_stun_factor");
-                int stunDeathThreshold = OptionUtils.GetOptionValue<int>("stun_death_threshold");
-
                 foreach (PhysicalObject physicalObject in room.physicalObjects.SelectMany(static list => list))
                 {
                     if (!RippleLayerCheck(physicalObject.abstractPhysicalObject, player.abstractPhysicalObject)) continue;
 
-                    float stunPower = -(Vector2.Distance(physicalObject.firstChunk.pos, pos) - stunFactor) * Power;
+                    float stunPower = -(Vector2.Distance(physicalObject.firstChunk.pos, pos) - StunFactor) * Power;
                     float velocity = stunPower * 0.2f;
 
                     if (physicalObject is Creature crit)
@@ -237,7 +235,7 @@ public class MindBlast : CosmeticSprite
 
                     if (isPlayerFriend) continue;
 
-                    if (creature.stun >= stunDeathThreshold)
+                    if (creature.stun >= StunDeathThreshold)
                     {
                         room.AddObject(new KarmicShockwave(creature, creature.firstChunk.pos, 64, 24, 48));
 
@@ -265,7 +263,7 @@ public class MindBlast : CosmeticSprite
 
                     foreach (LocustSystem.GroundLocust locust in room.locusts.groundLocusts)
                     {
-                        if (Custom.DistLess(locust.pos, pos, stunFactor * 0.5f * Power))
+                        if (Custom.DistLess(locust.pos, pos, StunFactor * 0.5f * Power))
                         {
                             locust.alive = false;
                         }
@@ -279,7 +277,7 @@ public class MindBlast : CosmeticSprite
                     {
                         LocustSystem.CloudLocust locust = room.locusts.cloudLocusts[j];
 
-                        if (Custom.DistLess(locust.pos, pos, stunFactor * 0.75f * Power))
+                        if (Custom.DistLess(locust.pos, pos, StunFactor * 0.75f * Power))
                         {
                             locust.alive = false;
                             room.locusts.cloudLocusts[j] = locust;
@@ -292,7 +290,7 @@ public class MindBlast : CosmeticSprite
 
                     if (locustCount > 0)
                     {
-                        player.repelLocusts = Mathf.Max(player.repelLocusts, (int)(stunFactor * Power * 0.1f * locustCount));
+                        player.repelLocusts = Mathf.Max(player.repelLocusts, (int)(StunFactor * Power * 0.1f * locustCount));
 
                         Main.Logger.LogDebug($"Locust repellant duration: {player.repelLocusts}");
                     }

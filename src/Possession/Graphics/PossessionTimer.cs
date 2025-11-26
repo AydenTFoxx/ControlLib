@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using RWCustom;
 using UnityEngine;
 
@@ -6,33 +5,24 @@ namespace ControlLib.Possession.Graphics;
 
 public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manager)
 {
-    public PossessionMark? FollowMark { get; set; }
+    public PossessionMark? FollowMark
+    {
+        get;
+        set
+        {
+            field = value;
+            FollowCreature = value?.Target;
+        }
+    }
 
-    private int PipSpritesLength =>
-        Manager.IsAttunedSlugcat
-            ? 16
-            : Manager.IsHardmodeSlugcat
-                ? 8
-                : 12;
+    private readonly Color PipColor = Color.Lerp(PlayerGraphics.SlugcatColor((manager.GetPlayer().graphicsModule as PlayerGraphics)?.CharacterForColor), Color.white, 0.5f);
+    private readonly int PipSpritesLength = manager.PossessionTimePotential / 30;
 
     private float rubberRadius;
 
-    private bool IsPlayerVisible
-    {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => player is { room: not null, dead: false };
-    }
+    private bool IsPlayerVisible => player is { room: not null, dead: false };
 
-    private bool ShouldShowPips
-    {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => IsPlayerVisible && (Manager.IsPossessing || Manager.PossessionTime < Manager.MaxPossessionTime);
-    }
-
-    private Color PipColor =>
-        player.graphicsModule is PlayerGraphics playerGraphics
-            ? Color.Lerp(PlayerGraphics.SlugcatColor(playerGraphics.CharacterForColor), Color.white, 0.5f)
-            : Color.white;
+    private bool ShouldShowPips => IsPlayerVisible && Manager.PossessionTime < Manager.MaxPossessionTime;
 
     private Color FlashingPipColor =>
         Manager.TargetSelector?.State is TargetSelector.QueryingState
@@ -43,6 +33,7 @@ public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manage
 
     public override void DrawSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, float timeStacker, Vector2 camPos)
     {
+        lastPos = pos;
         pos = FollowMark is not null
             ? FollowMark.MarkPos
             : IsPlayerVisible

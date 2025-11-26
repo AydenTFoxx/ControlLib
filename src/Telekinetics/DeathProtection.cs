@@ -129,6 +129,12 @@ public class DeathProtection : UpdatableAndDeletable
         else if (Target is AirBreatherCreature airBreatherCreature)
             airBreatherCreature.lungs = 1f;
 
+        if (Target.State is HealthState healthState)
+        {
+            healthState.health = 1f;
+            healthState.alive = true;
+        }
+
         if (ModManager.Watcher)
             Target.repelLocusts = Math.Max(Target.repelLocusts, 10 * Math.Max(lifespan, 2));
 
@@ -167,24 +173,21 @@ public class DeathProtection : UpdatableAndDeletable
                 SafePos = Target.room.GetWorldCoordinate(Target.bodyChunks[safeChunkIndex].pos);
             }
 
-            if (!Target.abstractCreature.creatureTemplate.wormGrassImmune)
+            foreach (WormGrass wormGrass in Target.room.updateList.OfType<WormGrass>())
             {
-                foreach (WormGrass wormGrass in Target.room.updateList.OfType<WormGrass>())
+                foreach (WormGrass.WormGrassPatch patch in wormGrass.patches)
                 {
-                    foreach (WormGrass.WormGrassPatch patch in wormGrass.patches)
-                    {
-                        patch.trackedCreatures.RemoveAll(tc => tc.creature == Target);
-                    }
-
-                    foreach (WormGrass.Worm worm in from WormGrass.Worm worm in wormGrass.worms
-                                                    where worm.focusCreature == Target
-                                                    select worm)
-                    {
-                        worm.focusCreature = null;
-                    }
-
-                    wormGrass.AddNewRepulsiveObject(Target);
+                    patch.trackedCreatures.RemoveAll(tc => tc.creature == Target);
                 }
+
+                foreach (WormGrass.Worm worm in from WormGrass.Worm worm in wormGrass.worms
+                                                where worm.focusCreature == Target
+                                                select worm)
+                {
+                    worm.focusCreature = null;
+                }
+
+                wormGrass.AddNewRepulsiveObject(Target);
             }
         }
         else if (this is { Target.inShortcut: false, SafePos: not null })
