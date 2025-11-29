@@ -3,8 +3,15 @@ using UnityEngine;
 
 namespace ControlLib.Possession.Graphics;
 
+/// <summary>
+///     A visual display of the player's <c>PossessionTime</c> value, similar to Saint's ascension time displayed when using or recharging their ability.
+/// </summary>
+/// <param name="manager">The <see cref="PossessionManager"/> this accessory is tied to.</param>
 public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manager)
 {
+    /// <summary>
+    ///     If set to a non-null value, forces this accessory to follow a <see cref="PossessionMark"/> object instead of the player.
+    /// </summary>
     public PossessionMark? FollowMark
     {
         get;

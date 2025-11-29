@@ -19,9 +19,9 @@ namespace ControlLib;
 [BepInPlugin(PLUGIN_GUID, PLUGIN_NAME, PLUGIN_VERSION)]
 public class Main : ModPlugin
 {
-    public const string PLUGIN_NAME = "ControlLib";
+    public const string PLUGIN_NAME = "Possessions";
     public const string PLUGIN_GUID = "ynhzrfxn.controllib";
-    public const string PLUGIN_VERSION = "0.6.0";
+    public const string PLUGIN_VERSION = "0.7.0";
 
 #nullable disable warnings
 

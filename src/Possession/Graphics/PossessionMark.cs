@@ -2,16 +2,34 @@ using UnityEngine;
 
 namespace ControlLib.Possession.Graphics;
 
+/// <summary>
+///     A Mark of Communication-like sprite which appears above possessed creatures' heads.
+/// </summary>
 public class PossessionMark : PlayerAccessory
 {
     private readonly float targetSize;
     private bool invalidated;
 
+    /// <summary>
+    ///     The creature this sprite will follow.
+    /// </summary>
     public Creature Target { get; }
+
+    /// <summary>
+    ///     The owner of the accessory itself.
+    /// </summary>
     public Player Owner { get; }
 
+    /// <summary>
+    ///     The position at which the sprite will be drawn.
+    /// </summary>
     public Vector2 MarkPos => new Vector2(Target.firstChunk.pos.x, Target.firstChunk.pos.y + targetSize) - camPos;
 
+    /// <summary>
+    ///     Creates a new Possession Mark targeting the given creature and owned by the given player.
+    /// </summary>
+    /// <param name="target">The creature to be targeted.</param>
+    /// <param name="owner">The owner of this accessory.</param>
     public PossessionMark(Creature target, Player owner) : base(owner)
     {
         targetSize = target.firstChunk.rad * 8;

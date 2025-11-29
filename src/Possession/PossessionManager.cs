@@ -21,13 +21,11 @@ namespace ControlLib.Possession;
 /// <summary>
 /// Stores and manages the player's possessed creatures.
 /// </summary>
-/// <param name="player">The player itself.</param>
-public sealed class PossessionManager : IDisposable
+public class PossessionManager : IDisposable
 {
     private static readonly Type[] BannedCreatureTypes =
     [
-        typeof(Overseer), // Ignored for possession since only the Safari overseer seems to respect the player's inputs.
-        // Certain Watcher creatures do not respect Safari controls at all, so they're excluded from possession as well.
+        // Certain Watcher creatures do not respect Safari controls at all, so they're excluded from possession here.
         typeof(BigMoth),
         typeof(BoxWorm),
         typeof(DrillCrab),
@@ -35,14 +33,24 @@ public sealed class PossessionManager : IDisposable
         typeof(Rattler)
     ];
 
+    private static readonly CreatureTemplate.Type[] SwarmTypes = [
+        CreatureTemplate.Type.Fly,
+        CreatureTemplate.Type.Leech,
+        CreatureTemplate.Type.SeaLeech,
+        CreatureTemplate.Type.Spider,
+        DLCSharedEnums.CreatureTemplateType.JungleLeech
+    ];
+
     private readonly WeakList<Creature> MyPossessions = [];
     private readonly WeakList<PhysicalObject> PossessedItems = [];
 
-    private readonly Player player;
-    private PossessionTimer possessionTimer;
+    private Player player;
+    private PossessionTimer? possessionTimer;
 
     private bool didReachLowPossessionTime;
     private bool disposedValue;
+
+    private int safariSwarmCap = 10;
 
     public bool IsAttunedSlugcat { get; }
     public bool IsHardmodeSlugcat { get; }
@@ -50,7 +58,7 @@ public sealed class PossessionManager : IDisposable
     public int MaxPossessionTime { get; }
     public int PossessionTimePotential { get; }
 
-    public TargetSelector TargetSelector { get; }
+    public TargetSelector? TargetSelector { get; set; }
 
     public int PossessionCooldown { get; set; }
     public float PossessionTime
@@ -61,6 +69,8 @@ public sealed class PossessionManager : IDisposable
 
     public bool OnMindBlastCooldown { get; set; }
     public bool SpritesNeedReset { get; set; }
+
+    public bool IsValid => player is not null && !disposedValue;
 
     public bool IsPossessing => MyPossessions.Count > 0 || PossessedItems.Count > 0;
     public bool LowPossessionTime => (IsPossessing || OnMindBlastCooldown) && PossessionTime / MaxPossessionTime < 0.34f;
@@ -178,29 +188,59 @@ public sealed class PossessionManager : IDisposable
     /// <param name="target">The creature to possess.</param>
     public void StartCreaturePossession(Creature target)
     {
+        if (player?.room is null || target?.room is null) return;
+
         if (this is { PossessionTimePotential: 1, player.room: not null }
             && !IsOptionEnabled(Options.INFINITE_POSSESSION)
             && !IsOptionEnabled(Options.WORLDWIDE_MIND_CONTROL))
         {
-            ExplosionManager.ExplodeCreature(player, AbstractPhysicalObject.AbstractObjectType.ScavengerBomb, static (p) =>
-            {
-                if (p is ScavengerBomb scavBomb)
-                    scavBomb.thrownClosestToCreature = scavBomb.thrownBy;
-            });
+            ExplosionManager.ExplodeCreature(player, AbstractPhysicalObject.AbstractObjectType.ScavengerBomb, ExplosionManager.SelfExplosionCallback);
 
             Main.Logger.LogMessage($"{(Random.value < 0.5f ? "Game over" : "Goodbye")}, {player.SlugCatClass.ToString().Replace("Sofanthiel", "gamer")}. (Tried possessing: {target})");
             return;
         }
 
-        MyPossessions.Add(target);
+        CreatureTemplate.Type targetType = target.abstractCreature.creatureTemplate.type;
 
-        if (target is { room: not null, room.BeingViewed: true })
+        if (SwarmTypes.Any(ct => ct == targetType))
         {
-            target.room.AddObject(new TemplarCircle(target, target.firstChunk.pos, 48f, 8f, 2f, 12, true));
-            target.room.AddObject(new ShockWave(target.mainBodyChunk.pos, 100f, 0.08f, 4, false));
+            foreach (Creature crit in target.room.updateList.OfType<Creature>().Where(c => c.abstractCreature.creatureTemplate.type == targetType))
+            {
+                if (target == crit || Custom.Dist(target.abstractCreature.pos.Tile.ToVector2(), crit.abstractCreature.pos.Tile.ToVector2()) > 6f)
+                {
+                    MyPossessions.Add(crit);
+
+                    crit.UpdateCachedPossession();
+                    crit.abstractCreature.controlled = true;
+
+                    if (Extras.IsOnlineSession)
+                        RequestMeadowPossessionSync(crit, false);
+                }
+
+                safariSwarmCap--;
+
+                if (safariSwarmCap <= 0) break;
+            }
+
+            safariSwarmCap = 10;
+        }
+        else
+        {
+            MyPossessions.Add(target);
+
+            target.UpdateCachedPossession();
+            target.abstractCreature.controlled = true;
+
+            if (Extras.IsOnlineSession)
+                RequestMeadowPossessionSync(target, false);
         }
 
-        possessionTimer.FollowMark = new PossessionMark(target, player);
+        if (target is Overseer overseer)
+            (overseer.abstractCreature.abstractAI as OverseerAbstractAI)?.safariOwner = true;
+
+        SpawnPossessionEffects(target, player, true);
+
+        possessionTimer?.FollowMark = new PossessionMark(target, player);
 
         RoomCamera camera = player.abstractCreature.world.game.cameras[0];
         if (camera.followAbstractCreature == player.abstractCreature)
@@ -210,27 +250,7 @@ public sealed class PossessionManager : IDisposable
             Main.Logger.LogInfo($"Camera is now following {camera.followAbstractCreature}.");
         }
 
-        player.room?.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, player.mainBodyChunk.pos, 1f, 1.25f + (Random.value * 1.25f));
-
         player.controller = GetFadeOutController(player);
-
-        if (Extras.IsOnlineSession)
-        {
-            try
-            {
-                if (!MeadowUtils.IsMine(target))
-                    MeadowUtils.RequestOwnership(target);
-
-                MyRPCs.SyncCreaturePossession(target, isPossession: true);
-            }
-            catch (Exception ex)
-            {
-                Main.Logger.LogError(ex);
-            }
-        }
-
-        target.UpdateCachedPossession();
-        target.abstractCreature.controlled = true;
 
         Main.Logger.LogDebug($"({player}) Started possessing creature: {target}.");
     }
@@ -243,12 +263,15 @@ public sealed class PossessionManager : IDisposable
     {
         MyPossessions.Remove(target);
 
+        if (target is Overseer overseer)
+            (overseer.abstractCreature.abstractAI as OverseerAbstractAI)?.safariOwner = false;
+
         RoomCamera camera = player.abstractCreature.world.game.cameras[0];
         if (camera.followAbstractCreature == target.abstractCreature)
         {
             Creature? nextTarget = MyPossessions.LastOrDefault();
 
-            possessionTimer.FollowMark = nextTarget?.room?.updateList.OfType<PossessionMark>().FirstOrDefault(m => m.Target == nextTarget);
+            possessionTimer?.FollowMark = nextTarget?.room?.updateList.OfType<PossessionMark>().FirstOrDefault(m => m.Target == nextTarget);
 
             camera.followAbstractCreature = nextTarget?.abstractCreature ?? player.abstractCreature;
 
@@ -269,32 +292,10 @@ public sealed class PossessionManager : IDisposable
             PossessionCooldown = 20;
         }
 
-        if (PossessionTime <= 0)
-        {
-            for (int k = 0; k < 20; k++)
-            {
-                player.room?.AddObject(new Spark(player.mainBodyChunk.pos, Custom.RNV() * Random.value * 40f, new Color(1f, 1f, 1f), null, 30, 120));
-            }
-        }
-
-        if (target is { room: not null, room.BeingViewed: true })
-        {
-            target.room.AddObject(new ReverseShockwave(target.mainBodyChunk.pos, 64f, 0.05f, 24));
-        }
-
-        player.room?.PlaySound(SoundID.HUD_Pause_Game, player.mainBodyChunk.pos, 0.8f, 0.5f);
+        SpawnPossessionEffects(target, player, false, PossessionTime <= 0f);
 
         if (Extras.IsOnlineSession)
-        {
-            try
-            {
-                MyRPCs.SyncCreaturePossession(target, isPossession: false);
-            }
-            catch (Exception ex)
-            {
-                Main.Logger.LogError(ex);
-            }
-        }
+            RequestMeadowPossessionSync(target, false);
 
         target.UpdateCachedPossession();
         target.abstractCreature.controlled = false;
@@ -308,11 +309,7 @@ public sealed class PossessionManager : IDisposable
             && !IsOptionEnabled(Options.INFINITE_POSSESSION)
             && !IsOptionEnabled(Options.WORLDWIDE_MIND_CONTROL))
         {
-            ExplosionManager.ExplodeCreature(player, DLCSharedEnums.AbstractObjectType.SingularityBomb, static (p) =>
-            {
-                if (p is SingularityBomb singularity)
-                    singularity.zeroMode = true;
-            });
+            ExplosionManager.ExplodeCreature(player, AbstractPhysicalObject.AbstractObjectType.ScavengerBomb, ExplosionManager.SelfExplosionCallback);
 
             Main.Logger.LogMessage($"{(Random.value < 0.5f ? "Game over" : "Goodbye")}, {player.SlugCatClass.ToString().Replace("Sofanthiel", "gamer")}. (Tried possessing: {target})");
             return;
@@ -320,13 +317,10 @@ public sealed class PossessionManager : IDisposable
 
         PossessedItems.Add(target);
 
-        if (target is { room: not null, room.BeingViewed: true })
-        {
-            target.room.AddObject(new TemplarCircle(target, target.firstChunk.pos, 48f, 8f, 2f, 12, true));
-            target.room.AddObject(new ShockWave(target.firstChunk.pos, 100f, 0.08f, 4, false));
-        }
+        SpawnPossessionEffects(target, player, true);
 
-        player.room?.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, player.mainBodyChunk.pos, 0.8f, 0.9f + Random.value);
+        if (Extras.IsOnlineSession)
+            RequestMeadowPossessionSync(target, true);
 
         player.controller = GetFadeOutController(player);
 
@@ -343,22 +337,63 @@ public sealed class PossessionManager : IDisposable
             PossessionCooldown = 20;
         }
 
-        if (PossessionTime <= 0)
-        {
-            for (int k = 0; k < 20; k++)
-            {
-                player.room?.AddObject(new Spark(player.mainBodyChunk.pos, Custom.RNV() * Random.value * 40f, new Color(1f, 1f, 1f), null, 30, 120));
-            }
-        }
+        SpawnPossessionEffects(target, player, false, PossessionTime <= 0f);
 
-        if (target is { room: not null, room.BeingViewed: true })
-        {
-            target.room.AddObject(new ReverseShockwave(target.firstChunk.pos, 64f, 0.05f, 24));
-        }
-
-        player.room?.PlaySound(SoundID.HUD_Pause_Game, player.mainBodyChunk.pos, 0.8f, 0.5f);
+        if (Extras.IsOnlineSession)
+            RequestMeadowPossessionSync(target, false);
 
         Main.Logger.LogDebug($"({player}) Stopped possessing item: {target}.");
+    }
+
+    public void MeadowSafeUpdate()
+    {
+        if (disposedValue) return;
+
+        if (player is null)
+        {
+            Dispose();
+            return;
+        }
+
+        if (IsPossessing)
+        {
+            if (!IsOptionEnabled(Options.INFINITE_POSSESSION))
+            {
+                PossessionTime -= IsAttunedSlugcat ? 0.25f : 0.5f;
+            }
+
+            if (PossessionTime <= 0f || !player.Consious)
+            {
+                if (player.Consious)
+                    PossessionTime = -80;
+
+                PossessionCooldown = 200;
+
+                ResetAllPossessions();
+            }
+        }
+        else if (PossessionCooldown > 0)
+        {
+            PossessionCooldown--;
+        }
+        else if (PossessionTime < MaxPossessionTime)
+        {
+            PossessionTime += IsHardmodeSlugcat ? 0.25f : 0.5f;
+        }
+        else if (PossessionTime > MaxPossessionTime)
+        {
+            PossessionTime = MaxPossessionTime;
+        }
+
+        if (OnMindBlastCooldown)
+            OnMindBlastCooldown = LowPossessionTime || PossessionCooldown > 0;
+
+        if (SpritesNeedReset && player.warpPointCooldown == 0)
+        {
+            ResetSprites();
+
+            SpritesNeedReset = false;
+        }
     }
 
     /// <summary>
@@ -368,6 +403,12 @@ public sealed class PossessionManager : IDisposable
     {
         if (disposedValue) return;
 
+        if (player is null)
+        {
+            Dispose();
+            return;
+        }
+
         if (IsOptionEnabled(Options.KINETIC_ABILITIES) && player.WasKeyJustPressed(Keybinds.POSSESS_ITEM, true))
         {
             Debug.StartItemPossession(player.playerState.playerNumber.ToString(), player.grasps[0] is not null and { grabbed: not ObjectController } ? "0" : "1");
@@ -376,19 +417,22 @@ public sealed class PossessionManager : IDisposable
 
         if (IsOptionEnabled(Options.MIND_BLAST) && UpdateMindBlast()) return;
 
-        if (player.Consious && player.IsKeyDown(Keybinds.POSSESS, true) && (IsPossessing || CanPossess()))
+        if (TargetSelector is not null)
         {
-            TargetSelector.Update();
-        }
-        else if (TargetSelector.Input.InputTime > 0)
-        {
-            if (TargetSelector is { HasTargetCursor: true, Input.QueriedCursor: false })
-                TargetSelector.QueryTargetCursor();
+            if (player.Consious && player.IsKeyDown(Keybinds.POSSESS, true) && (IsPossessing || CanPossess()))
+            {
+                TargetSelector.Update();
+            }
+            else if (TargetSelector.Input.InputTime > 0)
+            {
+                if (TargetSelector is { HasTargetCursor: true, Input.QueriedCursor: false })
+                    TargetSelector.QueryTargetCursor();
 
-            if (TargetSelector.HasValidTargets)
-                TargetSelector.ApplySelectedTargets();
+                if (TargetSelector.HasValidTargets)
+                    TargetSelector.ApplySelectedTargets();
 
-            TargetSelector.ResetSelectorInput();
+                TargetSelector.ResetSelectorInput();
+            }
         }
 
         if (IsPossessing)
@@ -427,11 +471,7 @@ public sealed class PossessionManager : IDisposable
                 {
                     if (player.SlugCatClass == MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel)
                     {
-                        ExplosionManager.ExplodeCreature(player, DLCSharedEnums.AbstractObjectType.SingularityBomb, static (p) =>
-                        {
-                            if (p is SingularityBomb singularity)
-                                singularity.zeroMode = true;
-                        });
+                        ExplosionManager.ExplodeCreature(player, DLCSharedEnums.AbstractObjectType.SingularityBomb, ExplosionManager.EggSingularityCallback);
 
                         Main.Logger.LogMessage(Random.value < 0.5f ? "It's so over" : "Kaboom");
                         return;
@@ -453,9 +493,10 @@ public sealed class PossessionManager : IDisposable
                             player.airInLungs *= 0.2f;
                             player.aerobicLevel = 1f;
 
-                            int stunTime = IsHardmodeSlugcat ? 80 : 40;
+                            int stunTime = IsHardmodeSlugcat ? 120 : 40;
 
-                            player.room?.AddObject(new CreatureSpasmer(player, allowDead: false, stunTime));
+                            if (IsHardmodeSlugcat)
+                                player.room?.AddObject(new CreatureSpasmer(player, allowDead: false, stunTime));
 
                             player.Stun(stunTime);
                         }
@@ -507,54 +548,43 @@ public sealed class PossessionManager : IDisposable
     {
         if (IsPossessing) return false;
 
-        bool keysPressed = player.IsKeyDown(Keybinds.MIND_BLAST, true) && player.IsKeyDown(Keybinds.POSSESS, true);
+        bool keysPressed = (player.Consious && player.IsKeyDown(Keybinds.MIND_BLAST, true) && player.IsKeyDown(Keybinds.POSSESS, true))
+                        || (player is { dead: false, dangerGrasp: not null, dangerGraspTime: <= 60 } && IsOptionEnabled(Options.DANGER_MIND_BLAST) && player.IsKeyDown(Keybinds.MIND_BLAST, true));
+
         MindBlast? instance = null;
 
-        if (keysPressed && this is { player.Consious: true, PossessionCooldown: 0 } && PossessionTime == MaxPossessionTime)
+        if (keysPressed && PossessionCooldown == 0 && PossessionTime == MaxPossessionTime)
         {
-            TargetSelector.ExceededTimeLimit = true;
-
-            instance = MindBlast.CreateInstance(player, Power);
+            TargetSelector?.ExceededTimeLimit = true;
 
             PossessionTime = 0f;
 
             OnMindBlastCooldown = true;
+
+            instance = MindBlast.CreateInstance(player, Power);
+
+            if (IsOptionEnabled(Options.DANGER_MIND_BLAST) && player.dangerGrasp is not null)
+            {
+                instance.Explode();
+                return true;
+            }
         }
 
-        if (instance is not null || MindBlast.TryGetInstance(player, out instance))
+        if (instance is not null || (MindBlast.TryGetInstance(player, out instance) && !instance.Expired))
         {
             if (player.Consious && keysPressed)
             {
-                instance.pos = TargetSelector.GetTargetPos();
+                instance.pos = TargetSelector?.GetTargetPos() ?? player.mainBodyChunk.pos;
 
                 PossessionCooldown = 80;
             }
-            else if (!instance.Expired)
+            else
             {
                 instance.Interrupt();
             }
         }
 
         return instance is not null;
-    }
-
-    public static FadeOutController GetFadeOutController(Player player)
-    {
-        Player.InputPackage input = player.GetRawInput();
-
-        return new FadeOutController(player, input.x, player.standing ? 1 : input.y, 15);
-    }
-
-    public static void DestroyFadeOutController(Player player)
-    {
-        if (player.controller is FadeOutController fadeOutController)
-        {
-            fadeOutController.Destroy();
-        }
-        else
-        {
-            player.controller = null;
-        }
     }
 
     /// <summary>
@@ -575,6 +605,36 @@ public sealed class PossessionManager : IDisposable
             .ToString();
     }
 
+    private void RequestMeadowPossessionSync(PhysicalObject target, bool isNewPossession)
+    {
+        try
+        {
+            if (isNewPossession && !MeadowUtils.IsMine(target))
+                MeadowUtils.RequestOwnership(target);
+
+            MyRPCs.SyncOnlinePossession(target, player, isNewPossession, !isNewPossession && PossessionTime <= 0f);
+        }
+        catch (Exception ex)
+        {
+            Main.Logger.LogError(ex);
+        }
+    }
+
+    public static void DestroyFadeOutController(Player player)
+    {
+        if (player.controller is FadeOutController fadeOutController)
+            fadeOutController.Destroy();
+        else
+            player.controller = null;
+    }
+
+    public static FadeOutController GetFadeOutController(Player player)
+    {
+        Player.InputPackage input = player.GetRawInput();
+
+        return new FadeOutController(player, input.x, player.standing ? 1 : input.y, 15);
+    }
+
     /// <summary>
     /// Formats a list all of the player's possessed creatures for logging purposes.
     /// </summary>
@@ -590,6 +650,45 @@ public sealed class PossessionManager : IDisposable
         }
 
         return stringBuilder.ToString().TrimEnd(';', ' ');
+    }
+
+    public static void SpawnPossessionEffects(PhysicalObject target, Creature? caller, bool isNewPossession, bool depletedPossessionTime = false)
+    {
+        if (target?.room is null) return;
+
+        if (target.room.BeingViewed)
+        {
+            if (isNewPossession)
+            {
+                target.room.AddObject(new TemplarCircle(target, target.firstChunk.pos, 48f, 8f, 2f, 12, true));
+                target.room.AddObject(new ShockWave(target is Creature crit ? crit.mainBodyChunk.pos : target.firstChunk.pos, 100f, 0.08f, 4, false));
+            }
+            else
+            {
+                target.room.AddObject(new ReverseShockwave(target is Creature crit ? crit.mainBodyChunk.pos : target.firstChunk.pos, 64f, 0.05f, 24));
+            }
+        }
+
+        if (caller?.room is null) return;
+
+        if (isNewPossession)
+        {
+            float vol = target is Creature ? 1f : 0.8f;
+            float pitch = target is Creature ? 1.25f : 0.9f;
+
+            caller.room.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, caller.mainBodyChunk.pos, vol, pitch + (Random.value * pitch));
+        }
+        else
+        {
+            if (depletedPossessionTime)
+            {
+                for (int k = 0; k < 20; k++)
+                {
+                    caller.room.AddObject(new Spark(caller.mainBodyChunk.pos, Custom.RNV() * Random.value * 40f, new Color(1f, 1f, 1f), null, 30, 120));
+                }
+            }
+            caller.room.PlaySound(SoundID.HUD_Pause_Game, caller.mainBodyChunk.pos, 0.8f, depletedPossessionTime ? 0.35f : 0.5f);
+        }
     }
 
     public class FadeOutController(Player target, int x, int y, int fadeInTime) : Player.PlayerController
@@ -616,34 +715,30 @@ public sealed class PossessionManager : IDisposable
         public void Destroy() => slatedForDeletion = true;
     }
 
-    private void Dispose(bool disposing)
+    public void Dispose()
     {
         if (disposedValue) return;
 
-        if (disposing)
+        Main.Logger.LogDebug($"Disposing of {nameof(PossessionManager)} from {player}!");
+
+        possessionTimer?.Destroy();
+        possessionTimer = null;
+
+        TargetSelector?.Dispose();
+        TargetSelector = null;
+
+        if (player is not null)
         {
-            possessionTimer?.Destroy();
-            TargetSelector?.Dispose();
+            if (player.controller is FadeOutController controller)
+                controller.Destroy();
 
-            if (player is not null)
-            {
-                if (player.controller is FadeOutController controller)
-                    controller.Destroy();
-
-                player.RemovePossessionManager();
-            }
+            player.RemovePossessionManager();
+            player = null!;
         }
 
         MyPossessions.Clear();
+        PossessedItems.Clear();
 
         disposedValue = true;
-    }
-
-    public void Dispose()
-    {
-        Main.Logger.LogDebug($"Disposing of {nameof(PossessionManager)} from {player}!");
-
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
     }
 }

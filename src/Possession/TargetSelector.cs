@@ -331,7 +331,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
         }
 
         Vector2 pos = cursor is not null
-            ? cursor.targetPos + cursor.camPos
+            ? cursor.GetRawPos() + cursor.CamPos
             : player.mainBodyChunk.pos;
 
         List<Creature> creatures = [.. player.room.abstractRoom.creatures
@@ -486,21 +486,20 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
         public int Offset { get; set; }
     }
 
-    protected virtual void Dispose(bool disposing)
+    public virtual void Dispose()
     {
         if (disposedValue) return;
 
-        if (disposing)
-        {
-            if (targetCursor is not (null or { slatedForDeletetion: true }))
-            {
-                targetCursor.Destroy();
-                targetCursor = null;
-            }
+        Main.Logger.LogDebug($"Disposing of {nameof(TargetSelector)} from {player}!");
 
-            queryCreatures?.Clear();
-            Targets?.Clear();
+        if (targetCursor is not (null or { slatedForDeletetion: true }))
+        {
+            targetCursor.Destroy();
+            targetCursor = null;
         }
+
+        queryCreatures?.Clear();
+        Targets?.Clear();
 
         player = null!;
         manager = null!;
@@ -510,13 +509,5 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
         Input = null!;
 
         disposedValue = true;
-    }
-
-    public void Dispose()
-    {
-        Main.Logger.LogDebug($"Disposing of {nameof(TargetSelector)} from {player}!");
-
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
     }
 }

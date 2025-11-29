@@ -13,9 +13,13 @@ public static class TelekineticsHooks
     {
         IL.Creature.RippleViolenceCheck += Extras.WrapILHook(NoViolenceWhileProtectedILHook);
 
+        IL.LocustSystem.Update += Extras.WrapILHook(DelayLocustSpawningILHook);
+
         IL.Player.TossObject += Extras.WrapILHook(TossPossessedItemILHook);
 
         On.AbstractPhysicalObject.Realize += RealizeControllerHook;
+
+        On.LocustSystem.WarmUp += DelayLocustWarmUpHook;
 
         On.Player.Grabability += ObjectControllerGrababilityHook;
 
@@ -24,15 +28,29 @@ public static class TelekineticsHooks
 
     public static void RemoveHooks()
     {
-        IL.Creature.RippleViolenceCheck += Extras.WrapILHook(NoViolenceWhileProtectedILHook);
+        IL.Creature.RippleViolenceCheck -= Extras.WrapILHook(NoViolenceWhileProtectedILHook);
+
+        IL.LocustSystem.Update -= Extras.WrapILHook(DelayLocustSpawningILHook);
 
         IL.Player.TossObject -= Extras.WrapILHook(TossPossessedItemILHook);
 
         On.AbstractPhysicalObject.Realize -= RealizeControllerHook;
 
+        On.LocustSystem.WarmUp -= DelayLocustWarmUpHook;
+
         On.Player.Grabability -= ObjectControllerGrababilityHook;
 
         On.Weapon.Thrown -= ThrownWeaponFromControllerHook;
+    }
+
+    /// <summary>
+    /// Prevents locust systems from spawning cloud locusts while their spawnMultiplier field is negative.
+    /// </summary>
+    private static void DelayLocustWarmUpHook(On.LocustSystem.orig_WarmUp orig, LocustSystem self)
+    {
+        if (self.spawnMultiplier <= 0f) return;
+
+        orig.Invoke(self);
     }
 
     private static Player.ObjectGrabability ObjectControllerGrababilityHook(On.Player.orig_Grabability orig, Player self, PhysicalObject obj) =>
@@ -73,6 +91,50 @@ public static class TelekineticsHooks
         {
             self.changeDirCounter = 0;
         }
+    }
+
+    /// <summary>
+    /// Prevents cloud locusts from spawning while their system's spawnMultiplier field is below zero.
+    /// </summary>
+    private static void DelayLocustSpawningILHook(ILContext context)
+    {
+        ILCursor c = new(context);
+
+        c.GotoNext(static x => x.MatchStloc(1))
+         .GotoPrev(MoveType.After, static x => x.MatchPop())
+         .MoveAfterLabels();
+
+        // Target: float num2 = 1f / this.LocustsPerTick;
+        //        ^ HERE (Prepend)
+
+        ILCursor d = new(c);
+        ILLabel? target = null;
+
+        d.GotoNext(
+            static x => x.MatchLdarg(0),
+            static x => x.MatchCall<LocustSystem>(nameof(LocustSystem.DoGrounding))
+        ).MarkLabel(target);
+
+        // Target: this.DoGrounding();
+        //        ^ HERE (Referenced for redirect)
+
+        c.Emit(OpCodes.Ldfld, typeof(LocustSystem).GetField(nameof(LocustSystem.spawnMultiplier)))
+         .Emit(OpCodes.Ldc_R4, 0f)
+         .Emit(OpCodes.Ble_Un, target);
+
+        // Result:
+        //
+        // if (this.spawnMultiplier > 0)
+        // {
+        //     float num2 = 1f / this.LocustsPerTick;
+        //     this.spawnCounter += 1f;
+        //     while (this.spawnCounter > num2)
+        //     {
+        //         this.spawnCounter -= num2;
+        //         this.AddCloudLocust(this.minX + this.spawnCounter * 15.999996f);
+        //     }
+        // }
+        // this.DoGrounding();
     }
 
     /// <summary>

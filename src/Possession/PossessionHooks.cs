@@ -65,8 +65,7 @@ public static class PossessionHooks
     {
         orig.Invoke(self, add);
 
-        if ((!Extras.IsMeadowEnabled || MeadowUtils.IsMine(self))
-            && self.TryGetPossessionManager(out PossessionManager manager))
+        if (add > 0 && self.TryGetPossessionManager(out PossessionManager manager))
         {
             manager.PossessionTime += add * 40;
         }
@@ -132,14 +131,22 @@ public static class PossessionHooks
             || self.room.game.rainWorld.safariMode
             || self.dead
             || self.inShortcut
-            || (Extras.IsMeadowEnabled && (MeadowUtils.IsGameMode(MeadowGameModes.Meadow) || !MeadowUtils.IsMine(self))))
+            || (Extras.IsMeadowEnabled && MeadowUtils.IsGameMode(MeadowGameModes.Meadow)))
         {
             return;
         }
 
-        self.GetOrCreatePossessionManager().Update();
+        PossessionManager manager = self.GetOrCreatePossessionManager();
+
+        if (Extras.IsMeadowEnabled && !MeadowUtils.IsMine(self))
+            manager.MeadowSafeUpdate();
+        else
+            manager.Update();
     }
 
+    /// <summary>
+    /// Marks the player's accessories for being re-created when finishing a Warp sequence.
+    /// </summary>
     private static void WarpPlayerAccessoriesHook(On.Player.orig_OneWayPlacement orig, Player self, Vector2 pos, int playerIndex)
     {
         orig.Invoke(self, pos, playerIndex);
@@ -207,10 +214,10 @@ public static class PossessionHooks
         // Target: if (ModManager.MSC) { this.SafariControlInputUpdate(0); }
         //                           ^ HERE (Append)
 
-        c.Emit(OpCodes.Ldarg_0).Emit(OpCodes.Ldc_I4_0).EmitDelegate(UpdateCreaturePossession);
+        c.Emit(OpCodes.Ldarg_0).EmitDelegate(UpdateCreaturePossession);
         c.Emit(OpCodes.Brtrue, target);
 
-        // Result: if (ModManager.MSC && !UpdateCreaturePossession(this, false)) { this.SafariControlInputUpdate(0); }
+        // Result: if (ModManager.MSC && !UpdateCreaturePossession(this)) { this.SafariControlInputUpdate(0); }
     }
 
     /// <summary>
@@ -277,23 +284,23 @@ public static class PossessionHooks
     /// Updates the creature's possession state. If the possession is no longer valid, it is removed instead.
     /// </summary>
     /// <param name="self">The creature itself.</param>
-    /// <param name="isRecursive">Whether this method call is recursive (i.e. called by itself a second time).</param>
     /// <returns><c>true</c> if the game's default behavior was overriden, <c>false</c> otherwise.</returns>
-    private static bool UpdateCreaturePossession(Creature self, bool isRecursive)
+    private static bool UpdateCreaturePossession(Creature self)
     {
-        if (self is Player or Overseer
-            || self.room is null
+        if (self is Overseer or { room: null }
             || self.room.game.rainWorld.safariMode
-            || !self.abstractCreature.controlled
-            || (Extras.IsMeadowEnabled && !MeadowUtils.IsMine(self))) return false;
+            || !self.abstractCreature.controlled) return false;
 
-        if (!self.TryGetPossession(out Player player)
-            || !player.TryGetPossessionManager(out PossessionManager manager))
+        if (!self.TryGetPossession(out Player possessor)
+            || !possessor.TryGetPossessionManager(out PossessionManager manager))
         {
             self.UpdateCachedPossession();
+            self.abstractCreature.controlled = false;
 
-            return !isRecursive && UpdateCreaturePossession(self, true);
+            return false;
         }
+
+        if (Extras.IsMeadowEnabled && !MeadowUtils.IsMine(self)) return false;
 
         if (!manager.HasCreaturePossession(self) || !manager.IsPossessionValid(self))
         {
@@ -302,7 +309,7 @@ public static class PossessionHooks
             return false;
         }
 
-        self.SafariControlInputUpdate(player.playerState.playerNumber);
+        self.SafariControlInputUpdate(possessor.playerState.playerNumber);
 
         return true;
     }

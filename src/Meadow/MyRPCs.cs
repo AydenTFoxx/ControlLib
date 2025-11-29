@@ -1,36 +1,81 @@
+using ControlLib.Possession;
 using ModLib.Meadow;
 using RainMeadow;
-using Random = UnityEngine.Random;
 
 namespace ControlLib.Meadow;
 
+/// <summary>
+///     Rain Meadow RPCs used for syncing the mod's behavior across multiple clients.
+/// </summary>
 public static class MyRPCs
 {
-    [SoftRPCMethod]
-    public static void ApplyPossessionEffects(RPCEvent rpcEvent, OnlineCreature onlineTarget, bool isPossession)
+    /// <summary>
+    ///     Initializes a new PossessionManager instance for the given player.
+    /// </summary>
+    /// <param name="rpcEvent">The RPC event itself.</param>
+    /// <param name="playerAvatar">The player avatar who triggered this event.</param>
+    [RPCMethod]
+    public static void AddPossessionManager(RPCEvent rpcEvent, OnlineCreature playerAvatar)
     {
-        if (onlineTarget.realizedCreature is not Creature target || target.room is null)
+        if (playerAvatar.realizedCreature is not Player player)
         {
-            Main.Logger.LogWarning($"Target or room is invalid; Target: {onlineTarget.realizedCreature} | Room: {onlineTarget.realizedCreature?.room}");
+            Main.Logger.LogWarning($"Cannot create a PossessionManager for {playerAvatar}; Not a valid Player instance.");
 
             rpcEvent.Resolve(new GenericResult.Fail(rpcEvent));
             return;
         }
 
-        if (isPossession)
+        Main.Logger.LogInfo($"Created new PossessionManager for {playerAvatar}: {player.GetOrCreatePossessionManager()}");
+    }
+
+    /// <summary>
+    ///     Spawns possession effects for the given online possession.
+    /// </summary>
+    /// <param name="rpcEvent">The RPC event itself.</param>
+    /// <param name="onlineTarget">The target of the possession.</param>
+    /// <param name="isNewPossession">Whether the possession has just started (<c>true</c>) or just stopped (<c>false</c>).</param>
+    /// <param name="depletedPossessionTime">If the possession was stopped, whether or not it was caused by a depletion of <c>PossessionTime</c>.</param>
+    [RPCMethod]
+    public static void ApplyPossessionEffects(RPCEvent rpcEvent, OnlinePhysicalObject onlineTarget, OnlineCreature playerAvatar, bool isNewPossession, bool depletedPossessionTime)
+    {
+        if (onlineTarget.apo.realizedObject?.room is null)
         {
-            target.room.AddObject(new TemplarCircle(target, target.mainBodyChunk.pos, 48f, 8f, 2f, 12, true));
-            target.room.AddObject(new ShockWave(target.mainBodyChunk.pos, 100f, 0.08f, 4, false));
-            target.room.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, target.mainBodyChunk, loop: false, 1f, 1.25f + (Random.value * 1.25f));
+            Main.Logger.LogWarning($"Target or room is invalid. (Target: {onlineTarget})");
+
+            rpcEvent.Resolve(new GenericResult.Fail(rpcEvent));
+            return;
         }
-        else
+
+        if (playerAvatar.realizedCreature is not Player player)
         {
-            target.room.AddObject(new ReverseShockwave(target.mainBodyChunk.pos, 64f, 0.05f, 24));
-            target.room.PlaySound(SoundID.HUD_Pause_Game, target.mainBodyChunk, loop: false, 1f, 0.5f);
+            Main.Logger.LogWarning($"Player avatar is not valid. (Player: {playerAvatar})");
+
+            rpcEvent.Resolve(new GenericResult.Fail(rpcEvent));
+            return;
+        }
+
+        PhysicalObject target = onlineTarget.apo.realizedObject;
+
+        PossessionManager.SpawnPossessionEffects(target, player, isNewPossession, depletedPossessionTime);
+
+        if (player.TryGetPossessionManager(out PossessionManager manager))
+        {
+            if (target is Creature crit && manager.CanPossessCreature(crit))
+                manager.StartCreaturePossession(crit);
+            else if (manager.CanPossessItem(target))
+                manager.StartItemPossession(target);
+            else
+                Main.Logger.LogWarning($"Could not start a possession of {target}! Not a valid possession target.");
         }
     }
 
-    [SoftRPCMethod]
+    /// <summary>
+    ///     Sets an online creature as being controlled by the sender of this RPC.
+    /// </summary>
+    /// <param name="rpcEvent">The RPC event itself.</param>
+    /// <param name="onlineTarget">The target creature for control.</param>
+    /// <param name="controlled">Whether or not the given creature is being controlled by the sender.</param>
+    [RPCMethod]
     public static void SetCreatureControl(RPCEvent rpcEvent, OnlineCreature onlineTarget, bool controlled)
     {
         if (onlineTarget.realizedCreature is not Creature target)
@@ -42,23 +87,59 @@ public static class MyRPCs
         }
 
         target.abstractCreature.controlled = controlled;
+        target.UpdateCachedPossession();
 
         Main.Logger.LogInfo($"{target} is {(controlled ? "now" : "no longer")} being controlled by {rpcEvent.from}.");
     }
 
-    public static void SyncCreaturePossession(Creature creature, bool isPossession)
+    /// <summary>
+    ///     Broadcasts RPCs to all online players of the new possession, for spawning visual effects and syncing creature behavior.
+    /// </summary>
+    /// <param name="target">The object being possessed.</param>
+    /// <param name="caller">The player who owns the possession.</param>
+    /// <param name="isNewPossession">Whether the possession has just started (<c>true</c>) or just stopped (<c>false</c>).</param>
+    /// <param name="depletedPossessionTime">If the possession was stopped, whether or not it was caused by a depletion of <c>PossessionTime</c>.</param>
+    [RPCMethod]
+    public static void SyncOnlinePossession(PhysicalObject target, Player caller, bool isNewPossession, bool depletedPossessionTime)
     {
-        OnlineCreature? onlineCreature = creature?.abstractCreature.GetOnlineCreature();
+        OnlinePhysicalObject? onlineTarget = target?.abstractPhysicalObject.GetOnlineObject();
+        OnlineCreature? playerAvatar = caller.abstractCreature.GetOnlineCreature();
 
-        if (onlineCreature is null) return;
+        if (onlineTarget is null || playerAvatar is null) return;
 
-        onlineCreature.BroadcastOnceRPCInRoom(ApplyPossessionEffects, onlineCreature, isPossession);
+        onlineTarget.BroadcastOnceRPCInRoom(ApplyPossessionEffects, onlineTarget, playerAvatar, isNewPossession, depletedPossessionTime);
 
-        OnlineManager.players.ForEach(op =>
+        if (target is Creature creature)
         {
-            if (op.isMe) return;
+            OnlineCreature? onlineCreature = creature.abstractCreature.GetOnlineCreature();
 
-            op.SendRPCEvent(SetCreatureControl, onlineCreature, isPossession);
-        });
+            if (onlineCreature is null) return;
+
+            foreach (OnlinePlayer op in OnlineManager.players)
+            {
+                if (op.isMe) continue;
+
+                op.SendRPCEvent(SetCreatureControl, onlineCreature, isNewPossession);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Sends an RPC event to all players for synchronizing the creation of a new PossessionManager instance.
+    /// </summary>
+    /// <param name="player">The player who triggered this event.</param>
+    [RPCMethod]
+    public static void SyncPossessionManagerCreation(Player player)
+    {
+        OnlineCreature? playerAvatar = player.abstractCreature.GetOnlineCreature();
+
+        if (playerAvatar is null) return;
+
+        foreach (OnlinePlayer op in OnlineManager.players)
+        {
+            if (op.isMe) continue;
+
+            op.SendRPCEvent(AddPossessionManager, playerAvatar);
+        }
     }
 }

@@ -1,4 +1,6 @@
-using System.Runtime.CompilerServices;
+using System;
+using ControlLib.Meadow;
+using ModLib;
 using ModLib.Collections;
 
 namespace ControlLib.Possession;
@@ -12,12 +14,12 @@ public static class PossessionExts
     /// Stores the result of previous queries for a given creature and its possessing player.
     /// </summary>
     /// <remarks>References are valid for as long as the possession lasts; Once possession ends, the given creature's key-value pair is discarded.</remarks>
-    private static readonly ConditionalWeakTable<Creature, Player> _cachedPossessions = new();
+    internal static readonly WeakDictionary<Creature, Player> LocalPossessions = [];
     /// <summary>
     /// Stores all players with a <c>PossessionManager</c> instance.
     /// </summary>
     /// <remarks>This is used as a reference to determine which player is currently possessing a given creature.</remarks>
-    private static readonly WeakDictionary<Player, PossessionManager> _possessionHolders = [];
+    internal static readonly WeakDictionary<Player, PossessionManager> PossessionHolders = [];
 
     /// <summary>
     /// Obtains the given player's <c>PossessionManager</c> instance. If none is found, a new one is created with default values.
@@ -30,13 +32,33 @@ public static class PossessionExts
 
         PossessionManager newManager = new(self);
 
-        _possessionHolders.Add(self, newManager);
+        PossessionHolders.Add(self, newManager);
+
+        if (Extras.IsMeadowEnabled)
+        {
+            try
+            {
+                MyRPCs.SyncPossessionManagerCreation(self);
+            }
+            catch (Exception ex)
+            {
+                Main.Logger.LogError(ex);
+            }
+        }
 
         Main.Logger.LogInfo($"New {nameof(PossessionManager)} instance! {newManager}");
         return newManager;
     }
 
-    public static bool RemovePossessionManager(this Player self) => _possessionHolders.Remove(self);
+    /// <summary>
+    /// Removes the player's PossessionManager instance from the cache.
+    /// </summary>
+    /// <param name="self">The player itself.</param>
+    /// <returns>
+    ///     <c>true</c> if the instance was successfully removed, <c>false</c> otherwise.
+    ///     This method returns <c>false</c> if the PossessionManager instance is not found in the internal cache.
+    /// </returns>
+    public static bool RemovePossessionManager(this Player self) => PossessionHolders.Remove(self);
 
     /// <summary>
     /// Attempts to retrieve the given creature's possessing player. If none is found, <c>null</c> is returned instead.
@@ -48,7 +70,7 @@ public static class PossessionExts
     {
         possessor = null!;
 
-        if (_cachedPossessions.TryGetValue(self, out Player player))
+        if (LocalPossessions.TryGetValue(self, out Player player))
         {
             possessor = player;
             return true;
@@ -63,7 +85,7 @@ public static class PossessionExts
     /// <param name="self">The player to be queried.</param>
     /// <param name="manager">The output value; May be a <c>PossessionManager</c> instance or <c>null</c>.</param>
     /// <returns><c>true</c> if a value was found, <c>false</c> otherwise.</returns>
-    public static bool TryGetPossessionManager(this Player self, out PossessionManager manager) => _possessionHolders.TryGetValue(self, out manager);
+    public static bool TryGetPossessionManager(this Player self, out PossessionManager manager) => PossessionHolders.TryGetValue(self, out manager);
 
     /// <summary>
     /// Adds or removes the given creature's cached possession pair, depending on whether the possession is still valid.
@@ -72,25 +94,25 @@ public static class PossessionExts
     /// <remarks>This should always be called upon updating a creature's possession state.</remarks>
     public static void UpdateCachedPossession(this Creature self)
     {
-        if (_cachedPossessions.TryGetValue(self, out Player possession))
+        if (LocalPossessions.TryGetValue(self, out Player possession))
         {
             if (possession.TryGetPossessionManager(out PossessionManager manager)
                 && !manager.HasCreaturePossession(self))
             {
                 Main.Logger.LogDebug($"- {self} is no longer being possessed by {manager.GetPlayer()}.");
 
-                _cachedPossessions.Remove(self);
+                LocalPossessions.Remove(self);
             }
         }
         else
         {
-            foreach (PossessionManager manager in _possessionHolders.Values)
+            foreach (PossessionManager manager in PossessionHolders.Values)
             {
                 if (manager.HasCreaturePossession(self))
                 {
                     Main.Logger.LogDebug($"+ {self} is now being possessed by {manager.GetPlayer()}.");
 
-                    _cachedPossessions.Add(self, manager.GetPlayer());
+                    LocalPossessions[self] = manager.GetPlayer();
                 }
             }
         }

@@ -10,6 +10,24 @@ namespace ControlLib;
 public static class ExplosionManager
 {
     /// <summary>
+    ///     Transforms the created SingularityBomb into Inv's Egg.
+    /// </summary>
+    public static readonly Action<PhysicalObject> EggSingularityCallback = static (p) =>
+    {
+        if (p is SingularityBomb singularity)
+            singularity.zeroMode = true;
+    };
+
+    /// <summary>
+    ///     Sets the target of the explosion's violence to the same creature who created it.
+    /// </summary>
+    public static readonly Action<PhysicalObject> SelfExplosionCallback = static (p) =>
+    {
+        if (p is Weapon weapon)
+            weapon.thrownClosestToCreature = weapon.thrownBy;
+    };
+
+    /// <summary>
     ///     Creates and immediately explodes a bomb of the given type at the target creature's position.<br/>
     ///     Nearly guaranteed to kill, or have your porls back.
     /// </summary>

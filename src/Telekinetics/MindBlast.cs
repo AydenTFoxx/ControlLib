@@ -1,6 +1,7 @@
 using System.Linq;
 using ControlLib.Possession;
 using ModLib.Collections;
+using ModLib.Options;
 using MoreSlugcats;
 using Noise;
 using RWCustom;
@@ -14,7 +15,7 @@ public class MindBlast : CosmeticSprite
     private const int StunDeathThreshold = 100;
 
     private static readonly WeakDictionary<Player, MindBlast> _activeInstances = [];
-    private static readonly System.Predicate<Creature> PlayerProtectionCondition = static (c) => c is Player { canJump: > 0 };
+    private static readonly System.Predicate<Creature> PlayerProtectionCondition = static (c) => c is Player { canJump: > 0 } or { stun: 0, Submersion: >= 0.5f };
 
     private readonly Player player;
     private readonly DynamicSoundLoop soundLoop;
@@ -70,11 +71,7 @@ public class MindBlast : CosmeticSprite
                 ? DLCSharedEnums.AbstractObjectType.SingularityBomb
                 : AbstractPhysicalObject.AbstractObjectType.ScavengerBomb;
 
-            ExplosionManager.ExplodePos(player, player.room, room.ToWorldCoordinate(pos), bombType, static (p) =>
-            {
-                if (p is SingularityBomb singularity)
-                    singularity.zeroMode = true;
-            });
+            ExplosionManager.ExplodePos(player, player.room, room.ToWorldCoordinate(pos), bombType, ExplosionManager.EggSingularityCallback);
 
             room.AddObject(new FirecrackerPlant.ScareObject(pos) { fearRange = 4000f, fearScavs = true, lifeTime = 400 });
         }
@@ -133,9 +130,11 @@ public class MindBlast : CosmeticSprite
             manager.PossessionCooldown = 200;
         }
 
+        killFac = 1f;
         Expired = true;
 
-        DeathProtection.CreateInstance(player, PlayerProtectionCondition, player.abstractCreature.pos);
+        if (OptionUtils.IsOptionEnabled(Options.MIND_BLAST_PROTECTION))
+            DeathProtection.CreateInstance(player, PlayerProtectionCondition, player.abstractCreature.pos);
     }
 
     public override void Update(bool eu)
@@ -178,9 +177,20 @@ public class MindBlast : CosmeticSprite
                     float stunPower = -(Vector2.Distance(physicalObject.firstChunk.pos, pos) - StunFactor) * Power;
                     float velocity = stunPower * 0.2f;
 
-                    if (physicalObject is Creature crit)
+                    if (physicalObject is Player plr)
                     {
-                        if (crit is not Player && crit.Template.baseDamageResistance <= 0.1f * Power)
+                        if (stunPower <= 0f || !OptionUtils.IsOptionEnabled(Options.MIND_BLAST_PROTECTION)) continue;
+
+                        if (plr != player && (!room.game.IsArenaSession || plr.AI is not null))
+                        {
+                            Main.Logger.LogDebug($"Protecting other slugcat: {plr}");
+
+                            DeathProtection.CreateInstance(plr, PlayerProtectionCondition);
+                        }
+                    }
+                    else if (physicalObject is Creature crit)
+                    {
+                        if (crit.Template.baseDamageResistance <= 0.1f * Power)
                         {
                             Main.Logger.LogDebug($"Die! {crit} (Too weak to withstand MindBlast)");
 
@@ -196,19 +206,14 @@ public class MindBlast : CosmeticSprite
                             Main.Logger.LogDebug($"Target: ({physicalObject}); Stun power: {stunPower} | Velocity: {velocity}");
                         }
                     }
-                    else if (physicalObject is Oracle oracle && stunPower > 0f)
+                    else if (physicalObject is Oracle oracle)
                     {
+                        if (stunPower <= 0f) continue;
+
                         if (room.game.IsArenaSession || room.game.GetStorySession?.saveStateNumber == MoreSlugcatsEnums.SlugcatStatsName.Saint)
                         {
                             AscendOracle(oracle);
                         }
-                    }
-
-                    if (!room.game.IsArenaSession && physicalObject is Player plr && plr != player && (plr.dead || velocity > 0f))
-                    {
-                        Main.Logger.LogDebug($"Protecting other slugcat: {plr}");
-
-                        DeathProtection.CreateInstance(plr, PlayerProtectionCondition);
                     }
 
                     if (velocity > 0f)
@@ -286,11 +291,11 @@ public class MindBlast : CosmeticSprite
                         }
                     }
 
-                    room.locusts.DoGrounding();
+                    room.locusts.spawnMultiplier = -100f; // Note: This would break vanilla Watcher; There are two hooks in TelekineticsHooks (DelayLocustSpawningILHook and DelayLocustWarmUpHook) which prevent that, with this very use case in mind.
 
                     if (locustCount > 0)
                     {
-                        player.repelLocusts = Mathf.Max(player.repelLocusts, (int)(StunFactor * Power * 0.1f * locustCount));
+                        player.repelLocusts = Mathf.Max(player.repelLocusts, OptionUtils.IsOptionEnabled(Options.MIND_BLAST_PROTECTION) ? (int)(StunFactor * Power * 0.1f * locustCount) : 240);
 
                         Main.Logger.LogDebug($"Locust repellant duration: {player.repelLocusts}");
                     }
@@ -312,18 +317,20 @@ public class MindBlast : CosmeticSprite
         killFac += 0.015f;
         if (killFac >= 1f)
         {
-            killFac = 1f;
-
             Explode();
         }
         else if (this is { activateLightning: null, killFac: >= 0.15f })
         {
-            activateLightning = new LightningMachine(pos, pos, new Vector2(pos.x, pos.y + 10f), 0f, false, true, 0.5f, 0.5f * Power, 1f)
+            activateLightning = new LightningMachine(pos, pos, new Vector2(pos.x, pos.y + (10f * Power)), 0f, false, true, 0.5f * Power, 0.5f * Power, 1f)
             {
                 volume = 0.8f,
                 impactType = 3,
-                lightningType = Mathf.Pow(0.1f, Power)
+                lightningType = 0.1f + (1f - Power)
             };
+
+            // Attuned: 0.15f (1.5 Power)
+            // Regular: 0.1f (1 Power)
+            // Hardmode: 0.05f (0.5 Power)
 
             room.AddObject(activateLightning);
 
@@ -332,14 +339,14 @@ public class MindBlast : CosmeticSprite
 
         if (activateLightning is not null)
         {
-            float num3 = Mathf.Clamp(killFac, 0.2f, 1f);
-            activateLightning.startPoint = new Vector2(Mathf.Lerp(pos.x, 150f, (num3 * 2f) - 2f), pos.y);
-            activateLightning.endPoint = new Vector2(Mathf.Lerp(pos.x, 150f, (num3 * 2f) - 2f), pos.y + 10f);
-            activateLightning.chance = Custom.SCurve(0.7f * Power, num3);
+            float clampedFac = Mathf.Clamp(killFac, 0.2f, 1f);
+
+            activateLightning.startPoint = new Vector2(Mathf.Lerp(pos.x, pos.x * (150f * Power), (clampedFac * 2f) - 2f), pos.y);
+            activateLightning.endPoint = new Vector2(Mathf.Lerp(pos.x, pos.x * (150f * Power), (clampedFac * 2f) - 2f), pos.y + (10f * Power));
+            activateLightning.chance = Custom.SCurve(0.7f * Power, clampedFac);
         }
 
         soundLoop.Volume = Mathf.Lerp(15f, 5f, killFac);
-
         soundLoop.Update();
     }
 

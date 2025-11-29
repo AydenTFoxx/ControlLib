@@ -19,6 +19,8 @@ public class Options : OptionInterface
 
     public static Configurable<bool> KINETIC_ABILITIES;
     public static Configurable<bool> MIND_BLAST;
+    public static Configurable<bool> MIND_BLAST_PROTECTION;
+    public static Configurable<bool> DANGER_MIND_BLAST;
 
     public static Configurable<bool> MULTIPLAYER_SLOWDOWN;
     public static Configurable<bool> INFINITE_POSSESSION;
@@ -32,17 +34,17 @@ public class Options : OptionInterface
     {
         SELECTION_MODE = config.Bind(
             "selection_mode",
-            "classic",
+            "ascension",
             new ConfigurableInfo(
                 "Which mode to use for selecting creatures to possess. Classic is list-based; Ascension is akin to Saint's ascension ability.",
-                new ConfigAcceptableList<string>("classic", "ascension")
+                new ConfigAcceptableList<string>("ascension", "classic")
             )
         );
         INVERT_CLASSIC = config.Bind(
             "invert_classic",
             false,
             new ConfigurableInfo(
-                "(Classic mode only) Inverts the directional inputs for selecting creatures to possess."
+                "(Requires Selection Mode: Classic) Inverts the directional inputs for selecting creatures to possess."
             )
         );
         MULTIPLAYER_SLOWDOWN = config.Bind(
@@ -54,7 +56,7 @@ public class Options : OptionInterface
         );
         KINETIC_ABILITIES = config.Bind(
             "kinetic_abilities",
-            false,
+            true,
             new ConfigurableInfo(
                 "If enabled, Slugcat can \"possess\" carryable items, moving them with its mind. Items can also be thrown or dropped, and have the same behavior as if Slugcat had performed these actions."
             )
@@ -66,12 +68,26 @@ public class Options : OptionInterface
                 "A powerful burst of energy requiring full possession time, which stuns or even kills foes around its target position; Has a dedicated keybind. (Default: B)"
             )
         );
+        MIND_BLAST_PROTECTION = config.Bind(
+            "mind_blast_protection",
+            true,
+            new ConfigurableInfo(
+                "If enabled, using Mind Blast grants a brief moment of immortality, which prevents unfair deaths until the player regains control of Slugcat."
+            )
+        );
+        DANGER_MIND_BLAST = config.Bind(
+            "danger_mind_blast",
+            true,
+            new ConfigurableInfo(
+                "If enabled, using Mind Blast when grabbed by a predator triggers its explosion instantly. Has the same window of time as throwing a weapon to get free (1.5s)."
+            )
+        );
         WEAPON_ROTATION_SPEED = config.Bind(
             "weapon_rotation_speed",
             8,
             new ConfigurableInfo(
                 "(Requires Kinetic Abilities) The speed at which weapons will rotate when possessed by the player; If set to 0, weapons instead point towards their last directional input.",
-                new ConfigAcceptableRange<int>(0, 100)
+                new ConfigAcceptableRange<int>(0, 20)
             )
         );
         INFINITE_POSSESSION = config.Bind(
@@ -131,12 +147,17 @@ public class Options : OptionInterface
             .AddPadding(Vector2.up * 10)
             .AddCheckBoxOption("Kinetic Abilities", KINETIC_ABILITIES)
             .AddPadding(Vector2.up * 10)
-            .AddSliderOption("Weapon Rotation Speed", WEAPON_ROTATION_SPEED, out OpSlider sliderWRS, multi: 1.5f)
+            .AddSliderOption("Weapon Rotation Speed", WEAPON_ROTATION_SPEED, out OpSlider sliderWRS, multi: 4f)
             .AddPadding(Vector2.up * 20)
             .AddCheckBoxOption("Mind Blast", MIND_BLAST, default, RainWorld.GoldRGB)
+            .AddCheckBoxOption("Mind Blast Protection", MIND_BLAST_PROTECTION, out OpCheckBox checkBoxMBP, default, RainWorld.SaturatedGold)
+            .AddCheckBoxOption("Danger-Aware Mind Blast", DANGER_MIND_BLAST, out OpCheckBox checkBoxDMB, default, RainWorld.SaturatedGold)
             .Build();
 
         KINETIC_ABILITIES.BoundUIconfig.OnValueChanged += BuildToggleAction(sliderWRS, "true");
+
+        MIND_BLAST.BoundUIconfig.OnValueChanged += BuildToggleAction(checkBoxMBP, "true");
+        MIND_BLAST.BoundUIconfig.OnValueChanged += BuildToggleAction(checkBoxDMB, "true");
 
         Tabs[2] = new OptionBuilder(this, "Cheats", MenuColorEffect.rgbDarkRed)
             .CreateModHeader()
