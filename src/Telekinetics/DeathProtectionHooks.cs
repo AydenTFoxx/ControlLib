@@ -5,7 +5,6 @@ using ModLib;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
-using MoreSlugcats;
 
 namespace ControlLib.Telekinetics;
 
@@ -19,17 +18,16 @@ public static class DeathProtectionHooks
 
     public static void ApplyHooks()
     {
-        IL.BigEel.JawsSnap += Extras.WrapILHook(IgnoreLeviathanBiteILHook);
-        IL.BigEelAI.IUseARelationshipTracker_UpdateDynamicRelationship += Extras.WrapILHook(IgnoreProtectedCreatureILHook);
+        Extras.WrapAction(static () =>
+        {
+            IL.BigEel.JawsSnap += IgnoreLeviathanBiteILHook;
+            IL.BigEelAI.IUseARelationshipTracker_UpdateDynamicRelationship += IgnoreProtectedCreatureILHook;
 
-        IL.BulletDrip.Strike += Extras.WrapILHook(PreventRainDropStunILHook);
-        IL.RoomRain.ThrowAroundObjects += Extras.WrapILHook(PreventRoomRainPushILHook);
+            IL.BulletDrip.Strike += PreventRainDropStunILHook;
+            IL.RoomRain.ThrowAroundObjects += PreventRoomRainPushILHook;
 
-        IL.WormGrass.WormGrassPatch.Update += Extras.WrapILHook(IgnoreRepulsiveCreatureILHook);
-
-        IL.Menu.InitializationScreen.Update += Extras.WrapILHook(PersistentSofanthielILHook);
-        IL.Menu.MainMenu.eeCheck += Extras.WrapILHook(ToggleSofanthielMenuILHook);
-        IL.PlayerProgression.MiscProgressionData.FromString += Extras.WrapILHook(PersistentSofanthielILHook);
+            IL.WormGrass.WormGrassPatch.Update += IgnoreRepulsiveCreatureILHook;
+        });
 
         On.AbstractWorldEntity.Destroy += PreventCreatureDestructionHook;
 
@@ -64,17 +62,16 @@ public static class DeathProtectionHooks
 
     public static void RemoveHooks()
     {
-        IL.BigEel.JawsSnap -= Extras.WrapILHook(IgnoreLeviathanBiteILHook);
-        IL.BigEelAI.IUseARelationshipTracker_UpdateDynamicRelationship -= Extras.WrapILHook(IgnoreProtectedCreatureILHook);
+        Extras.WrapAction(static () =>
+        {
+            IL.BigEel.JawsSnap -= IgnoreLeviathanBiteILHook;
+            IL.BigEelAI.IUseARelationshipTracker_UpdateDynamicRelationship -= IgnoreProtectedCreatureILHook;
 
-        IL.BulletDrip.Strike -= Extras.WrapILHook(PreventRainDropStunILHook);
-        IL.RoomRain.ThrowAroundObjects -= Extras.WrapILHook(PreventRoomRainPushILHook);
+            IL.BulletDrip.Strike -= PreventRainDropStunILHook;
+            IL.RoomRain.ThrowAroundObjects -= PreventRoomRainPushILHook;
 
-        IL.WormGrass.WormGrassPatch.Update -= Extras.WrapILHook(IgnoreRepulsiveCreatureILHook);
-
-        IL.Menu.InitializationScreen.Update -= Extras.WrapILHook(PersistentSofanthielILHook);
-        IL.Menu.MainMenu.eeCheck -= Extras.WrapILHook(ToggleSofanthielMenuILHook);
-        IL.PlayerProgression.MiscProgressionData.FromString -= Extras.WrapILHook(PersistentSofanthielILHook);
+            IL.WormGrass.WormGrassPatch.Update -= IgnoreRepulsiveCreatureILHook;
+        });
 
         On.AbstractWorldEntity.Destroy -= PreventCreatureDestructionHook;
 
@@ -94,42 +91,6 @@ public static class DeathProtectionHooks
             }
         }
         manualHooks = null;
-    }
-
-    private static void PersistentSofanthielILHook(ILContext context)
-    {
-        ILCursor c = new(context);
-        ILLabel? target = null;
-
-        c.GotoNext(static x => x.MatchLdsfld<MoreSlugcatsEnums.SlugcatStatsName>(nameof(MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel)))
-         .GotoNext(MoveType.After, x => x.MatchBrfalse(out target))
-         .MoveAfterLabels();
-
-        c.Emit(OpCodes.Br, target);
-    }
-
-    private static void ToggleSofanthielMenuILHook(ILContext context)
-    {
-        ILCursor c = new(context);
-
-        c.GotoNext(static x => x.MatchStfld<PlayerProgression.MiscProgressionData>("currentlySelectedSinglePlayerSlugcat")).MoveAfterLabels();
-
-        c.Emit(OpCodes.Ldarg_0).EmitDelegate(ToggleSlugcatName);
-
-        static SlugcatStats.Name ToggleSlugcatName(SlugcatStats.Name sofanthiel, Menu.MainMenu self)
-        {
-            self.eeinput = 0;
-
-            SlugcatStats.Name currentSlugcat = self.manager.rainWorld.progression.miscProgressionData.currentlySelectedSinglePlayerSlugcat;
-
-            SlugcatStats.Name newSlugcat = (currentSlugcat == sofanthiel)
-                ? SlugcatStats.Name.White
-                : sofanthiel;
-
-            Main.Logger.LogMessage($"Switching current slugcat to: {newSlugcat} (Was: {currentSlugcat})");
-
-            return newSlugcat;
-        }
     }
 
     /// <summary>

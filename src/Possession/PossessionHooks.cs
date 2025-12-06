@@ -21,9 +21,12 @@ public static class PossessionHooks
     /// </summary>
     public static void ApplyHooks()
     {
-        IL.Creature.Update += Extras.WrapILHook(UpdatePossessedCreatureILHook);
+        Extras.WrapAction(static () =>
+        {
+            IL.Creature.Update += UpdatePossessedCreatureILHook;
 
-        IL.Watcher.LizardRotModule.Act += Extras.WrapILHook(PerformProperNullCheckingILHook);
+            IL.Watcher.LizardRotModule.Act += PerformProperNullCheckingILHook;
+        });
 
         On.Creature.Die += CreatureDeathHook;
 
@@ -42,9 +45,12 @@ public static class PossessionHooks
     /// </summary>
     public static void RemoveHooks()
     {
-        IL.Creature.Update -= Extras.WrapILHook(UpdatePossessedCreatureILHook);
+        Extras.WrapAction(static () =>
+        {
+            IL.Creature.Update -= UpdatePossessedCreatureILHook;
 
-        IL.Watcher.LizardRotModule.Act -= Extras.WrapILHook(PerformProperNullCheckingILHook);
+            IL.Watcher.LizardRotModule.Act -= PerformProperNullCheckingILHook;
+        });
 
         On.Creature.Die -= CreatureDeathHook;
 

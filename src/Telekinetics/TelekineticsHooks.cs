@@ -12,11 +12,14 @@ public static class TelekineticsHooks
 {
     public static void ApplyHooks()
     {
-        IL.Creature.RippleViolenceCheck += Extras.WrapILHook(NoViolenceWhileProtectedILHook);
+        Extras.WrapAction(static () =>
+        {
+            IL.Creature.RippleViolenceCheck += NoViolenceWhileProtectedILHook;
 
-        IL.LocustSystem.Update += Extras.WrapILHook(DelayLocustSpawningILHook);
+            IL.LocustSystem.Update += DelayLocustSpawningILHook;
 
-        IL.Player.TossObject += Extras.WrapILHook(TossPossessedItemILHook);
+            IL.Player.TossObject += TossPossessedItemILHook;
+        });
 
         On.AbstractPhysicalObject.Realize += RealizeControllerHook;
 
@@ -29,11 +32,14 @@ public static class TelekineticsHooks
 
     public static void RemoveHooks()
     {
-        IL.Creature.RippleViolenceCheck -= Extras.WrapILHook(NoViolenceWhileProtectedILHook);
+        Extras.WrapAction(static () =>
+        {
+            IL.Creature.RippleViolenceCheck -= NoViolenceWhileProtectedILHook;
 
-        IL.LocustSystem.Update -= Extras.WrapILHook(DelayLocustSpawningILHook);
+            IL.LocustSystem.Update -= DelayLocustSpawningILHook;
 
-        IL.Player.TossObject -= Extras.WrapILHook(TossPossessedItemILHook);
+            IL.Player.TossObject -= TossPossessedItemILHook;
+        });
 
         On.AbstractPhysicalObject.Realize -= RealizeControllerHook;
 
