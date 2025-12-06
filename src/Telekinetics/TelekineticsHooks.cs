@@ -1,3 +1,4 @@
+using System.Reflection;
 using ControlLib.Enums;
 using ModLib;
 using Mono.Cecil.Cil;
@@ -108,17 +109,19 @@ public static class TelekineticsHooks
         //        ^ HERE (Prepend)
 
         ILCursor d = new(c);
-        ILLabel? target = null;
 
-        d.GotoNext(
+        d.GotoNext(MoveType.Before,
             static x => x.MatchLdarg(0),
             static x => x.MatchCall<LocustSystem>(nameof(LocustSystem.DoGrounding))
-        ).MarkLabel(target);
+        );
+
+        ILLabel target = d.MarkLabel();
 
         // Target: this.DoGrounding();
         //        ^ HERE (Referenced for redirect)
 
-        c.Emit(OpCodes.Ldfld, typeof(LocustSystem).GetField(nameof(LocustSystem.spawnMultiplier)))
+        c.Emit(OpCodes.Ldarg_0)
+         .Emit(OpCodes.Ldfld, typeof(LocustSystem).GetField(nameof(LocustSystem.spawnMultiplier), BindingFlags.NonPublic | BindingFlags.Instance))
          .Emit(OpCodes.Ldc_R4, 0f)
          .Emit(OpCodes.Ble_Un, target);
 

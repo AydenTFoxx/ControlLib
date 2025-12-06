@@ -140,7 +140,7 @@ public abstract class PlayerAccessory : CosmeticSprite
     {
         base.Update(eu);
 
-        if (player is null)
+        if (player is null or { room: null, inShortcut: false })
         {
             Destroy();
             return;

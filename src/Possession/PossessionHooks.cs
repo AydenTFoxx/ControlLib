@@ -65,10 +65,12 @@ public static class PossessionHooks
     {
         orig.Invoke(self, add);
 
-        if (add > 0 && self.TryGetPossessionManager(out PossessionManager manager))
-        {
-            manager.PossessionTime += add * 40;
-        }
+        if (add <= 0 || !self.TryGetPossessionManager(out PossessionManager manager)) return;
+
+        manager.PossessionTime += add * 40;
+
+        if (manager.IsSofanthielSlugcat && manager.PossessionTime < manager.MaxPossessionTime)
+            manager.ForceVisiblePips = 120;
     }
 
     /// <summary>
@@ -76,7 +78,12 @@ public static class PossessionHooks
     /// </summary>
     private static void CreatureDeathHook(On.Creature.orig_Die orig, Creature self)
     {
-        if (DeathProtection.HasProtection(self)) return;
+        if (DeathProtection.HasProtection(self))
+        {
+            if (self.grabbedBy.Count > 0)
+                self.StunAllGrasps(40);
+            return;
+        }
 
         orig.Invoke(self);
 
@@ -236,8 +243,10 @@ public static class PossessionHooks
 
         if (creature.room is null)
         {
-            creature.room = creature.abstractCreature.Room.realizedRoom;
+            creature.room = creature.abstractCreature.world.GetAbstractRoom(protection.SafePos.Value.room)?.realizedRoom;
+
             creature.room ??= protection.room;
+            creature.room ??= creature.abstractCreature.Room?.realizedRoom;
 
             if (creature.room is null)
             {
@@ -270,6 +279,9 @@ public static class PossessionHooks
         {
             bodyChunk.vel = bodyVel;
         }
+
+        if (creature.grabbedBy.Count > 0)
+            creature.StunAllGrasps(80);
 
         creature.room.AddObject(new KarmicShockwave(creature, revivePos, 80, 48f * protection.Power, 64f * protection.Power));
         creature.room.AddObject(new Explosion.ExplosionLight(revivePos, 180f * protection.Power, 1f, 80, RainWorld.GoldRGB));

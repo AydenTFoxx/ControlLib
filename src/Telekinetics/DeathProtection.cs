@@ -56,6 +56,11 @@ public class DeathProtection : UpdatableAndDeletable
     private int lifespan;
 
     /// <summary>
+    ///     The amount of times the protection will attempt to revive its target creature. If this number reaches zero, the protection is destroyed.
+    /// </summary>
+    private int revivalsLeft = 10;
+
+    /// <summary>
     ///     An optional condition to determine when the protection should be removed. If omitted, defaults to a countdown using lifespan.
     /// </summary>
     private readonly Predicate<Creature> condition;
@@ -140,17 +145,12 @@ public class DeathProtection : UpdatableAndDeletable
 
         for (int i = 0; i < Target.grabbedBy.Count; i++)
         {
-            Creature.Grasp grasp = Target.grabbedBy[i];
+            Creature? grabber = Target.grabbedBy[i]?.grabber;
 
-            if (grasp is null) continue;
+            if (grabber is null or Player) continue;
 
-            Creature grabber = grasp.grabber;
-
-            if (grabber is not Player)
-            {
-                grabber.ReleaseGrasp(grasp.graspUsed);
-                grabber.Stun(20);
-            }
+            grabber.ReleaseGrasp(Target.grabbedBy[i].graspUsed);
+            grabber.Stun(20);
         }
 
         if (Target.room is not null)
@@ -202,14 +202,15 @@ public class DeathProtection : UpdatableAndDeletable
 
         if (Target.dead)
         {
-            bool canRevive = this is { forceRevive: true, SaveCooldown: 0 };
+            bool canRevive = this is { forceRevive: true, revivalsLeft: > 0, SaveCooldown: 0 };
 
             Main.Logger.LogWarning($"{Target} was killed while protected! Will revive? {canRevive}");
 
             if (canRevive)
                 ReviveTarget();
+            else
+                Destroy();
 
-            Destroy();
             return;
         }
 
@@ -279,22 +280,24 @@ public class DeathProtection : UpdatableAndDeletable
         Target.abstractCreature.abstractAI?.SetDestinationNoPathing(Target.abstractCreature.pos, false);
 
         SaveCooldown = 10;
+        revivalsLeft--;
 
         Main.Logger.LogDebug($"Revived {Target}!");
     }
 
     private bool ShouldUpdateSafePos()
     {
-        if (this is { SaveCooldown: 0, Target.dead: false, Target.grabbedBy.Count: 0 }
-            && Target.IsTileSolid(1, 0, -1)
-            && !Target.IsTileSolid(1, 0, 0)
-            && !Target.IsTileSolid(1, 0, 1))
+        if (this is { SaveCooldown: 0, Target.dead: false, Target.grabbedBy.Count: 0 })
         {
             Room.Tile tile = Target.room.GetTile(Target.bodyChunks[safeChunkIndex].pos);
 
-            return (!tile.DeepWater || isWaterBreathingCrit) && !tile.wormGrass;
+            if ((isWaterBreathingCrit || !tile.DeepWater) && !tile.wormGrass)
+            {
+                return Target.IsTileSolid(safeChunkIndex, 0, -1)
+                    && !Target.IsTileSolid(safeChunkIndex, 0, 0)
+                    && !Target.IsTileSolid(safeChunkIndex, 0, 1);
+            }
         }
-
         return false;
     }
 

@@ -21,11 +21,15 @@ public class MindBlast : CosmeticSprite
     private readonly DynamicSoundLoop soundLoop;
     private readonly Color explodeColor;
 
+    private readonly PossessionManager? manager;
+
     private float killFac;
     private float lastKillFac;
 
     private LightningMachine? activateLightning;
     private FadingMeltLights? fadingMeltLights;
+
+    private FirecrackerPlant.ScareObject? scareObj;
 
     private bool enlightenedRoom;
 
@@ -34,10 +38,19 @@ public class MindBlast : CosmeticSprite
 
     private float FadeProgress => fadingMeltLights?.FadeProgress ?? 0f;
 
-    private MindBlast(Player player, float power)
+    private MindBlast(Player player, PossessionManager? manager)
     {
         this.player = player;
-        Power = Mathf.Clamp(power, -2f, 2f);
+
+        if (manager is null)
+            player.TryGetPossessionManager(out manager);
+
+        this.manager = manager;
+
+        Power = manager is not null ? manager.Power : 1f;
+
+        if (OptionUtils.IsOptionEnabled(Options.WORLDWIDE_MIND_CONTROL))
+            Power *= 5f;
 
         soundLoop = new ChunkDynamicSoundLoop(player.mainBodyChunk)
         {
@@ -57,7 +70,9 @@ public class MindBlast : CosmeticSprite
 
     public void Interrupt()
     {
-        if (room is null || killFac < 0.3f)
+        bool worldwideMindControl = OptionUtils.IsOptionEnabled(Options.WORLDWIDE_MIND_CONTROL) || (manager is not null && manager.IsSofanthielSlugcat);
+
+        if (room is null || (killFac < 0.3f && !worldwideMindControl))
         {
             Main.Logger.LogDebug($"{nameof(MindBlast)}: Got interrupted but cannot go kaboom; Ignoring. (Room is: {room} | killFac is {killFac})");
 
@@ -65,15 +80,15 @@ public class MindBlast : CosmeticSprite
             return;
         }
 
-        if (killFac >= 0.5f)
+        bool dangerousKillFac = killFac >= 0.5f || worldwideMindControl;
+
+        if (dangerousKillFac)
         {
-            AbstractPhysicalObject.AbstractObjectType bombType = killFac >= 0.95f
+            AbstractPhysicalObject.AbstractObjectType bombType = (worldwideMindControl ? killFac >= 0.85f : killFac >= 0.95f)
                 ? DLCSharedEnums.AbstractObjectType.SingularityBomb
                 : AbstractPhysicalObject.AbstractObjectType.ScavengerBomb;
 
             ExplosionManager.ExplodePos(player, player.room, room.ToWorldCoordinate(pos), bombType, ExplosionManager.EggSingularityCallback);
-
-            room.AddObject(new FirecrackerPlant.ScareObject(pos) { fearRange = 4000f, fearScavs = true, lifeTime = 400 });
         }
         else
         {
@@ -88,6 +103,15 @@ public class MindBlast : CosmeticSprite
             room.PlaySound(SoundID.Firecracker_Bang, pos);
         }
 
+        CreateFear();
+
+        if (scareObj is not null && !worldwideMindControl)
+        {
+            scareObj.lifeTime = dangerousKillFac ? 400 : 600;
+            scareObj.fearRange = dangerousKillFac ? 4000f : 1000f;
+            scareObj.fearScavs = dangerousKillFac;
+        }
+
         if (!player.dead)
         {
             player.exhausted = true;
@@ -97,7 +121,8 @@ public class MindBlast : CosmeticSprite
 
             player.Stun(stunTime);
 
-            room.AddObject(new CreatureSpasmer(player, false, stunTime / 2));
+            if (dangerousKillFac)
+                room.AddObject(new CreatureSpasmer(player, false, stunTime / 2));
         }
 
         Main.Logger.LogDebug($"{nameof(MindBlast)}: Interrupted! Progress was: {killFac}");
@@ -116,15 +141,15 @@ public class MindBlast : CosmeticSprite
 
         room.AddObject(fadingMeltLights = new FadingMeltLights(room));
 
-        room.ScreenMovement(pos, default, 0.35f * Power);
+        room.ScreenMovement(pos, Vector2.zero, 0.5f * Power);
         room.PlaySound(SoundID.SB_A14, pos, 1f, Power + Random.Range(-0.5f, 0.5f));
 
-        room.InGameNoise(new InGameNoise(pos, 4500f * Power, player, 1f));
+        room.InGameNoise(new InGameNoise(pos, 4500f * Power, null, 1f));
 
         player.aerobicLevel = 1f;
         player.exhausted = true;
 
-        if (player.TryGetPossessionManager(out PossessionManager manager))
+        if (manager is not null)
         {
             manager.PossessionTime = -120;
             manager.PossessionCooldown = 200;
@@ -132,6 +157,10 @@ public class MindBlast : CosmeticSprite
 
         killFac = 1f;
         Expired = true;
+
+        CreateFear();
+
+        scareObj?.lifeTime = (int)(-200 * Power);
 
         if (OptionUtils.IsOptionEnabled(Options.MIND_BLAST_PROTECTION))
             DeathProtection.CreateInstance(player, PlayerProtectionCondition, player.abstractCreature.pos);
@@ -174,8 +203,8 @@ public class MindBlast : CosmeticSprite
                 {
                     if (!RippleLayerCheck(physicalObject.abstractPhysicalObject, player.abstractPhysicalObject)) continue;
 
-                    float stunPower = -(Vector2.Distance(physicalObject.firstChunk.pos, pos) - StunFactor) * Power;
-                    float velocity = stunPower * 0.2f;
+                    float stunPower = -(Vector2.Distance(physicalObject.firstChunk.pos, pos) - (StunFactor * Power));
+                    float velocity = stunPower * (OptionUtils.IsOptionEnabled(Options.WORLDWIDE_MIND_CONTROL) ? 0.5f : 0.2f);
 
                     if (physicalObject is Player plr)
                     {
@@ -190,7 +219,7 @@ public class MindBlast : CosmeticSprite
                     }
                     else if (physicalObject is Creature crit)
                     {
-                        if (crit.Template.baseDamageResistance <= 0.1f * Power)
+                        if (crit.Template.baseDamageResistance <= 0.1f * Power && (manager is null || !manager.IsSofanthielSlugcat || manager.IsAttunedSlugcat))
                         {
                             Main.Logger.LogDebug($"Die! {crit} (Too weak to withstand MindBlast)");
 
@@ -208,7 +237,7 @@ public class MindBlast : CosmeticSprite
                     }
                     else if (physicalObject is Oracle oracle)
                     {
-                        if (stunPower <= 0f) continue;
+                        if (stunPower <= 0f || (manager is not null && manager.IsSofanthielSlugcat && !manager.IsAttunedSlugcat)) continue;
 
                         if (room.game.IsArenaSession || room.game.GetStorySession?.saveStateNumber == MoreSlugcatsEnums.SlugcatStatsName.Saint)
                         {
@@ -291,7 +320,7 @@ public class MindBlast : CosmeticSprite
                         }
                     }
 
-                    room.locusts.spawnMultiplier = -100f; // Note: This would break vanilla Watcher; There are two hooks in TelekineticsHooks (DelayLocustSpawningILHook and DelayLocustWarmUpHook) which prevent that, with this very use case in mind.
+                    room.locusts.spawnMultiplier = -100f * Power; // Note: This would break vanilla Watcher; There are two hooks in TelekineticsHooks (DelayLocustSpawningILHook and DelayLocustWarmUpHook) which prevent that, with this very use case in mind.
 
                     if (locustCount > 0)
                     {
@@ -313,8 +342,8 @@ public class MindBlast : CosmeticSprite
         }
 
         lastKillFac = killFac;
-
         killFac += 0.015f;
+
         if (killFac >= 1f)
         {
             Explode();
@@ -327,10 +356,6 @@ public class MindBlast : CosmeticSprite
                 impactType = 3,
                 lightningType = 0.1f + (1f - Power)
             };
-
-            // Attuned: 0.15f (1.5 Power)
-            // Regular: 0.1f (1 Power)
-            // Hardmode: 0.05f (0.5 Power)
 
             room.AddObject(activateLightning);
 
@@ -352,20 +377,26 @@ public class MindBlast : CosmeticSprite
 
     public override void Destroy()
     {
-        activateLightning?.Destroy();
+        if (activateLightning is not null and { slatedForDeletetion: false })
+            activateLightning.Destroy();
+
         activateLightning = null;
 
-        fadingMeltLights?.Destroy();
+        if (fadingMeltLights is not null and { slatedForDeletetion: false })
+            fadingMeltLights.Destroy();
+
         fadingMeltLights = null;
+
+        if (scareObj is not null and { slatedForDeletetion: false })
+            scareObj.Destroy();
+
+        scareObj = null;
 
         base.Destroy();
 
         _activeInstances.Remove(player);
 
-        if (player.TryGetPossessionManager(out PossessionManager manager))
-        {
-            manager.TargetSelector?.ResetSelectorInput(true);
-        }
+        manager?.TargetSelector?.ResetSelectorInput(true);
 
         Main.Logger.LogDebug($"{nameof(MindBlast)} from {player} was destroyed!");
     }
@@ -462,6 +493,20 @@ public class MindBlast : CosmeticSprite
         }
     }
 
+    private void CreateFear()
+    {
+        if (scareObj is not null) return;
+
+        scareObj = new FirecrackerPlant.ScareObject(pos, player.abstractPhysicalObject.rippleLayer)
+        {
+            fearRange = 6000f * Power,
+            fearScavs = true
+        };
+
+        room.AddObject(scareObj);
+        room.InGameNoise(new InGameNoise(pos, 6000f * Power, null, 1f));
+    }
+
     private bool IsPlayerFriend(AbstractCreature creature)
     {
         if (creature.abstractAI?.RealAI is not IReactToSocialEvents or FriendTracker.IHaveFriendTracker) return false;
@@ -480,7 +525,7 @@ public class MindBlast : CosmeticSprite
         return result;
     }
 
-    public static MindBlast CreateInstance(Player player, float? power, bool allowMultiple = false)
+    public static MindBlast CreateInstance(Player player, PossessionManager? manager, bool allowMultiple = false)
     {
         if (player?.room is null || (!allowMultiple && (HasInstance(player) || _activeInstances.Values.Any(m => m.player == player))))
         {
@@ -492,11 +537,7 @@ public class MindBlast : CosmeticSprite
             return null!;
         }
 
-        power ??= player.TryGetPossessionManager(out PossessionManager manager)
-            ? manager.Power
-            : 1f;
-
-        MindBlast mindBlast = new(player, power.Value);
+        MindBlast mindBlast = new(player, manager);
 
         player.room.AddObject(mindBlast);
 

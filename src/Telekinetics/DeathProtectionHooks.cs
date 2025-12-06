@@ -5,6 +5,7 @@ using ModLib;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
+using MoreSlugcats;
 
 namespace ControlLib.Telekinetics;
 
@@ -26,7 +27,13 @@ public static class DeathProtectionHooks
 
         IL.WormGrass.WormGrassPatch.Update += Extras.WrapILHook(IgnoreRepulsiveCreatureILHook);
 
+        IL.Menu.InitializationScreen.Update += Extras.WrapILHook(PersistentSofanthielILHook);
+        IL.Menu.MainMenu.eeCheck += Extras.WrapILHook(ToggleSofanthielMenuILHook);
+        IL.PlayerProgression.MiscProgressionData.FromString += Extras.WrapILHook(PersistentSofanthielILHook);
+
         On.AbstractWorldEntity.Destroy += PreventCreatureDestructionHook;
+
+        On.Player.Die += PlayerDeathHook;
 
         On.RainWorldGame.GameOver += InterruptGameOverHook;
 
@@ -65,9 +72,15 @@ public static class DeathProtectionHooks
 
         IL.WormGrass.WormGrassPatch.Update -= Extras.WrapILHook(IgnoreRepulsiveCreatureILHook);
 
+        IL.Menu.InitializationScreen.Update -= Extras.WrapILHook(PersistentSofanthielILHook);
+        IL.Menu.MainMenu.eeCheck -= Extras.WrapILHook(ToggleSofanthielMenuILHook);
+        IL.PlayerProgression.MiscProgressionData.FromString -= Extras.WrapILHook(PersistentSofanthielILHook);
+
         On.AbstractWorldEntity.Destroy -= PreventCreatureDestructionHook;
 
-        On.RainWorldGame.GameOver += InterruptGameOverHook;
+        On.Player.Die -= PlayerDeathHook;
+
+        On.RainWorldGame.GameOver -= InterruptGameOverHook;
 
         On.RoomRain.CreatureSmashedInGround -= IgnorePlayerRainDeathHook;
 
@@ -81,6 +94,42 @@ public static class DeathProtectionHooks
             }
         }
         manualHooks = null;
+    }
+
+    private static void PersistentSofanthielILHook(ILContext context)
+    {
+        ILCursor c = new(context);
+        ILLabel? target = null;
+
+        c.GotoNext(static x => x.MatchLdsfld<MoreSlugcatsEnums.SlugcatStatsName>(nameof(MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel)))
+         .GotoNext(MoveType.After, x => x.MatchBrfalse(out target))
+         .MoveAfterLabels();
+
+        c.Emit(OpCodes.Br, target);
+    }
+
+    private static void ToggleSofanthielMenuILHook(ILContext context)
+    {
+        ILCursor c = new(context);
+
+        c.GotoNext(static x => x.MatchStfld<PlayerProgression.MiscProgressionData>("currentlySelectedSinglePlayerSlugcat")).MoveAfterLabels();
+
+        c.Emit(OpCodes.Ldarg_0).EmitDelegate(ToggleSlugcatName);
+
+        static SlugcatStats.Name ToggleSlugcatName(SlugcatStats.Name sofanthiel, Menu.MainMenu self)
+        {
+            self.eeinput = 0;
+
+            SlugcatStats.Name currentSlugcat = self.manager.rainWorld.progression.miscProgressionData.currentlySelectedSinglePlayerSlugcat;
+
+            SlugcatStats.Name newSlugcat = (currentSlugcat == sofanthiel)
+                ? SlugcatStats.Name.White
+                : sofanthiel;
+
+            Main.Logger.LogMessage($"Switching current slugcat to: {newSlugcat} (Was: {currentSlugcat})");
+
+            return newSlugcat;
+        }
     }
 
     /// <summary>
@@ -118,9 +167,21 @@ public static class DeathProtectionHooks
     /// </summary>
     private static void InterruptGameOverHook(On.RainWorldGame.orig_GameOver orig, RainWorldGame self, Creature.Grasp dependentOnGrasp)
     {
-        if (self.Players.Any(ac => DeathProtection.HasProtection(ac.realizedCreature as Player))) return;
+        if (self.Players.Any(ac => ac.realizedCreature is Player { AI: null } player && DeathProtection.HasProtection(player))) return;
 
         orig.Invoke(self, dependentOnGrasp);
+    }
+
+    private static void PlayerDeathHook(On.Player.orig_Die orig, Player self)
+    {
+        if (DeathProtection.HasProtection(self))
+        {
+            if (self.grabbedBy.Count > 0)
+                self.StunAllGrasps(40);
+            return;
+        }
+
+        orig.Invoke(self);
     }
 
     /// <summary>

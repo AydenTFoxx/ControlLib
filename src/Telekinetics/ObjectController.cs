@@ -199,18 +199,23 @@ public class ObjectController : PlayerCarryableItem
 
         if (Owner.room is not null && Owner.room != room)
         {
-            room.RemoveObject(this);
-            room.RemoveObject(Target);
+            Target.RemoveFromRoom();
+            RemoveFromRoom();
 
-            Owner.room.AddObject(this);
-            Owner.room.AddObject(Target);
+            Target.abstractPhysicalObject.Move(Owner.abstractCreature.pos);
+            abstractPhysicalObject.Move(Owner.abstractCreature.pos);
+
+            Target.PlaceInRoom(Owner.room);
+            PlaceInRoom(Owner.room);
         }
 
         if (Target.room is not null && Target.room != room)
         {
-            Target.room.RemoveObject(Target);
+            Target.RemoveFromRoom();
 
-            room.AddObject(Target);
+            Target.abstractPhysicalObject.Move(abstractPhysicalObject.pos);
+
+            Target.PlaceInRoom(room);
         }
 
         if (input.AnyInput)

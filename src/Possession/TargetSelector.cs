@@ -49,7 +49,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
     {
         get
         {
-            if (Input.InputTime > Manager.PossessionTimePotential)
+            if (Input.InputTime > Manager.MaxPossessionTime)
             {
                 field = true;
             }

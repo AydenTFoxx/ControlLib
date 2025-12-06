@@ -1,5 +1,7 @@
+using System;
 using Menu;
 using Menu.Remix.MixedUI;
+using ModLib.Input;
 using ModLib.Options;
 using UnityEngine;
 
@@ -17,12 +19,16 @@ public class Options : OptionInterface
     [ClientOption] public static Configurable<bool> INVERT_CLASSIC;
     [ClientOption] public static Configurable<int> WEAPON_ROTATION_SPEED;
 
+    public static Configurable<bool> MULTIPLAYER_SLOWDOWN;
+    public static Configurable<bool> KARMIC_BONUS;
+    public static Configurable<bool> KARMIC_PROMOTION;
+
     public static Configurable<bool> KINETIC_ABILITIES;
     public static Configurable<bool> MIND_BLAST;
     public static Configurable<bool> MIND_BLAST_PROTECTION;
     public static Configurable<bool> DANGER_MIND_BLAST;
 
-    public static Configurable<bool> MULTIPLAYER_SLOWDOWN;
+    public static Configurable<bool> ARENA_MAX_POTENTIAL;
     public static Configurable<bool> INFINITE_POSSESSION;
     public static Configurable<bool> POSSESS_ANCESTORS;
     public static Configurable<bool> FORCE_MULTITARGET_POSSESSION;
@@ -45,6 +51,20 @@ public class Options : OptionInterface
             false,
             new ConfigurableInfo(
                 "(Requires Selection Mode: Classic) Inverts the directional inputs for selecting creatures to possess."
+            )
+        );
+        KARMIC_BONUS = config.Bind(
+            "karma_bonus",
+            true,
+            new ConfigurableInfo(
+                "If enabled, Slugcat's possession potential varies with their current karma level. Has no effect in Arena Mode by default."
+            )
+        );
+        KARMIC_PROMOTION = config.Bind(
+            "karma_promotion",
+            true,
+            new ConfigurableInfo(
+                "If enabled, non-Attuned slugcats with maximum Karma/Ripple level gain the Attuned status (plus extra possession time), while naturally Attuned slugcats with minimum Karma/Ripple level suffer the opposite effect."
             )
         );
         MULTIPLAYER_SLOWDOWN = config.Bind(
@@ -90,6 +110,13 @@ public class Options : OptionInterface
                 new ConfigAcceptableRange<int>(0, 20)
             )
         );
+        ARENA_MAX_POTENTIAL = config.Bind(
+            "arena_max_potential",
+            false,
+            new ConfigurableInfo(
+                "If enabled, Slugcats in Arena Mode are assumed to have max Karma/Ripple level, granting an additional +480t (12s) possession time."
+            )
+        );
         INFINITE_POSSESSION = config.Bind(
             "infinite_possession",
             false,
@@ -119,7 +146,8 @@ public class Options : OptionInterface
             )
         );
 
-        MIND_BLAST.OnChange += OnMindBlastChanged;
+        MIND_BLAST.OnChange += ToggleIICKeybind(Keybinds.MIND_BLAST, MIND_BLAST);
+        KINETIC_ABILITIES.OnChange += ToggleIICKeybind(Keybinds.POSSESS_ITEM, KINETIC_ABILITIES);
     }
 
     public override void Initialize()
@@ -136,35 +164,43 @@ public class Options : OptionInterface
             .AddCheckBoxOption("Invert Controls", INVERT_CLASSIC, out OpCheckBox checkBoxIC)
             .Build();
 
-        SELECTION_MODE.BoundUIconfig.OnValueChanged += BuildToggleAction(checkBoxIC, "classic");
+        SELECTION_MODE.BoundUIconfig.OnValueChanged += BuildToggleAction(SELECTION_MODE, checkBoxIC, "classic");
 
         Tabs[1] = new OptionBuilder(this, "Gameplay")
             .CreateModHeader()
             .AddPadding(Vector2.down * 10)
             .AddText("These options may affect how you experience the game; Use with care.", new Vector2(64f, 24f))
-            .AddPadding(Vector2.up * 30)
+            .AddPadding(Vector2.up * 20)
+            .AddCheckBoxOption("Karmic Bonus", KARMIC_BONUS)
+            .AddCheckBoxOption("Karmic Promotion", KARMIC_PROMOTION, out OpCheckBox checkBoxKP)
+            .AddPadding(Vector2.up * 10)
             .AddCheckBoxOption("Multiplayer Slowdown", MULTIPLAYER_SLOWDOWN)
             .AddPadding(Vector2.up * 10)
             .AddCheckBoxOption("Kinetic Abilities", KINETIC_ABILITIES)
             .AddPadding(Vector2.up * 10)
             .AddSliderOption("Weapon Rotation Speed", WEAPON_ROTATION_SPEED, out OpSlider sliderWRS, multi: 4f)
-            .AddPadding(Vector2.up * 20)
-            .AddCheckBoxOption("Mind Blast", MIND_BLAST, default, RainWorld.GoldRGB)
+            .AddPadding(Vector2.up * 15)
+            .AddCheckBoxOption("Mind Blast", MIND_BLAST, default, RainWorld.SaturatedGold)
+            .AddPadding(Vector2.left * 20)
             .AddCheckBoxOption("Mind Blast Protection", MIND_BLAST_PROTECTION, out OpCheckBox checkBoxMBP, default, RainWorld.SaturatedGold)
             .AddCheckBoxOption("Danger-Aware Mind Blast", DANGER_MIND_BLAST, out OpCheckBox checkBoxDMB, default, RainWorld.SaturatedGold)
             .Build();
 
-        KINETIC_ABILITIES.BoundUIconfig.OnValueChanged += BuildToggleAction(sliderWRS, "true");
+        KARMIC_BONUS.BoundUIconfig.OnValueChanged += BuildToggleAction(KARMIC_BONUS, checkBoxKP, "true");
 
-        MIND_BLAST.BoundUIconfig.OnValueChanged += BuildToggleAction(checkBoxMBP, "true");
-        MIND_BLAST.BoundUIconfig.OnValueChanged += BuildToggleAction(checkBoxDMB, "true");
+        KINETIC_ABILITIES.BoundUIconfig.OnValueChanged += BuildToggleAction(KINETIC_ABILITIES, sliderWRS, "true");
+
+        MIND_BLAST.BoundUIconfig.OnValueChanged += BuildToggleAction(MIND_BLAST, checkBoxMBP, "true");
+        MIND_BLAST.BoundUIconfig.OnValueChanged += BuildToggleAction(MIND_BLAST, checkBoxDMB, "true");
 
         Tabs[2] = new OptionBuilder(this, "Cheats", MenuColorEffect.rgbDarkRed)
             .CreateModHeader()
             .AddPadding(Vector2.down * 10)
             .AddText("These options are for testing purposes only; Use at your own discretion.", new Vector2(64f, 24f))
-            .AddPadding(Vector2.up * 30)
-            .AddCheckBoxOption("Infinite Possession", INFINITE_POSSESSION)
+            .AddPadding(Vector2.up * 20)
+            .AddCheckBoxOption("Arena Max Karma Potential", ARENA_MAX_POTENTIAL)
+            .AddPadding(Vector2.up * 10)
+            .AddCheckBoxOption("Infinite Possession Time", INFINITE_POSSESSION)
             .AddCheckBoxOption("Possess Anscestors", POSSESS_ANCESTORS)
             .AddCheckBoxOption("Force Multi-Target Possession", FORCE_MULTITARGET_POSSESSION)
             .AddPadding(Vector2.up * 20)
@@ -172,19 +208,19 @@ public class Options : OptionInterface
             .Build();
     }
 
-    private static OnValueChangeHandler BuildToggleAction(UIconfig target, string enableValue)
+    private static OnValueChangeHandler BuildToggleAction(ConfigurableBase configurable, UIconfig target, string enableValue)
     {
-        ToggleAction(null, target.value, "");
+        ToggleAction(null, configurable.BoxedValue.ToString(), "");
 
         return ToggleAction;
 
         void ToggleAction(UIconfig? _, string value, string oldValue)
         {
-            target.greyedOut = value != enableValue;
+            target.greyedOut = !value.Equals(enableValue, StringComparison.OrdinalIgnoreCase);
         }
     }
 
-    private static void OnMindBlastChanged() => Keybinds.MIND_BLAST.ToggleIICKeybind(MIND_BLAST.Value);
+    private static OnEventHandler ToggleIICKeybind(Keybind keybind, Configurable<bool> configurable) => () => keybind.ToggleIICKeybind(configurable.Value);
 }
 
 public static class OptionBuilderExts

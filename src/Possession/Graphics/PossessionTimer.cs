@@ -23,13 +23,11 @@ public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manage
     }
 
     private readonly Color PipColor = Color.Lerp(PlayerGraphics.SlugcatColor((manager.GetPlayer().graphicsModule as PlayerGraphics)?.CharacterForColor), Color.white, 0.5f);
-    private readonly int PipSpritesLength = manager.PossessionTimePotential / 30;
+    private readonly int PipSpritesLength = Mathf.Clamp(manager.MaxPossessionTime / 30, 1, 32);
 
     private float rubberRadius;
 
-    private bool IsPlayerVisible => player is { room: not null, dead: false };
-
-    private bool ShouldShowPips => IsPlayerVisible && Manager.PossessionTime < Manager.MaxPossessionTime;
+    private bool ShouldShowPips => player is not null && !player.dead && (Manager.IsPossessing || ((!Manager.IsSofanthielSlugcat || player.FoodInStomach >= player.MaxFoodInStomach) && Manager.PossessionTime < Manager.MaxPossessionTime) || Manager.ForceVisiblePips != 0);
 
     private Color FlashingPipColor =>
         Manager.TargetSelector?.State is TargetSelector.QueryingState
@@ -43,7 +41,7 @@ public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manage
         lastPos = pos;
         pos = FollowMark is not null
             ? FollowMark.MarkPos
-            : IsPlayerVisible
+            : alpha > 0f
                 ? Vector2.SmoothDamp(lastPos, GetMarkPos(camPos, timeStacker), ref velocity, 0.05f)
                 : GetMarkPos(camPos, timeStacker);
 

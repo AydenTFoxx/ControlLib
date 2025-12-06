@@ -1,12 +1,8 @@
-﻿using System;
-using System.Linq;
-using System.Security.Permissions;
+﻿using System.Security.Permissions;
 using BepInEx;
-using BepInEx.Logging;
 using ControlLib.Enums;
 using ControlLib.Possession;
 using ControlLib.Telekinetics;
-using Kittehface.Framework20;
 using ModLib;
 using ModLib.Logging;
 
@@ -21,7 +17,7 @@ public class Main : ModPlugin
 {
     public const string PLUGIN_NAME = "Possessions";
     public const string PLUGIN_GUID = "ynhzrfxn.controllib";
-    public const string PLUGIN_VERSION = "0.7.0";
+    public const string PLUGIN_VERSION = "0.8.0";
 
 #nullable disable warnings
 
@@ -29,33 +25,10 @@ public class Main : ModPlugin
 
 #nullable restore warnings
 
-    private static new ManualLogSource LogSource
-    {
-        get
-        {
-            if (field is null)
-            {
-                BepInEx.Logging.Logger.Sources.Remove(BepInEx.Logging.Logger.Sources.FirstOrDefault(s => s.SourceName.Equals(PLUGIN_NAME)));
-
-                field = BepInEx.Logging.Logger.CreateLogSource(PLUGIN_NAME);
-            }
-            return field;
-        }
-        set
-        {
-            if (field is not null)
-            {
-                BepInEx.Logging.Logger.Sources.Remove(field);
-            }
-
-            field = value;
-        }
-    }
-
     public Main()
-        : base(new Options(), LoggingAdapter.CreateLogger(LogSource, true))
+        : base(new Options())
     {
-        Logger = base.Logger ?? new FallbackLogger(LogSource);
+        Logger = new FilteredLogWrapper(base.Logger);
     }
 
     public override void OnEnable()
@@ -67,21 +40,6 @@ public class Main : ModPlugin
         Keybinds.InitKeybinds();
 
         AbstractObjectTypes.RegisterValues();
-
-        if (Achievements.implementation is null)
-        {
-            try
-            {
-                Logger.LogMessage($"Setting AchievementsImpl instance to {nameof(Achievements.StandaloneAchievementsImpl)}");
-
-                Achievements.implementation = new Achievements.StandaloneAchievementsImpl();
-                Achievements.implementation.Initialize();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Could not replace AchievementsImpl instance: {ex}");
-            }
-        }
     }
 
     public override void OnDisable()

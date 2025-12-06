@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using ControlLib.Possession;
 using ModLib.Meadow;
 using RainMeadow;
@@ -9,6 +11,9 @@ namespace ControlLib.Meadow;
 /// </summary>
 public static class MyRPCs
 {
+    public static void ApplyHooks() => MeadowUtils.JoinedGameSession += SyncLocalPossessions;
+    public static void RemoveHooks() => MeadowUtils.JoinedGameSession -= SyncLocalPossessions;
+
     /// <summary>
     ///     Initializes a new PossessionManager instance for the given player.
     /// </summary>
@@ -69,6 +74,23 @@ public static class MyRPCs
         }
     }
 
+    [RPCMethod]
+    public static void RequestPossessionsSync(RPCEvent rpcEvent, OnlinePlayer caller)
+    {
+        if (!OnlineManager.lobby.isOwner)
+        {
+            Main.Logger.LogWarning("Player is not owner of the current lobby; Cannot sync data with other clients.");
+
+            rpcEvent.Resolve(new GenericResult.Fail(rpcEvent));
+            return;
+        }
+
+        Main.Logger.LogInfo($"Syncing lobby data with {caller}.");
+
+        caller.SendRPCEvent(SerializeLocalPossessions, new OnlineLocalPossessionsList(PossessionExts.LocalPossessions.ToDictionary()));
+        caller.SendRPCEvent(SerializePossessionHolders, new OnlinePossessionHoldersList(PossessionExts.PossessionHolders.ToDictionary()));
+    }
+
     /// <summary>
     ///     Sets an online creature as being controlled by the sender of this RPC.
     /// </summary>
@@ -92,6 +114,33 @@ public static class MyRPCs
         Main.Logger.LogInfo($"{target} is {(controlled ? "now" : "no longer")} being controlled by {rpcEvent.from}.");
     }
 
+    [RPCMethod]
+    public static void SerializeLocalPossessions(RPCEvent rpcEvent, OnlineLocalPossessionsList possessions)
+    {
+        if (OnlineManager.lobby.isOwner)
+        {
+            Main.Logger.LogWarning("Player is owner of the current lobby; Will not sync possessions list.");
+
+            rpcEvent.Resolve(new GenericResult.Fail(rpcEvent));
+            return;
+        }
+
+        PossessionExts.LocalPossessions = [.. possessions.LocalDict];
+
+        Main.Logger.LogInfo($"Synced local possessions from serializable list: {PossessionManager.FormatPossessions(possessions.collection)}");
+    }
+
+    [RPCMethod]
+    public static void SerializePossessionHolders(RPCEvent _, OnlinePossessionHoldersList possessionHolders)
+    {
+        foreach (KeyValuePair<Player, PossessionManager> kvp in possessionHolders.LocalDict)
+        {
+            PossessionExts.PossessionHolders.Add(kvp);
+
+            Main.Logger.LogInfo($"Adding serialized PossessionManager instance: {kvp.Value}");
+        }
+    }
+
     /// <summary>
     ///     Broadcasts RPCs to all online players of the new possession, for spawning visual effects and syncing creature behavior.
     /// </summary>
@@ -99,7 +148,6 @@ public static class MyRPCs
     /// <param name="caller">The player who owns the possession.</param>
     /// <param name="isNewPossession">Whether the possession has just started (<c>true</c>) or just stopped (<c>false</c>).</param>
     /// <param name="depletedPossessionTime">If the possession was stopped, whether or not it was caused by a depletion of <c>PossessionTime</c>.</param>
-    [RPCMethod]
     public static void SyncOnlinePossession(PhysicalObject target, Player caller, bool isNewPossession, bool depletedPossessionTime)
     {
         OnlinePhysicalObject? onlineTarget = target?.abstractPhysicalObject.GetOnlineObject();
@@ -128,7 +176,6 @@ public static class MyRPCs
     ///     Sends an RPC event to all players for synchronizing the creation of a new PossessionManager instance.
     /// </summary>
     /// <param name="player">The player who triggered this event.</param>
-    [RPCMethod]
     public static void SyncPossessionManagerCreation(Player player)
     {
         OnlineCreature? playerAvatar = player.abstractCreature.GetOnlineCreature();
@@ -141,5 +188,12 @@ public static class MyRPCs
 
             op.SendRPCEvent(AddPossessionManager, playerAvatar);
         }
+    }
+
+    private static void SyncLocalPossessions(GameSession _)
+    {
+        if (OnlineManager.lobby.isOwner) return;
+
+        OnlineManager.lobby.owner.SendRPCEvent(RequestPossessionsSync, OnlineManager.mePlayer);
     }
 }

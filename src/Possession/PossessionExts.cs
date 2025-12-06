@@ -14,12 +14,12 @@ public static class PossessionExts
     /// Stores the result of previous queries for a given creature and its possessing player.
     /// </summary>
     /// <remarks>References are valid for as long as the possession lasts; Once possession ends, the given creature's key-value pair is discarded.</remarks>
-    internal static readonly WeakDictionary<Creature, Player> LocalPossessions = [];
+    internal static WeakDictionary<Creature, Player> LocalPossessions = [];
     /// <summary>
     /// Stores all players with a <c>PossessionManager</c> instance.
     /// </summary>
     /// <remarks>This is used as a reference to determine which player is currently possessing a given creature.</remarks>
-    internal static readonly WeakDictionary<Player, PossessionManager> PossessionHolders = [];
+    internal static WeakDictionary<Player, PossessionManager> PossessionHolders = [];
 
     /// <summary>
     /// Obtains the given player's <c>PossessionManager</c> instance. If none is found, a new one is created with default values.
@@ -46,7 +46,7 @@ public static class PossessionExts
             }
         }
 
-        Main.Logger.LogInfo($"New {nameof(PossessionManager)} instance! {newManager}");
+        Main.Logger.LogInfo($"New PossessionManager instance:{Environment.NewLine}{newManager}");
         return newManager;
     }
 

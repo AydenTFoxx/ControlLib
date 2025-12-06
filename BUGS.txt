@@ -5,9 +5,6 @@ TODO: Disable MindBlast unconditionally when in a Rain Meadow lobby;
 TODO: Reduce speed of possessed items and give the player better control of their trajectories. Also give them *some* friction for heavens' sake.
     Work-in-progress; Needs testing.
 
-Using TargetCursor (and failing to possess any target), then quickly starting an item possession allows the player to move Slugcat, while still keeping the item possession.
-    Fixed! How sad, I planned on exploiting this bug :'P
-
 Possessing the same item twice causes it to be thrown at the player's position, sometimes with an arbitrary offset.
 
 Possessing a spear stuck in a wall/ceiling leaves behind an invisible beam, which can still be climbed by Slugcat.
@@ -15,6 +12,10 @@ Possessing a spear stuck in a wall/ceiling leaves behind an invisible beam, whic
 TargetSelector sometimes fails to query for targets, as if the player had just queried beforehand. Reusing TargetCursor multiple times eventually fixes the issue.
 
 PossessionTimer lerps kinda funny when changing screens, swiftly jumping between the last position and the new one.
+
+Rarely, starting an item possession breaks the player's graphics module, causing water to disappear and rendering on the entire room to not work at all. Other rooms are unaffected by this bug.
+
+TODO: Add support for possessing items with TargetSelector, instead of using the Debug class.
 
 // Green Lizard ID.25063.5154 // Rot Lizor, betrayer of scugs
 
@@ -34,6 +35,7 @@ TODO: (ModLib) Make ModPlugin mode stable at startup and deactivation; Exception
 
 TODO: Overhaul PossessionTimePotential by setting a BasePossessionTime, which is multiplied by AttunedSlugcatFactor and/or HardmodeSlugcatFactor (if applicable),
       then further modified with user-defined modifiers (e.g. "+5*10" would add 50 to the total value)
+    Reworked with SlugcatPotential; Should make a REMIX page for this tho
 
 TODO: Add helper methods to ControlLib.Main to aid in the addition of custom slugcats' PossessionTimePotential, as well as default modifiers for them. Possibly store these multipliers in the user's settings.
     Would this still be necessary with the above change?

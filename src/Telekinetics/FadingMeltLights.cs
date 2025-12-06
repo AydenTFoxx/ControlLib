@@ -68,7 +68,7 @@ public class FadingMeltLights : CosmeticSprite
     {
         base.Destroy();
 
-        if (this is { room: not null, meltEffect: not null } && forcedMeltEffect)
+        if (this is { room: not null, meltEffect: not null, forcedMeltEffect: true })
         {
             room.roomSettings.effects.Remove(meltEffect);
 

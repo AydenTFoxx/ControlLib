@@ -2,7 +2,6 @@ using System;
 using ImprovedInput;
 using ModLib;
 using ModLib.Input;
-using ModLib.Options;
 using UnityEngine;
 
 namespace ControlLib;
@@ -31,8 +30,11 @@ public static class Keybinds
 
         POSSESS_ITEM = Keybind.Register("Possess Item", KeyCode.F, KeyCode.Joystick1Button10);
 
-        MIND_BLAST.ToggleIICKeybind(Options.MIND_BLAST.Value);
-        POSSESS_ITEM.ToggleIICKeybind(OptionUtils.IsOptionEnabled("modlib.debug"));
+        if (Extras.IsIICEnabled)
+        {
+            MIND_BLAST.ToggleIICKeybind(Options.MIND_BLAST.Value);
+            POSSESS_ITEM.ToggleIICKeybind(Options.KINETIC_ABILITIES.Value);
+        }
     }
 
     public static void ToggleIICKeybind(this Keybind self, bool enable)

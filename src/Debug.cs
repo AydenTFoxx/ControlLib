@@ -326,6 +326,16 @@ public static class Debug
         return new Result(true, $"POS: {pos} | BOMB: {(spawnSingularity ? "Singularity" : "ScavengerBomb")}");
     }
 
+    [CommandSyntax(nameof(GetPossessionManager), "playerIndex")]
+    public static Result GetPossessionManager(string playerIndex)
+    {
+        return !ValidatePlayerIndex(playerIndex, out Player? player, out Result validationResult)
+            ? validationResult
+            : !player.TryGetPossessionManager(out PossessionManager manager)
+                ? new Result(false, "Player has no PossessionManager instance.")
+                : new Result(true, manager);
+    }
+
     /// <summary>
     ///     Forces the given player's <see cref="PossessionManager"/> instance to be disposed and re-created.
     /// </summary>

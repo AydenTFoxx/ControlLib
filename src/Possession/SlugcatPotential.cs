@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using ModLib.Options;
 using MoreSlugcats;
 using Watcher;
 
@@ -10,8 +11,9 @@ namespace ControlLib.Possession;
 /// </summary>
 /// <param name="potential">The total amount of possession time for this slugcat.</param>
 /// <param name="isAttuned">Whether this slugcat is "Attuned"; Possession time is consumed at a slower rate, and has lesser consequences for possession time exhaustion.</param>
-/// <param name="isHardmode">Whether this slugcat is "Hardmode"; Regenerates possession time at a slower rate, has more severe consequences for possession time exhaustion, and cannot possess certain creatures.</param>
-public readonly struct SlugcatPotential(int potential, bool isAttuned = false, bool isHardmode = false) : IEquatable<SlugcatPotential>, IComparable<SlugcatPotential>
+/// <param name="isHardmode">Whether this slugcat is "Hardmode"; Regenerates possession time at a slower rate, and has more severe consequences for possession time exhaustion.</param>
+/// <param name="isSofanthiel">Whether this slugcat inherits Sofanthiel's punishing behavior; Possession time does not regenerate unless with full food pips, possession time exhaustion causes the player to explode, and Mind Blast becomes significantly weaker unless Attuned.</param>
+public readonly struct SlugcatPotential(int potential, bool isAttuned = false, bool isHardmode = false, bool isSofanthiel = false) : IEquatable<SlugcatPotential>, IComparable<SlugcatPotential>
 {
     private static readonly Dictionary<SlugcatStats.Name, SlugcatPotential> StaticPotentials = [];
 
@@ -30,6 +32,12 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
     /// </summary>
     public static SlugcatPotential HardmodePotential => StaticPotentials[SlugcatStats.Name.Red];
 
+    /// <summary>
+    ///     Sofanthiel's "standard" potential value for slugcats inheriting their campaign's behaviors.
+    ///     This value matches Inv's possession time potential, or Hunter's if MSC is not enabled.
+    /// </summary>
+    public static SlugcatPotential SofanthielPotential => ModManager.MSC ? StaticPotentials[MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel] : HardmodePotential;
+
     static SlugcatPotential()
     {
         StaticPotentials[SlugcatStats.Name.White] = new(360);
@@ -42,7 +50,7 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
             StaticPotentials[MoreSlugcatsEnums.SlugcatStatsName.Gourmand] = new(320, isHardmode: true);
             StaticPotentials[MoreSlugcatsEnums.SlugcatStatsName.Rivulet] = new(80);
             StaticPotentials[MoreSlugcatsEnums.SlugcatStatsName.Saint] = new(520, isAttuned: true, isHardmode: true);
-            StaticPotentials[MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel] = new(1, isHardmode: true);
+            StaticPotentials[MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel] = new(1, isHardmode: true, isSofanthiel: true);
             StaticPotentials[MoreSlugcatsEnums.SlugcatStatsName.Spear] = new(800, isHardmode: true);
             StaticPotentials[MoreSlugcatsEnums.SlugcatStatsName.Slugpup] = new(120, isAttuned: true, isHardmode: true);
         }
@@ -68,6 +76,11 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
     /// </summary>
     public readonly bool IsHardmode = isHardmode;
 
+    /// <summary>
+    ///     Whether or not this slugcat is Sofanthiel/Inv/Gorbo, or inherits their campaign's behavior.
+    /// </summary>
+    public readonly bool IsSofanthiel = isSofanthiel;
+
     /// <inheritdoc/>
     public int CompareTo(SlugcatPotential other)
     {
@@ -90,11 +103,13 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
     /// <param name="potential">The stored potential of this instance.</param>
     /// <param name="isAttuned">Whether or not the instance represents an Attuned slugcat.</param>
     /// <param name="isHardmode">Whether or not the instance represents a Hardmode slugcat.</param>
-    public void Deconstruct(out int potential, out bool isAttuned, out bool isHardmode)
+    /// <param name="isSofanthiel">Whether or not the instance represents Sofanthiel or a similar slugcat.</param>
+    public void Deconstruct(out int potential, out bool isAttuned, out bool isHardmode, out bool isSofanthiel)
     {
         potential = Potential;
         isAttuned = IsAttuned;
         isHardmode = IsHardmode;
+        isSofanthiel = IsSofanthiel;
     }
 
     /// <inheritdoc/>
@@ -110,7 +125,7 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
     ///     Returns a string representation of the potential values held by this instance.
     /// </summary>
     /// <returns>A string representation of the potential values held by this instance.</returns>
-    public override string ToString() => $"{Potential} ({(IsAttuned ? "AT" : "")}{(IsAttuned && IsHardmode ? "+" : "")}{(IsHardmode ? "HM" : "")})";
+    public override string ToString() => $"{Potential} :: ({(IsAttuned ? "Attuned; " : "")}{(IsHardmode ? "Hardmode; " : "")}{(IsSofanthiel ? "Sofanthiel; " : "")})".TrimEnd();
 
     public static bool operator ==(SlugcatPotential x, SlugcatPotential y)
     {
@@ -164,9 +179,10 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
     /// <param name="potential">The base potential time for this slugcat.</param>
     /// <param name="isAttuned">Whether or not this slugcat is "Attuned" by default.</param>
     /// <param name="isHardmode">Whether or not this slugcat is "Hardmode" by default.</param>
+    /// <param name="isSofanthiel">Whether or not this slugcat is Sofanthiel, or inherits their campaign's behavior.</param>
     /// <exception cref="ArgumentNullException"><paramref name="slugcat"/> is null.</exception>
-    public static void SetStaticPotential(SlugcatStats.Name slugcat, int potential, bool isAttuned = false, bool isHardmode = false) =>
-        SetStaticPotential(slugcat, new SlugcatPotential(potential, isAttuned, isHardmode));
+    public static void SetStaticPotential(SlugcatStats.Name slugcat, int potential, bool isAttuned = false, bool isHardmode = false, bool isSofanthiel = false) =>
+        SetStaticPotential(slugcat, new SlugcatPotential(potential, isAttuned, isHardmode, isSofanthiel));
 
     /// <summary>
     ///     Sets the static (or "innate") potential of a given slugcat to the specified <see cref="SlugcatPotential"/> instance.
@@ -190,31 +206,41 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
     /// <param name="player">The player to be evaluated.</param>
     /// <param name="staticPotential">The static potential of the player's slugcat class.</param>
     /// <returns>The dynamic potential for the given player.</returns>
-    public static SlugcatPotential PotentialForPlayer(Player player, out SlugcatPotential staticPotential)
+    public static SlugcatPotential PotentialForPlayer(Player player)
     {
-        staticPotential = GetStaticPotential(player?.SlugCatClass);
+        if (OptionUtils.IsOptionEnabled(Options.WORLDWIDE_MIND_CONTROL))
+            return new SlugcatPotential(9999, true, true);
 
-        if (player?.room is null || player.room.game.session is not StoryGameSession storySession) return staticPotential;
+        SlugcatPotential staticPotential = GetStaticPotential(player?.SlugCatClass);
+
+        if (player?.room is null || !OptionUtils.IsOptionEnabled(Options.KARMIC_BONUS)) return staticPotential;
+
+        if (player.room.game.session is not StoryGameSession storySession)
+        {
+            return OptionUtils.IsOptionEnabled(Options.ARENA_MAX_POTENTIAL)
+                ? new SlugcatPotential(staticPotential.Potential + 480, staticPotential.IsAttuned, staticPotential.IsHardmode, staticPotential.IsSofanthiel)
+                : staticPotential;
+        }
 
         DeathPersistentSaveData saveData = storySession.saveState.deathPersistentSaveData;
 
         bool useRipple = saveData.minimumRippleLevel >= 1f;
         int extraTime = (useRipple ? (int)(saveData.rippleLevel * 2f) - 1 : saveData.karma) * 40;
 
-        (int potential, bool isAttuned, bool isHardmode) = staticPotential;
+        (int potential, bool isAttuned, bool isHardmode, bool isSofanthiel) = staticPotential;
 
-        if (useRipple ? saveData.rippleLevel == saveData.maximumRippleLevel : saveData.karma == saveData.karmaCap)
+        if (OptionUtils.IsOptionEnabled(Options.KARMIC_PROMOTION))
         {
-            isAttuned = true;
-            isHardmode = false;
-
-            potential += 120;
-        }
-        else if (useRipple ? saveData.rippleLevel == saveData.minimumRippleLevel : saveData.karma == 0)
-        {
-            isAttuned = false;
-
-            potential -= 120;
+            if (!isAttuned && (useRipple ? saveData.maximumRippleLevel > 1f && saveData.rippleLevel == saveData.maximumRippleLevel : saveData.karmaCap >= 4 && saveData.karma == saveData.karmaCap))
+            {
+                isAttuned = true;
+                potential += 120;
+            }
+            else if (isAttuned && (useRipple ? saveData.maximumRippleLevel > 1f && saveData.rippleLevel == saveData.minimumRippleLevel : saveData.karmaCap > 0 && saveData.karma == 0))
+            {
+                isAttuned = false;
+                potential -= 120;
+            }
         }
 
         potential += extraTime;
@@ -222,6 +248,6 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
         if (saveData.reinforcedKarma)
             potential = (int)(potential * 1.5f);
 
-        return new SlugcatPotential(potential, isAttuned, isHardmode);
+        return new SlugcatPotential(potential, isAttuned, isHardmode, isSofanthiel);
     }
 }
