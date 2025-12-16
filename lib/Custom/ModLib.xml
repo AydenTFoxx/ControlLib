@@ -1,175 +1,208 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0"?>
 <doc>
     <assembly>
         <name>ModLib</name>
     </assembly>
     <members>
-        <member name="T:ModLib.Collections.WeakCollection`1">
-            <summary>
-                A collection of weakly-referenced elements of a given type.
-            </summary>
-            <typeparam name="T">The type of this collection.</typeparam>
-        </member>
-        <member name="F:ModLib.Collections.WeakCollection`1.values">
-            <summary>
-                The internal collection used for tracking <see cref="T:System.WeakReference`1" /> objects.
-            </summary>
-        </member>
-        <member name="M:ModLib.Collections.WeakCollection`1.#ctor">
-            <summary>
-                Creates a new collection of weak references to a given type.
-            </summary>
-        </member>
-        <member name="M:ModLib.Collections.WeakCollection`1.#ctor(System.Int32)">
-            <summary>
-                Creates a new collection of weak references to a given type with the provided initial capacity.
-            </summary>
-            <param name="capacity">The number of elements the collection can initially store.</param>
-        </member>
-        <member name="M:ModLib.Collections.WeakCollection`1.#ctor(System.Collections.Generic.IEnumerable{`0})">
-            <summary>
-                Creates a new collection of weak references to a given type containing elements copied from the provided collection.
-            </summary>
-            <param name="collection">The collection whose values will be copied.</param>
-        </member>
-        <member name="M:ModLib.Collections.WeakCollection`1.Add(`0)">
-            <summary>
-                Adds a new weak reference to the <see cref="T:ModLib.Collections.WeakCollection`1" />.
-            </summary>
-            <param name="item">The object to be referenced.</param>
-        </member>
-        <member name="M:ModLib.Collections.WeakCollection`1.Clear">
-            <summary>
-                Removes all items from the <see cref="T:ModLib.Collections.WeakCollection`1" />.
-            </summary>
-        </member>
-        <member name="P:ModLib.Collections.WeakCollection`1.Count">
-            <summary>
-                Gets the number of valid references contained in the <see cref="T:ModLib.Collections.WeakCollection`1" />.
-            </summary>
-            <returns>The number of valid references contained in the <see cref="T:ModLib.Collections.WeakCollection`1" />.</returns>
-        </member>
-        <member name="P:ModLib.Collections.WeakCollection`1.IsReadOnly">
-            <summary>
-                Gets a value indicating whether the <see cref="T:ModLib.Collections.WeakCollection`1" /> is read-only.
-            </summary>
-            <returns>
-                <c>true</c> if the <see cref="T:ModLib.Collections.WeakCollection`1" /> is read-only; <c>false</c> otherwise.</returns>
-        </member>
-        <member name="M:ModLib.Collections.WeakCollection`1.Contains(`0)">
-            <summary>
-                Determines whether the <see cref="T:ModLib.Collections.WeakCollection`1" /> contains a specific value.
-            </summary>
-            <returns>
-                <c>true</c> if <paramref name="item" /> is found in the <see cref="T:ModLib.Collections.WeakCollection`1" />; <c>false</c> otherwise.</returns>
-        </member>
-        <member name="M:ModLib.Collections.WeakCollection`1.CopyTo(`0[],System.Int32)">
-            <summary>
-                Copies the elements of the <see cref="T:ModLib.Collections.WeakCollection`1" /> to an Array, starting at a particular Array index.
-            </summary>
-            <param name="array">The one-dimensional Array that is the destination of the elements copied from <see cref="T:ModLib.Collections.WeakCollection`1" />. The Array must have zero-based indexing.</param>
-            <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
-        </member>
-        <member name="M:ModLib.Collections.WeakCollection`1.Remove(`0)">
-            <summary>
-                Removes the first occurrence of a specific object from the <see cref="T:ModLib.Collections.WeakCollection`1" />.
-            </summary>
-            <param name="item">The object to remove from the <see cref="T:ModLib.Collections.WeakCollection`1" />.</param>
-            <returns>
-                true if item was successfully removed from the <see cref="T:ModLib.Collections.WeakCollection`1" />; otherwise, false.
-                This method also returns false if item is not found in the original <see cref="T:ModLib.Collections.WeakCollection`1" />.
-            </returns>
-        </member>
-        <member name="M:ModLib.Collections.WeakCollection`1.GetEnumerator">
-            <inheritdoc />
-        </member>
-        <member name="M:ModLib.Collections.WeakCollection`1.Purge">
-            <summary>
-                Removes all items in the collection whose reference value has been dropped.
-            </summary>
-        </member>
         <member name="T:ModLib.Collections.WeakDictionary`2">
             <summary>
-                A dictionary of weak references, akin to a <see cref="T:System.Runtime.CompilerServices.ConditionalWeakTable`2" />.
+                A dictionary of weak references, akin to a <see cref="T:System.Runtime.CompilerServices.ConditionalWeakTable`2"/>.
                 When a key or value is disposed, its corresponding pair is automatically removed.
             </summary>
             <typeparam name="TKey">The type for the keys of this dictionary; Must be a reference type.</typeparam>
             <typeparam name="TValue">The type for the values of this dictionary; Can be a reference or value type.</typeparam>
         </member>
+        <member name="M:ModLib.Collections.WeakDictionary`2.Purge">
+            <summary>
+                Removes all items in the collection whose reference value has been dropped.
+            </summary>
+        </member>
         <member name="P:ModLib.Collections.WeakDictionary`2.Item(`0)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="P:ModLib.Collections.WeakDictionary`2.Keys">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="P:ModLib.Collections.WeakDictionary`2.Values">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="P:ModLib.Collections.WeakDictionary`2.Count">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="P:ModLib.Collections.WeakDictionary`2.IsReadOnly">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.Add(`0,`1)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.Add(System.Collections.Generic.KeyValuePair{`0,`1})">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.Clear">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.Contains(System.Collections.Generic.KeyValuePair{`0,`1})">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.ContainsKey(`0)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.CopyTo(System.Collections.Generic.KeyValuePair{`0,`1}[],System.Int32)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.GetEnumerator">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.Remove(`0)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.Remove(System.Collections.Generic.KeyValuePair{`0,`1})">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.TryGetValue(`0,`1@)">
-            <inheritdoc />
+            <inheritdoc/>
+        </member>
+        <member name="M:ModLib.Collections.WeakDictionary`2.Clone">
+            <summary>
+                Creates a new <see cref="T:ModLib.Collections.WeakDictionary`2"/> that is a copy of the current instance.
+            </summary>
+            <returns>A new <see cref="T:ModLib.Collections.WeakDictionary`2"/> that is a copy of this instance.</returns>
         </member>
         <member name="M:ModLib.Collections.WeakDictionary`2.Dispose">
-            <inheritdoc />
+            <inheritdoc/>
+        </member>
+        <member name="M:ModLib.Collections.WeakDictionary`2.op_Implicit(ModLib.Collections.WeakDictionary{`0,`1})~System.Collections.Generic.Dictionary{`0,`1}">
+            <summary>
+                Converts a <see cref="T:ModLib.Collections.WeakList`1"/> instance to a non-weak <see cref="T:System.Collections.Generic.List`1"/> collection.
+            </summary>
+            <param name="self">The weak list to be converted.</param>
+        </member>
+        <member name="M:ModLib.Collections.WeakDictionary`2.op_Explicit(System.Collections.Generic.Dictionary{`0,`1})~ModLib.Collections.WeakDictionary{`0,`1}">
+            <summary>
+                Converts a <see cref="T:System.Collections.Generic.List`1"/> instance to a <see cref="T:ModLib.Collections.WeakList`1"/> collection.
+            </summary>
+            <param name="self">The list to be converted.</param>
         </member>
         <member name="T:ModLib.Collections.WeakList`1">
             <summary>
-                A list of weakly-referenced values, which are removed when the underlying value is GC'ed.
+                A list of weakly-referenced values, which are removed when the underlying value is garbage-collected.
             </summary>
             <typeparam name="T">The type of the elements of this list.</typeparam>
         </member>
+        <member name="F:ModLib.Collections.WeakList`1.values">
+            <summary>
+                The internal collection used for tracking <see cref="T:System.WeakReference`1"/> objects.
+            </summary>
+        </member>
         <member name="M:ModLib.Collections.WeakList`1.#ctor">
-            <inheritdoc />
+            <summary>
+                Creates a new collection of weak references to a given type.
+            </summary>
         </member>
         <member name="M:ModLib.Collections.WeakList`1.#ctor(System.Int32)">
-            <inheritdoc />
+            <summary>
+                Creates a new collection of weak references to a given type with the provided initial capacity.
+            </summary>
+            <param name="capacity">The number of elements the collection can initially store.</param>
         </member>
         <member name="M:ModLib.Collections.WeakList`1.#ctor(System.Collections.Generic.IEnumerable{`0})">
-            <inheritdoc />
+            <summary>
+                Creates a new collection of weak references to a given type containing elements copied from the provided collection.
+            </summary>
+            <param name="collection">The collection whose values will be copied.</param>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.#ctor(System.Collections.Generic.IEnumerable{System.WeakReference{`0}})">
+            <summary>
+                Creates a new collection of weak references to a given type containing references copied from the provided collection.
+            </summary>
+            <param name="collection">The collection whose values will be copied.</param>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.Add(`0)">
+            <summary>
+                Adds a new weak reference to the <see cref="T:ModLib.Collections.WeakList`1"/>.
+            </summary>
+            <param name="item">The object to be referenced.</param>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.Clear">
+            <summary>
+                Removes all items from the <see cref="T:ModLib.Collections.WeakList`1"/>.
+            </summary>
+        </member>
+        <member name="P:ModLib.Collections.WeakList`1.Count">
+            <summary>
+                Gets the number of valid references contained in the <see cref="T:ModLib.Collections.WeakList`1"/>.
+            </summary>
+            <returns>The number of valid references contained in the <see cref="T:ModLib.Collections.WeakList`1"/>.</returns>
+        </member>
+        <member name="P:ModLib.Collections.WeakList`1.IsReadOnly">
+            <summary>
+                Gets a value indicating whether the <see cref="T:ModLib.Collections.WeakList`1"/> is read-only. This value always returns <c>false</c>.
+            </summary>
+            <returns><c>false</c>.</returns>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.Contains(`0)">
+            <summary>
+                Determines whether the <see cref="T:ModLib.Collections.WeakList`1"/> contains a specific value.
+            </summary>
+            <returns><c>true</c> if <paramref name="item"/> is found in the <see cref="T:ModLib.Collections.WeakList`1"/>; <c>false</c> otherwise.</returns>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.CopyTo(`0[],System.Int32)">
+            <summary>
+                Copies the elements of the <see cref="T:ModLib.Collections.WeakList`1"/> to an Array, starting at a particular Array index.
+            </summary>
+            <param name="array">The one-dimensional Array that is the destination of the elements copied from <see cref="T:ModLib.Collections.WeakList`1"/>. The Array must have zero-based indexing.</param>
+            <param name="arrayIndex">The zero-based index in array at which copying begins.</param>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.Remove(`0)">
+            <summary>
+                Removes the first occurrence of a specific object from the <see cref="T:ModLib.Collections.WeakList`1"/>.
+            </summary>
+            <param name="item">The object to remove from the <see cref="T:ModLib.Collections.WeakList`1"/>.</param>
+            <returns>
+                true if item was successfully removed from the <see cref="T:ModLib.Collections.WeakList`1"/>; otherwise, false.
+                This method also returns false if item is not found in the original <see cref="T:ModLib.Collections.WeakList`1"/>.
+            </returns>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.GetEnumerator">
+            <inheritdoc/>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.System#ICloneable#Clone">
+            <inheritdoc/>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.Clone">
+            <summary>
+                Creates a new <see cref="T:ModLib.Collections.WeakList`1"/> that is a copy of the current instance.
+            </summary>
+            <returns>A new <see cref="T:ModLib.Collections.WeakList`1"/> that is a copy of this instance.</returns>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.Purge">
+            <summary>
+                Removes all items in the collection whose reference value has been dropped.
+            </summary>
         </member>
         <member name="P:ModLib.Collections.WeakList`1.Item(System.Int32)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakList`1.IndexOf(`0)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakList`1.Insert(System.Int32,`0)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Collections.WeakList`1.RemoveAt(System.Int32)">
-            <inheritdoc />
+            <inheritdoc/>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.op_Implicit(ModLib.Collections.WeakList{`0})~System.Collections.Generic.List{`0}">
+            <summary>
+                Converts a <see cref="T:ModLib.Collections.WeakList`1"/> instance to a non-weak <see cref="T:System.Collections.Generic.List`1"/> collection.
+            </summary>
+            <param name="self">The weak list to be converted.</param>
+        </member>
+        <member name="M:ModLib.Collections.WeakList`1.op_Explicit(System.Collections.Generic.List{`0})~ModLib.Collections.WeakList{`0}">
+            <summary>
+                Converts a <see cref="T:System.Collections.Generic.List`1"/> instance to a <see cref="T:ModLib.Collections.WeakList`1"/> collection.
+            </summary>
+            <param name="self">The list to be converted.</param>
         </member>
         <member name="T:ModLib.CompatibilityManager">
             <summary>
@@ -186,22 +219,19 @@
                 Determines if a given mod is currently enabled.
             </summary>
             <param name="modID">The ID of the mod to check for.</param>
-            <returns>
-                <c>true</c> if the given mod was found to be enabled, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the given mod was found to be enabled, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.CompatibilityManager.IsIICEnabled">
             <summary>
                 Determines if either Improved Input Config or Improved Input Config: Extended are enabled.
             </summary>
-            <returns>
-                <c>true</c> if one of these mods is enabled, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if one of these mods is enabled, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.CompatibilityManager.IsRainMeadowEnabled">
             <summary>
                 Determines if the Rain Meadow mod is enabled.
             </summary>
-            <returns>
-                <c>true</c> if the mod is enabled, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the mod is enabled, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.CompatibilityManager.SetModCompatibility(System.String,System.Boolean)">
             <summary>
@@ -212,7 +242,7 @@
         </member>
         <member name="M:ModLib.CompatibilityManager.ConfigLoader.Initialize(System.Collections.Generic.IList{System.String})">
             <summary>
-                Initializes the <see cref="T:ModLib.CompatibilityManager" /> with the provided list of paths to config files.
+                Initializes the <see cref="T:ModLib.CompatibilityManager"/> with the provided list of paths to config files.
             </summary>
             <param name="compatibilityPaths">The list of paths to config files for mod IDs.</param>
         </member>
@@ -225,6 +255,11 @@
         <member name="T:ModLib.Extras">
             <summary>
                 A collection of utilities and wrappers for common modding activities.
+            </summary>
+        </member>
+        <member name="P:ModLib.Extras.GameSession">
+            <summary>
+                The current game session of the player, if any.
             </summary>
         </member>
         <member name="P:ModLib.Extras.IsMeadowEnabled">
@@ -247,7 +282,7 @@
                 If the current game session is in a multiplayer context (online or local).
             </summary>
             <remarks>
-                To determine if the given session is online or not, use <see cref="P:ModLib.Extras.IsOnlineSession" />.
+                To determine if the given session is online or not, use <see cref="P:ModLib.Extras.IsOnlineSession"/>.
             </remarks>
         </member>
         <member name="P:ModLib.Extras.IsHostPlayer">
@@ -270,26 +305,16 @@
                 Determines if ModLib is currently loaded and available for usage.
             </summary>
         </member>
-        <member name="M:ModLib.Extras.WrapAction(System.Action,System.Boolean)">
+        <member name="M:ModLib.Extras.WrapAction(System.Action)">
             <summary>
                 Wraps a given action in a try-catch, safely performing its code while handling potential exceptions.
             </summary>
             <param name="action">The action to be executed.</param>
-            <param name="autoInvoke">If true, the resulting action is invoked immediately, and <c>null</c> is returned instead.</param>
-            <returns>The wrapped <see cref="T:System.Action" /> object, or <c>null</c> if <paramref name="autoInvoke" /> was set to true.</returns>
-        </member>
-        <member name="M:ModLib.Extras.WrapILHook(System.Action{MonoMod.Cil.ILContext})">
-            <summary>
-                Wraps a given IL hook in a try-catch, preventing it from breaking other code when applied.
-            </summary>
-            <param name="action">The hook method to be wrapped.</param>
-            <returns>An <c>ILContext.Manipulator</c> instance to be passed in place of the method itself.</returns>
-            <remarks>Usage of this method is akin to the original <c>WrapInit</c> method; See SlugTemplate for an example of this.</remarks>
         </member>
         <member name="T:ModLib.Input.CustomInputData">
             <summary>
                 Provides simple representation of a given player's input data;
-                A mirror of <see cref="T:ImprovedInput.Plugin.PlayerData" /> which can be converted to and from its original class.
+                A mirror of <see cref="T:ImprovedInput.Plugin.PlayerData"/> which can be converted to and from its original class.
             </summary>
         </member>
         <member name="F:ModLib.Input.CustomInputData.input">
@@ -309,7 +334,7 @@
         </member>
         <member name="M:ModLib.Input.CustomInputData.#ctor(ImprovedInput.Plugin.PlayerData,System.Int32)">
             <summary>
-                Creates a new <see cref="T:ModLib.Input.CustomInputData" /> from the given <see cref="T:ImprovedInput.Plugin.PlayerData" /> instance,
+                Creates a new <see cref="T:ModLib.Input.CustomInputData"/> from the given <see cref="T:ImprovedInput.Plugin.PlayerData"/> instance,
                 then binds it to the provided player index.
             </summary>
             <param name="data">The data whose values will be copied from.</param>
@@ -317,13 +342,13 @@
         </member>
         <member name="M:ModLib.Input.CustomInputData.#ctor(System.Int32)">
             <summary>
-                Creates a new <see cref="T:ModLib.Input.CustomInputData" /> with empty values, bound to the provided player index.
+                Creates a new <see cref="T:ModLib.Input.CustomInputData"/> with empty values, bound to the provided player index.
             </summary>
             <param name="playerNumber">The player index this data will be bound to.</param>
         </member>
         <member name="M:ModLib.Input.CustomInputData.#ctor">
             <summary>
-                Creates a new <see cref="T:ModLib.Input.CustomInputData" /> with empty values, bound to the default player index.
+                Creates a new <see cref="T:ModLib.Input.CustomInputData"/> with empty values, bound to the default player index.
             </summary>
         </member>
         <member name="M:ModLib.Input.CustomInputData.CopyFrom(ImprovedInput.Plugin.PlayerData)">
@@ -354,13 +379,13 @@
         </member>
         <member name="M:ModLib.Input.CustomInputData.op_Implicit(ModLib.Input.CustomInputData)~ImprovedInput.Plugin.PlayerData">
             <summary>
-                Converts this data instance to an equivalent <see cref="T:ImprovedInput.Plugin.PlayerData" /> instance.
+                Converts this data instance to an equivalent <see cref="T:ImprovedInput.Plugin.PlayerData"/> instance.
             </summary>
             <param name="self">The data itself.</param>
         </member>
         <member name="M:ModLib.Input.CustomInputData.op_Implicit(ImprovedInput.Plugin.PlayerData)~ModLib.Input.CustomInputData">
             <summary>
-                Converts a <see cref="T:ImprovedInput.Plugin.PlayerData" /> instance to an equivalent <see cref="T:ModLib.Input.CustomInputData" /> instance.
+                Converts a <see cref="T:ImprovedInput.Plugin.PlayerData"/> instance to an equivalent <see cref="T:ModLib.Input.CustomInputData"/> instance.
             </summary>
             <param name="self">The data itself.</param>
         </member>
@@ -379,14 +404,14 @@
                 Retrieves the raw input package for the given player.
             </summary>
             <param name="self">The player whose input will be queried.</param>
-            <returns>A <see cref="T:Player.InputPackage" /> containing the input for the given player.</returns>
+            <returns>A <see cref="T:Player.InputPackage"/> containing the input for the given player.</returns>
         </member>
         <member name="M:ModLib.Input.InputHandler.GetRawInput(System.Int32)">
             <summary>
                 Retrieves the raw input package for the given player index.
             </summary>
             <param name="playerNumber">The player index whose input will be queried.</param>
-            <returns>A <see cref="T:Player.InputPackage" /> containing the input for the given player index.</returns>
+            <returns>A <see cref="T:Player.InputPackage"/> containing the input for the given player index.</returns>
         </member>
         <member name="M:ModLib.Input.InputHandler.IsKeyDown(Player,ModLib.Input.Keybind,System.Boolean)">
             <summary>
@@ -395,8 +420,7 @@
             <param name="player">The player itself.</param>
             <param name="keybind">The keybind to be checked.</param>
             <param name="rawInput">If true, input will be evaluated even if Slugcat itself cannot receive inputs (e.g. when dead or in cutscene mode).</param>
-            <returns>
-                <c>true</c> if the keybind's key is currently being held, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the keybind's key is currently being held, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Input.InputHandler.IsKeyDown(System.Int32,ModLib.Input.Keybind,System.Boolean)">
             <summary>
@@ -409,8 +433,7 @@
             <param name="playerNumber">The index of the player.</param>
             <param name="keybind">The keybind to be checked.</param>
             <param name="rawInput">If true, input will be evaluated even if Slugcat itself cannot receive inputs (e.g. when dead or in cutscene mode).</param>
-            <returns>
-                <c>true</c> if the keybind's key is currently being held, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the keybind's key is currently being held, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Input.InputHandler.WasKeyJustPressed(Player,ModLib.Input.Keybind,System.Boolean)">
             <summary>
@@ -419,8 +442,7 @@
             <param name="player">The player itself.</param>
             <param name="keybind">The keybind to be checked.</param>
             <param name="rawInput">If true, input will be evaluated even if Slugcat itself cannot receive inputs (e.g. when dead or in cutscene mode).</param>
-            <returns>
-                <c>true</c> if the keybind's key was just pressed, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the keybind's key was just pressed, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Input.InputHandler.WasKeyJustPressed(System.Int32,ModLib.Input.Keybind,System.Boolean)">
             <summary>
@@ -429,13 +451,12 @@
             <param name="playerNumber">The index of the player.</param>
             <param name="keybind">The keybind to be checked.</param>
             <param name="rawInput">If true, input will be evaluated even if Slugcat itself cannot receive inputs (e.g. when dead or in cutscene mode).</param>
-            <returns>
-                <c>true</c> if the keybind's key was just pressed, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the keybind's key was just pressed, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Input.InputHandler.ToggleInputListener(System.Int32)">
             <summary>
                 Enables or disables input handling for non-player objects.
-                If enabled, a <see cref="T:ModLib.Input.CustomInputData" /> can be retrieved from the player's index to obtain their current input.
+                If enabled, a <see cref="T:ModLib.Input.CustomInputData"/> can be retrieved from the player's index to obtain their current input.
             </summary>
             <remarks>
                 This requires the Improved Input Config: Extended mod to work, and will do nothing otherwise.
@@ -492,8 +513,7 @@
                 The actual player instance whose inputs are being queried.
                 If specified, input will be ignored while the player is unconscious/dead or in a cutscene.
             </param>
-            <returns>
-                <c>true</c> if this keybind's bound key is being held, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if this keybind's bound key is being held, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Input.Keybind.JustPressed(System.Int32,Player)">
             <summary>
@@ -504,8 +524,7 @@
                 The actual player instance whose inputs are being queried.
                 If specified, input will be ignored while the player is unconscious/dead or in a cutscene.
             </param>
-            <returns>
-                <c>true</c> if this keybind's bound key was just pressed, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if this keybind's bound key was just pressed, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Input.Keybind.ToString">
             <summary>
@@ -518,16 +537,16 @@
                 Retrieves the Keybind with the given identifier.
             </summary>
             <param name="id">The identifier of the Keybind to be retrieved.</param>
-            <returns>The <see cref="T:ModLib.Input.Keybind" /> object whose Id matches the provided argument, or <c>null</c> if none is found.</returns>
+            <returns>The <see cref="T:ModLib.Input.Keybind"/> object whose Id matches the provided argument, or <c>null</c> if none is found.</returns>
         </member>
         <member name="M:ModLib.Input.Keybind.Register(System.String,UnityEngine.KeyCode,UnityEngine.KeyCode)">
-            <inheritdoc cref="M:ModLib.Input.Keybind.Register(System.String,System.String,UnityEngine.KeyCode,UnityEngine.KeyCode,UnityEngine.KeyCode)" />
+            <inheritdoc cref="M:ModLib.Input.Keybind.Register(System.String,System.String,UnityEngine.KeyCode,UnityEngine.KeyCode,UnityEngine.KeyCode)"/>
         </member>
         <member name="M:ModLib.Input.Keybind.Register(System.String,UnityEngine.KeyCode,UnityEngine.KeyCode,UnityEngine.KeyCode)">
-            <inheritdoc cref="M:ModLib.Input.Keybind.Register(System.String,System.String,UnityEngine.KeyCode,UnityEngine.KeyCode,UnityEngine.KeyCode)" />
+            <inheritdoc cref="M:ModLib.Input.Keybind.Register(System.String,System.String,UnityEngine.KeyCode,UnityEngine.KeyCode,UnityEngine.KeyCode)"/>
         </member>
         <member name="M:ModLib.Input.Keybind.Register(System.String,System.String,UnityEngine.KeyCode,UnityEngine.KeyCode)">
-            <inheritdoc cref="M:ModLib.Input.Keybind.Register(System.String,System.String,UnityEngine.KeyCode,UnityEngine.KeyCode,UnityEngine.KeyCode)" />
+            <inheritdoc cref="M:ModLib.Input.Keybind.Register(System.String,System.String,UnityEngine.KeyCode,UnityEngine.KeyCode,UnityEngine.KeyCode)"/>
         </member>
         <member name="M:ModLib.Input.Keybind.Register(System.String,System.String,UnityEngine.KeyCode,UnityEngine.KeyCode,UnityEngine.KeyCode)">
             <summary>
@@ -541,13 +560,14 @@
                     The identifier of this keybind. Must be an unique string not used by any other mod, or yourself.
                 </para>
                 <para>
-                    If omitted, an unique identifier is generated with the format <c>"{ModId}.{KeybindName}"</c></para>
+                    If omitted, an unique identifier is generated with the format <c>"{ModId}.{KeybindName}"</c>
+                </para>
             </param>
             <param name="name">The name of the new Keybind. Will be displayed for players with IIC:E enabled.</param>
             <param name="keyboardPreset">The key code for usage by keyboard devices.</param>
             <param name="gamepadPreset">The key code for usage by gamepad input devices.</param>
             <param name="xboxPreset">The key code for usage by Xbox input devices.</param>
-            <returns>The registered <see cref="T:ModLib.Input.Keybind" /> object.</returns>
+            <returns>The registered <see cref="T:ModLib.Input.Keybind"/> object.</returns>
         </member>
         <member name="M:ModLib.Input.Keybind.op_Implicit(ImprovedInput.PlayerKeybind)~ModLib.Input.Keybind">
             <summary>
@@ -616,14 +636,14 @@
             </summary>
         </member>
         <member name="M:ModLib.Logging.FallbackLogger.GetLogSource">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Logging.FallbackLogger.Log(BepInEx.Logging.LogLevel,System.Object)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="T:ModLib.Logging.FilteredLogWrapper">
             <summary>
-                A wrapper around an <see cref="T:ModLib.Logging.ModLogger" /> instance, where logs are only processed
+                A wrapper around an <see cref="T:ModLib.Logging.ModLogger"/> instance, where logs are only processed
                 if they meet a minimal threshold logging level.
             </summary>
             <param name="logger">The logger instance to be wrapped.</param>
@@ -631,7 +651,7 @@
         </member>
         <member name="M:ModLib.Logging.FilteredLogWrapper.#ctor(ModLib.Logging.ModLogger,BepInEx.Logging.LogLevel)">
             <summary>
-                A wrapper around an <see cref="T:ModLib.Logging.ModLogger" /> instance, where logs are only processed
+                A wrapper around an <see cref="T:ModLib.Logging.ModLogger"/> instance, where logs are only processed
                 if they meet a minimal threshold logging level.
             </summary>
             <param name="logger">The logger instance to be wrapped.</param>
@@ -649,19 +669,19 @@
             <param name="logger">The logger instance to be wrapped.</param>
         </member>
         <member name="M:ModLib.Logging.FilteredLogWrapper.GetLogSource">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Logging.FilteredLogWrapper.Log(BepInEx.Logging.LogLevel,System.Object)">
-            <inheritdoc />
+            <inheritdoc/>
             <remarks>
-                This method will only process log requests if <paramref name="level" /> is of equal importance or higher than the max <see cref="T:BepInEx.Logging.LogLevel" /> allowed.
+                This method will only process log requests if <paramref name="level"/> is of equal importance or higher than the max <see cref="T:BepInEx.Logging.LogLevel"/> allowed.
             </remarks>
         </member>
         <member name="M:ModLib.Logging.FilteredLogWrapper.ToString">
             <summary>
-                Returns a string representing the current object and its wrapped <see cref="T:ModLib.Logging.ModLogger" /> instance.
+                Returns a string representing the current object and its wrapped <see cref="T:ModLib.Logging.ModLogger"/> instance.
             </summary>
-            <returns>A string representing the current object and its wrapped <see cref="T:ModLib.Logging.ModLogger" /> instance.</returns>
+            <returns>A string representing the current object and its wrapped <see cref="T:ModLib.Logging.ModLogger"/> instance.</returns>
         </member>
         <member name="T:ModLib.Logging.LoggingAdapter">
             <summary>
@@ -674,7 +694,7 @@
             </summary>
             <param name="logSource">The BepInEx source to use for identification and logging.</param>
             <param name="wrapLogger">
-                If true, the generated logger will be a <see cref="T:ModLib.Logging.FilteredLogWrapper" />,
+                If true, the generated logger will be a <see cref="T:ModLib.Logging.FilteredLogWrapper"/>,
                 which ignores certain logs based on their level and the current type of ModLib's build.
             </param>
         </member>
@@ -689,10 +709,10 @@
             </summary>
         </member>
         <member name="M:ModLib.Logging.LogUtilsLogger.Log(BepInEx.Logging.LogLevel,System.Object)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Logging.LogUtilsLogger.GetLogSource">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="T:ModLib.Logging.ModLogger">
             <summary>
@@ -706,7 +726,7 @@
             <returns>The log source of this logger implementation.</returns>
         </member>
         <member name="M:ModLib.Logging.ModLogger.Log(BepInEx.Logging.LogLevel,System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.Log(BepInEx.Logging.LogLevel,System.Object)" />
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.Log(BepInEx.Logging.LogLevel,System.Object)"/>
         </member>
         <member name="M:ModLib.Logging.ModLogger.Log(System.Object)">
             <summary>
@@ -715,41 +735,41 @@
             <param name="message">Message to log.</param>
         </member>
         <member name="M:ModLib.Logging.ModLogger.LogDebug(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogDebug(System.Object)" />
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogDebug(System.Object)"/>
         </member>
         <member name="M:ModLib.Logging.ModLogger.LogError(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogError(System.Object)" />
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogError(System.Object)"/>
         </member>
         <member name="M:ModLib.Logging.ModLogger.LogFatal(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogFatal(System.Object)" />
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogFatal(System.Object)"/>
         </member>
         <member name="M:ModLib.Logging.ModLogger.LogInfo(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogInfo(System.Object)" />
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogInfo(System.Object)"/>
         </member>
         <member name="M:ModLib.Logging.ModLogger.LogMessage(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogMessage(System.Object)" />
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogMessage(System.Object)"/>
         </member>
         <member name="M:ModLib.Logging.ModLogger.LogWarning(System.Object)">
-            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogWarning(System.Object)" />
+            <inheritdoc cref="M:BepInEx.Logging.ManualLogSource.LogWarning(System.Object)"/>
         </member>
         <member name="T:ModLib.Meadow.MeadowGameModes">
             <summary>
-                Wrapper enum for representing potential <see cref="T:RainMeadow.OnlineGameMode" /> types.
+                Wrapper enum for representing potential <see cref="T:RainMeadow.OnlineGameMode"/> types.
             </summary>
         </member>
         <member name="F:ModLib.Meadow.MeadowGameModes.Meadow">
             <summary>
-                The current online lobby's game mode is of type <see cref="T:RainMeadow.MeadowGameMode" />.
+                The current online lobby's game mode is of type <see cref="T:RainMeadow.MeadowGameMode"/>.
             </summary>
         </member>
         <member name="F:ModLib.Meadow.MeadowGameModes.Story">
             <summary>
-                The current online lobby's game mode is of type <see cref="T:RainMeadow.StoryGameMode" />.
+                The current online lobby's game mode is of type <see cref="T:RainMeadow.StoryGameMode"/>.
             </summary>
         </member>
         <member name="F:ModLib.Meadow.MeadowGameModes.Arena">
             <summary>
-                The current online lobby's game mode is of type <see cref="T:RainMeadow.ArenaOnlineGameMode" />.
+                The current online lobby's game mode is of type <see cref="T:RainMeadow.ArenaOnlineGameMode"/>.
             </summary>
         </member>
         <member name="F:ModLib.Meadow.MeadowGameModes.Custom">
@@ -781,10 +801,15 @@
                     Warning: Always ensure Rain Meadow is enabled before using this class!
                 </para>
                 <para>
-                    Properties and methods like <see cref="P:ModLib.Extras.IsMeadowEnabled" />, <see cref="P:ModLib.Extras.IsOnlineSession" />, and <see cref="M:ModLib.CompatibilityManager.IsRainMeadowEnabled" />
-                    can all be used/queried before accessing any of this class's members. Otherwise, a <see cref="T:System.TypeLoadException" /> will be thrown, even if the given member does not have any Meadow-specific code.
+                    Properties and methods like <see cref="P:ModLib.Extras.IsMeadowEnabled"/>, <see cref="P:ModLib.Extras.IsOnlineSession"/>, and <see cref="M:ModLib.CompatibilityManager.IsRainMeadowEnabled"/>
+                    can all be used/queried before accessing any of this class's members. Otherwise, a <see cref="T:System.TypeLoadException"/> will be thrown, even if the given member does not have any Meadow-specific code.
                 </para>
             </remarks>
+        </member>
+        <member name="E:ModLib.Meadow.MeadowUtils.JoinedGameSession">
+            <summary>
+                Invoked when the player first joins an online game session (not the lobby itself).
+            </summary>
         </member>
         <member name="P:ModLib.Meadow.MeadowUtils.IsOnline">
             <summary>
@@ -804,8 +829,7 @@
                 If the current game session is not online, this always returns <c>true</c>.
             </remarks>
             <param name="physicalObject">The object itself.</param>
-            <returns>
-                <c>true</c> if the physical object belongs to this client (or the current game session is not online), <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the physical object belongs to this client (or the current game session is not online), <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Meadow.MeadowUtils.GetOnlineName(Player)">
             <summary>
@@ -813,6 +837,13 @@
             </summary>
             <param name="self">The player to be queried.</param>
             <returns>A <c>String</c> containing the player's name, or <c>null</c> if none is found.</returns>
+        </member>
+        <member name="M:ModLib.Meadow.MeadowUtils.GetAvatars(RainMeadow.OnlinePlayer)">
+            <summary>
+                Obtains all avatars tied to the given <see cref="T:RainMeadow.OnlinePlayer"/>; Actual types of the retrieved creatures may vary with game mode.
+            </summary>
+            <param name="self">The online player whose avatars will be queried for.</param>
+            <returns>A list of creatures controlled by the online player, or <c>null</c> if none is found.</returns>
         </member>
         <member name="M:ModLib.Meadow.MeadowUtils.LogSystemMessage(System.String)">
             <summary>
@@ -825,8 +856,7 @@
                 Determines if the current online game session is of the given game mode type. If not online, this is always false.
             </summary>
             <param name="gameMode">The gamemode to be tested for.</param>
-            <returns>
-                <c>true</c> if the current game session is both online and of the given game mode type; <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the current game session is both online and of the given game mode type; <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Meadow.MeadowUtils.RequestOwnership(PhysicalObject)">
             <summary>
@@ -863,7 +893,7 @@
         </member>
         <member name="M:ModLib.Meadow.ModRPCManager.UpdateRPCs">
             <summary>
-                Updates all pending <see cref="T:RainMeadow.RPCEvent" /> instances, removing them on expiration.
+                Updates all pending <see cref="T:RainMeadow.RPCEvent"/> instances, removing them on expiration.
             </summary>
         </member>
         <member name="M:ModLib.Meadow.ModRPCManager.SendRPCEvent``1(RainMeadow.OnlinePlayer,``0,System.Object[])">
@@ -874,7 +904,7 @@
             <param name="onlinePlayer">The recipient who will receive this RPC event.</param>
             <param name="delegate">The RPC method to be sent.</param>
             <param name="args">Any arguments of the RPC method.</param>
-            <returns>The <see cref="T:RainMeadow.RPCEvent" /> instance sent to the online player.</returns>
+            <returns>The <see cref="T:RainMeadow.RPCEvent"/> instance sent to the online player.</returns>
         </member>
         <member name="M:ModLib.Meadow.ModRPCManager.BroadcastOnceRPCInRoom(RainMeadow.OnlineEntity,System.Delegate,System.Object[])">
             <summary>
@@ -924,14 +954,14 @@
         </member>
         <member name="M:ModLib.Meadow.ModRPCs.SyncRemixOptions(RainMeadow.RPCEvent,ModLib.Meadow.ModRPCs.SerializableOptions)">
             <summary>
-                Overrides the player's local <see cref="P:ModLib.Options.OptionUtils.SharedOptions" /> instance with the host's own REMIX options.
+                Overrides the player's local <see cref="P:ModLib.Options.OptionUtils.SharedOptions"/> instance with the host's own REMIX options.
             </summary>
             <param name="rpcEvent">The RPC event itself.</param>
-            <param name="options">The serializable values of the host's <see cref="T:ModLib.Options.ServerOptions" /> instance.</param>
+            <param name="options">The serializable values of the host's <see cref="T:ModLib.Options.ServerOptions"/> instance.</param>
         </member>
         <member name="T:ModLib.Meadow.ModRPCs.SerializableOptions">
             <summary>
-                A serializable wrapper around a <see cref="T:ModLib.Options.ServerOptions" />' local options dictionary.
+                A serializable wrapper around a <see cref="T:ModLib.Options.ServerOptions"/>' local options dictionary.
             </summary>
         </member>
         <member name="F:ModLib.Meadow.ModRPCs.SerializableOptions.Options">
@@ -941,7 +971,7 @@
         </member>
         <member name="M:ModLib.Meadow.ModRPCs.SerializableOptions.#ctor(System.Collections.Generic.IDictionary{System.String,ModLib.Options.ConfigValue})">
             <summary>
-                Creates a new <see cref="T:ModLib.Meadow.ModRPCs.SerializableOptions" /> instance with the provided options for serialization.
+                Creates a new <see cref="T:ModLib.Meadow.ModRPCs.SerializableOptions"/> instance with the provided options for serialization.
             </summary>
             <remarks>
                 Options prefixed with an underscore (<c>_</c>) are ignored for serialization purposes.
@@ -950,7 +980,7 @@
         </member>
         <member name="M:ModLib.Meadow.ModRPCs.SerializableOptions.#ctor">
             <summary>
-                Creates a new <see cref="T:ModLib.Meadow.ModRPCs.SerializableOptions" /> instance with an empty options dictionary for serialization.
+                Creates a new <see cref="T:ModLib.Meadow.ModRPCs.SerializableOptions"/> instance with an empty options dictionary for serialization.
             </summary>
         </member>
         <member name="M:ModLib.Meadow.ModRPCs.SerializableOptions.CustomSerialize(RainMeadow.Serializer)">
@@ -972,6 +1002,11 @@
                 Determines if this mod has successfuly been enabled.
             </summary>
         </member>
+        <member name="P:ModLib.ModPlugin.ResourcesLoaded">
+            <summary>
+                Determines if LoadResources has been successfully called during initialization.
+            </summary>
+        </member>
         <member name="P:ModLib.ModPlugin.Logger">
             <summary>
                 The custom logger instance for this mod.
@@ -979,7 +1014,7 @@
         </member>
         <member name="P:ModLib.ModPlugin.LogSource">
             <summary>
-                The <see cref="T:BepInEx.Logging.ManualLogSource" /> inherited from <see cref="T:BepInEx.BaseUnityPlugin" /> by this mod.
+                The <see cref="T:BepInEx.Logging.ManualLogSource"/> inherited from <see cref="T:BepInEx.BaseUnityPlugin"/> by this mod.
             </summary>
         </member>
         <member name="M:ModLib.ModPlugin.#ctor">
@@ -1017,7 +1052,9 @@
         </member>
         <member name="M:ModLib.ModPlugin.LoadResources">
             <summary>
-                Load any resources, such as sprites or sounds. This also registers the mod's REMIX interface to the game.
+                Load any resources, such as sprites or sounds. This also registers the mod's REMIX interface to the game.<br/>
+                <br/>
+                Override this to add behavior which must run exactly once, and only after all mods have been loaded into the game.
             </summary>
         </member>
         <member name="M:ModLib.ModPlugin.ApplyHooks">
@@ -1032,13 +1069,12 @@
         </member>
         <member name="M:ModLib.ModPlugin.OnModsInitHook(On.RainWorld.orig_OnModsInit,RainWorld)">
             <summary>
-                Loads this mod's resources to the game.
-                Override this to add any extra behavior which must be run once all mods have been loaded into the game.
+                Loads this mod's resources to the game. For adding your own behavior, override <see cref="M:ModLib.ModPlugin.LoadResources"/> instead.
             </summary>
         </member>
         <member name="T:ModLib.Options.ConfigValue">
             <summary>
-                A holder of supported values for <see cref="T:Configurable`1" /> options.
+                A holder of supported values for <see cref="T:Configurable`1"/> options.
             </summary>
         </member>
         <member name="P:ModLib.Options.ConfigValue.Kind">
@@ -1064,11 +1100,11 @@
                 Creates a new configurable value holding the provided object.
             </summary>
             <param name="value">The object to be stored. Must be either an integer, float, boolean or string.</param>
-            <returns>The newly created <see cref="T:ModLib.Options.ConfigValue" /> instance.</returns>
+            <returns>The newly created <see cref="T:ModLib.Options.ConfigValue"/> instance.</returns>
         </member>
         <member name="M:ModLib.Options.ConfigValue.GetBoxedValue">
             <summary>
-                Retrieves a boxed representation of the internal value stored by this <see cref="T:ModLib.Options.ConfigValue" /> instance.
+                Retrieves a boxed representation of the internal value stored by this <see cref="T:ModLib.Options.ConfigValue"/> instance.
             </summary>
             <returns>The boxed internally held value of this instance, or <c>null</c> if none is found.</returns>
         </member>
@@ -1076,48 +1112,42 @@
             <summary>
                 Determines if the internally held value is of a numeric type.
             </summary>
-            <returns>
-                <c>true</c> if the internally held value is of a numeric type, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the internally held value is of a numeric type, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Options.ConfigValue.TryGetInt(System.Int32@)">
             <summary>
                 Attempts to retrieve a stored integer from the configurable object, if there is any.
             </summary>
             <param name="v">The retrieved value, or <c>0</c> if none is found.</param>
-            <returns>
-                <c>true</c> if the internally held value is of type <see cref="T:System.Int32" />, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the internally held value is of type <see cref="T:System.Int32"/>, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Options.ConfigValue.TryGetFloat(System.Single@)">
             <summary>
                 Attempts to retrieve a stored float from the configurable object, if there is any.
             </summary>
             <param name="v">The retrieved value, or <c>0.0F</c> if none is found.</param>
-            <returns>
-                <c>true</c> if the internally held value is of type <see cref="T:System.Single" />, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the internally held value is of type <see cref="T:System.Single"/>, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Options.ConfigValue.TryGetBool(System.Boolean@)">
             <summary>
                 Attempts to retrieve a stored boolean from the configurable object, if there is any.
             </summary>
             <param name="v">The retrieved value, or <c>false</c> if none is found.</param>
-            <returns>
-                <c>true</c> if the internally held value is of type <see cref="T:System.Boolean" />, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the internally held value is of type <see cref="T:System.Boolean"/>, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Options.ConfigValue.TryGetString(System.String@)">
             <summary>
                 Attempts to retrieve a stored string from the configurable object, if there is any.
             </summary>
             <param name="v">The retrieved value, or <c>null</c> if none is found.</param>
-            <returns>
-                <c>true</c> if the internally held value is of type <see cref="T:System.String" />, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the internally held value is of type <see cref="T:System.String"/>, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Options.ConfigValue.TryGetNumber(System.ValueType@)">
             <summary>
                 Attempts to retrieve a stored number from the configurable object, if there is any.
             </summary>
             <param name="v">The retrieved value (either an <c>int</c> or <c>float</c>), or <c>null</c> if none is found.</param>
-            <returns>
-                <c>true</c> if the internally held value is of a numeric type, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the internally held value is of a numeric type, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Options.ConfigValue.TryGetValue``1(ModLib.Options.ConfigValue.ValueKind,``0@,``0@)">
             <summary>
@@ -1126,13 +1156,13 @@
             <typeparam name="T">The type of the value to be retrieved.</typeparam>
             <param name="kind">
                 The kind of the value type to be retrieved.
-                If this instance's <see cref="P:ModLib.Options.ConfigValue.Kind" /> does not match this argument, the default value for <typeparamref name="T" /> is returned.
+                If this instance's <see cref="P:ModLib.Options.ConfigValue.Kind"/> does not match this argument, the default value for <typeparamref name="T"/> is returned.
             </param>
             <param name="holder">The field whose value will be retrieved.</param>
             <param name="value">The output value from this operation.</param>
             <returns>
-                The value of <paramref name="holder" /> if <paramref name="kind" /> matches the instance's <see cref="P:ModLib.Options.ConfigValue.Kind" /> value,
-                or the default value for <typeparamref name="T" /> otherwise.
+                The value of <paramref name="holder"/> if <paramref name="kind"/> matches the instance's <see cref="P:ModLib.Options.ConfigValue.Kind"/> value,
+                or the default value for <typeparamref name="T"/> otherwise.
             </returns>
         </member>
         <member name="M:ModLib.Options.ConfigValue.TryGetNullable``1(ModLib.Options.ConfigValue.ValueKind,``0@,``0@)">
@@ -1142,28 +1172,28 @@
             <typeparam name="T">The type of the value to be retrieved.</typeparam>
             <param name="kind">
                 The kind of the reference type to be retrieved.
-                If this instance's <see cref="P:ModLib.Options.ConfigValue.Kind" /> does not match this argument, <c>null</c> is instead returned.
+                If this instance's <see cref="P:ModLib.Options.ConfigValue.Kind"/> does not match this argument, <c>null</c> is instead returned.
             </param>
             <param name="holder">The field whose value will be retrieved.</param>
             <param name="value">The output value from this operation.</param>
             <returns>
-                The value of <paramref name="holder" /> if <paramref name="kind" /> matches the instance's <see cref="P:ModLib.Options.ConfigValue.Kind" /> value, or <c>null</c> otherwise.
+                The value of <paramref name="holder"/> if <paramref name="kind"/> matches the instance's <see cref="P:ModLib.Options.ConfigValue.Kind"/> value, or <c>null</c> otherwise.
             </returns>
         </member>
         <member name="M:ModLib.Options.ConfigValue.CompareTo(System.Object)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Options.ConfigValue.CompareTo(ModLib.Options.ConfigValue)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Options.ConfigValue.Equals(ModLib.Options.ConfigValue)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Options.ConfigValue.op_Equality(ModLib.Options.ConfigValue,ModLib.Options.ConfigValue)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Options.ConfigValue.op_Inequality(ModLib.Options.ConfigValue,ModLib.Options.ConfigValue)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Options.ConfigValue.ToString">
             <summary>
@@ -1172,10 +1202,10 @@
             <returns>The string representation of the internally held value by this instance.</returns>
         </member>
         <member name="M:ModLib.Options.ConfigValue.Equals(System.Object)">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Options.ConfigValue.GetHashCode">
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="T:ModLib.Options.ConfigValue.ValueKind">
             <summary>
@@ -1184,35 +1214,35 @@
         </member>
         <member name="F:ModLib.Options.ConfigValue.ValueKind.Int">
             <summary>
-                The internally held value is of type <see cref="T:System.Int32" />.
+                The internally held value is of type <see cref="T:System.Int32"/>.
             </summary>
         </member>
         <member name="F:ModLib.Options.ConfigValue.ValueKind.Float">
             <summary>
-                The internally held value is of type <see cref="T:System.Single" />.
+                The internally held value is of type <see cref="T:System.Single"/>.
             </summary>
         </member>
         <member name="F:ModLib.Options.ConfigValue.ValueKind.Bool">
             <summary>
-                The internally held value is of type <see cref="T:System.Boolean" />.
+                The internally held value is of type <see cref="T:System.Boolean"/>.
             </summary>
         </member>
         <member name="F:ModLib.Options.ConfigValue.ValueKind.String">
             <summary>
-                The internally held value is of type <see cref="T:System.String" />.
+                The internally held value is of type <see cref="T:System.String"/>.
             </summary>
         </member>
         <member name="T:ModLib.Options.OptionBuilder">
             <summary>
                 Helper class for building <c>OpTab</c>s with a variety of chain-able methods.
             </summary>
-            <remarks>To return the generated <c>OpTab</c> object, use <see cref="M:ModLib.Options.OptionBuilder.Build" />.</remarks>
+            <remarks>To return the generated <c>OpTab</c> object, use <see cref="M:ModLib.Options.OptionBuilder.Build"/>.</remarks>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.#ctor(Menu.Remix.MixedUI.OpTab)">
             <summary>
                 Helper class for building <c>OpTab</c>s with a variety of chain-able methods.
             </summary>
-            <remarks>To return the generated <c>OpTab</c> object, use <see cref="M:ModLib.Options.OptionBuilder.Build" />.</remarks>
+            <remarks>To return the generated <c>OpTab</c> object, use <see cref="M:ModLib.Options.OptionBuilder.Build"/>.</remarks>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.#ctor(OptionInterface,System.String,UnityEngine.Color[])">
             <summary>
@@ -1232,10 +1262,10 @@
             <returns>The generated <c>OpTab</c> instance.</returns>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddCheckBoxOption(System.String,Configurable{System.Boolean},UnityEngine.Color[])">
-            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddCheckBoxOption(System.String,Configurable{System.Boolean},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpCheckBox@,UnityEngine.Color[])" />
+            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddCheckBoxOption(System.String,Configurable{System.Boolean},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpCheckBox@,UnityEngine.Color[])"/>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddCheckBoxOption(System.String,Configurable{System.Boolean},Menu.Remix.MixedUI.OpCheckBox@,UnityEngine.Color[])">
-            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddCheckBoxOption(System.String,Configurable{System.Boolean},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpCheckBox@,UnityEngine.Color[])" />
+            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddCheckBoxOption(System.String,Configurable{System.Boolean},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpCheckBox@,UnityEngine.Color[])"/>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddCheckBoxOption(System.String,Configurable{System.Boolean},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpCheckBox@,UnityEngine.Color[])">
             <summary>
@@ -1252,10 +1282,10 @@
             <returns>The <c>OptionBuilder</c> object.</returns>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddComboBoxOption(System.String,Configurable{System.String},System.Single,UnityEngine.Color[])">
-            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddComboBoxOption(System.String,Configurable{System.String},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpComboBox@,System.Single,UnityEngine.Color[])" />
+            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddComboBoxOption(System.String,Configurable{System.String},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpComboBox@,System.Single,UnityEngine.Color[])"/>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddComboBoxOption(System.String,Configurable{System.String},Menu.Remix.MixedUI.OpComboBox@,System.Single,UnityEngine.Color[])">
-            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddComboBoxOption(System.String,Configurable{System.String},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpComboBox@,System.Single,UnityEngine.Color[])" />
+            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddComboBoxOption(System.String,Configurable{System.String},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpComboBox@,System.Single,UnityEngine.Color[])"/>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddComboBoxOption(System.String,Configurable{System.String},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpComboBox@,System.Single,UnityEngine.Color[])">
             <summary>
@@ -1273,10 +1303,10 @@
             <returns>The <c>OptionBuilder</c> object.</returns>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddSliderOption(System.String,Configurable{System.Int32},System.Single,System.Boolean,UnityEngine.Color[])">
-            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddSliderOption(System.String,Configurable{System.Int32},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpSlider@,System.Single,System.Boolean,UnityEngine.Color[])" />
+            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddSliderOption(System.String,Configurable{System.Int32},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpSlider@,System.Single,System.Boolean,UnityEngine.Color[])"/>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddSliderOption(System.String,Configurable{System.Int32},Menu.Remix.MixedUI.OpSlider@,System.Single,System.Boolean,UnityEngine.Color[])">
-            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddSliderOption(System.String,Configurable{System.Int32},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpSlider@,System.Single,System.Boolean,UnityEngine.Color[])" />
+            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddSliderOption(System.String,Configurable{System.Int32},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpSlider@,System.Single,System.Boolean,UnityEngine.Color[])"/>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddSliderOption(System.String,Configurable{System.Int32},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpSlider@,System.Single,System.Boolean,UnityEngine.Color[])">
             <summary>
@@ -1295,10 +1325,10 @@
             <returns>The <c>OptionBuilder</c> object.</returns>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddFloatSliderOption(System.String,Configurable{System.Single},System.Int32,System.Byte,System.Boolean,UnityEngine.Color[])">
-            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddFloatSliderOption(System.String,Configurable{System.Single},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpFloatSlider@,System.Int32,System.Byte,System.Boolean,UnityEngine.Color[])" />
+            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddFloatSliderOption(System.String,Configurable{System.Single},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpFloatSlider@,System.Int32,System.Byte,System.Boolean,UnityEngine.Color[])"/>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddFloatSliderOption(System.String,Configurable{System.Single},Menu.Remix.MixedUI.OpFloatSlider@,System.Int32,System.Byte,System.Boolean,UnityEngine.Color[])">
-            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddFloatSliderOption(System.String,Configurable{System.Single},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpFloatSlider@,System.Int32,System.Byte,System.Boolean,UnityEngine.Color[])" />
+            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddFloatSliderOption(System.String,Configurable{System.Single},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpFloatSlider@,System.Int32,System.Byte,System.Boolean,UnityEngine.Color[])"/>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddFloatSliderOption(System.String,Configurable{System.Single},Menu.Remix.MixedUI.OpLabel@,Menu.Remix.MixedUI.OpFloatSlider@,System.Int32,System.Byte,System.Boolean,UnityEngine.Color[])">
             <summary>
@@ -1309,7 +1339,7 @@
             <param name="label">The generated <c>OpLabel</c> for this option.</param>
             <param name="slider">The generated <c>OpFloatSlider</c> for this option.</param>
             <param name="length">The length of the slider itself.</param>
-            <param name="decimalNum" />
+            <param name="decimalNum"></param>
             <param name="vertical">If this slider should be vertical.</param>
             <param name="colors">
                 The color values to be used by the <c>OpLabel</c> and <c>OpFloatSlider</c> instance.
@@ -1325,7 +1355,7 @@
             <returns>The <c>OptionBuilder</c> object.</returns>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddText(System.String,UnityEngine.Vector2,System.Boolean,System.Nullable{UnityEngine.Color})">
-            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddText(System.String,UnityEngine.Vector2,Menu.Remix.MixedUI.OpLabel@,System.Boolean,System.Nullable{UnityEngine.Color})" />
+            <inheritdoc cref="M:ModLib.Options.OptionBuilder.AddText(System.String,UnityEngine.Vector2,Menu.Remix.MixedUI.OpLabel@,System.Boolean,System.Nullable{UnityEngine.Color})"/>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddText(System.String,UnityEngine.Vector2,Menu.Remix.MixedUI.OpLabel@,System.Boolean,System.Nullable{UnityEngine.Color})">
             <summary>
@@ -1340,26 +1370,26 @@
         </member>
         <member name="M:ModLib.Options.OptionBuilder.GetOrigin">
             <summary>
-                Retrieves the origin at which elements will be added for this <see cref="T:ModLib.Options.OptionBuilder" /> instance.
+                Retrieves the origin at which elements will be added for this <see cref="T:ModLib.Options.OptionBuilder"/> instance.
             </summary>
             <returns>The position at which elements will be added for this builder instance.</returns>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.SetOrigin(UnityEngine.Vector2)">
             <summary>
-                Sets the origin at which elements will be added for this <see cref="T:ModLib.Options.OptionBuilder" /> instance.
+                Sets the origin at which elements will be added for this <see cref="T:ModLib.Options.OptionBuilder"/> instance.
             </summary>
             <param name="origin">The position to be set.</param>
             <returns>The <c>OptionBuilder</c> object.</returns>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.ResetOrigin">
             <summary>
-                Resets the origin at which elements are added for this <see cref="T:ModLib.Options.OptionBuilder" /> instance.
+                Resets the origin at which elements are added for this <see cref="T:ModLib.Options.OptionBuilder"/> instance.
             </summary>
             <returns>The <c>OptionBuilder</c> object.</returns>
         </member>
         <member name="M:ModLib.Options.OptionBuilder.AddElements(Menu.Remix.MixedUI.UIelement[])">
             <summary>
-                Adds one or more <see cref="T:Menu.Remix.MixedUI.UIelement" /> objects to the <c>OpTab</c> instance.
+                Adds one or more <see cref="T:Menu.Remix.MixedUI.UIelement"/> objects to the <c>OpTab</c> instance.
             </summary>
             <param name="elements">The elements to be added.</param>
             <returns>The <c>OptionBuilder</c> object.</returns>
@@ -1381,7 +1411,7 @@
         </member>
         <member name="P:ModLib.Options.OptionUtils.SharedOptions">
             <summary>
-                The client's local <see cref="T:ModLib.Options.ServerOptions" /> instance, overriden when joining an online lobby.
+                The client's local <see cref="T:ModLib.Options.ServerOptions"/> instance, overriden when joining an online lobby.
             </summary>
         </member>
         <member name="M:ModLib.Options.OptionUtils.GetClientOptionValue``1(Configurable{``0})">
@@ -1389,7 +1419,8 @@
                 Directly requests for the client's REMIX options, then retrieves its value.
             </summary>
             <remarks>
-                This should only be used for options which are not synced by <c>Options.ServerOptions</c></remarks>
+                This should only be used for options which are not synced by <c>Options.ServerOptions</c>
+            </remarks>
             <typeparam name="T">The type of the configurable itself.</typeparam>
             <param name="option">The option to be queried.</param>
             <returns>The configured value for the given option.</returns>
@@ -1399,22 +1430,22 @@
                 Directly requests for the client's REMIX options, then determines whether it is enabled or not.
             </summary>
             <remarks>
-                This should only be used for options which are not synced by <c>Options.ServerOptions</c></remarks>
+                This should only be used for options which are not synced by <c>Options.ServerOptions</c>
+            </remarks>
             <param name="option">The option to be queried. Must be of <c>bool</c> type.</param>
-            <returns>
-                <c>true</c> if the given option is enabled, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the given option is enabled, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Options.OptionUtils.IsClientOptionValue``1(Configurable{``0},``0)">
             <summary>
                 Directly requests for the client's REMIX options, then compares its values to the provided argument.
             </summary>
             <remarks>
-                This should only be used for options which are not synced by <c>Options.ServerOptions</c></remarks>
+                This should only be used for options which are not synced by <c>Options.ServerOptions</c>
+            </remarks>
             <typeparam name="T">The type of the configurable itself.</typeparam>
             <param name="option">The option to be queried.</param>
             <param name="value">The expected value to be checked.</param>
-            <returns>
-                <c>true</c> if the option's value matches the given argument, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the option's value matches the given argument, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Options.OptionUtils.GetOptionValue``1(Configurable{``0})">
             <summary>
@@ -1426,7 +1457,7 @@
             <typeparam name="T">The type of the configurable itself.</typeparam>
             <param name="option">The option to be queried.</param>
             <returns>The local value for the given option.</returns>
-            <seealso cref="M:ModLib.Options.OptionUtils.GetClientOptionValue``1(Configurable{``0})" />
+            <seealso cref="M:ModLib.Options.OptionUtils.GetClientOptionValue``1(Configurable{``0})"/>
         </member>
         <member name="M:ModLib.Options.OptionUtils.IsOptionEnabled(Configurable{System.Boolean})">
             <summary>
@@ -1437,7 +1468,7 @@
             </remarks>
             <param name="option">The option to be queried. Must be of <c>bool</c> type.</param>
             <returns>The configured value for the given option.</returns>
-            <seealso cref="M:ModLib.Options.OptionUtils.IsClientOptionEnabled(Configurable{System.Boolean})" />
+            <seealso cref="M:ModLib.Options.OptionUtils.IsClientOptionEnabled(Configurable{System.Boolean})"/>
         </member>
         <member name="M:ModLib.Options.OptionUtils.IsOptionValue``1(Configurable{``0},``0)">
             <summary>
@@ -1449,9 +1480,8 @@
             <typeparam name="T">The type of the configurable itself.</typeparam>
             <param name="option">The option to be queried.</param>
             <param name="value">The expected value to be checked.</param>
-            <returns>
-                <c>true</c> if the option's value matches the given argument, <c>false</c> otherwise.</returns>
-            <seealso cref="M:ModLib.Options.OptionUtils.IsClientOptionValue``1(Configurable{``0},``0)" />
+            <returns><c>true</c> if the option's value matches the given argument, <c>false</c> otherwise.</returns>
+            <seealso cref="M:ModLib.Options.OptionUtils.IsClientOptionValue``1(Configurable{``0},``0)"/>
         </member>
         <member name="M:ModLib.Options.OptionUtils.GetOptionValue``1(System.String)">
             <summary>
@@ -1465,8 +1495,7 @@
                 Determines if the local <c>SharedOptions</c> property has the given option enabled.
             </summary>
             <param name="option">The name of the option to be queried.</param>
-            <returns>
-                <c>true</c> if the given option is enabled, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the given option is enabled, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Options.OptionUtils.IsOptionValue``1(System.String,``0)">
             <summary>
@@ -1475,8 +1504,7 @@
             <typeparam name="T">The type of the configurable itself.</typeparam>
             <param name="option">The name of the option to be queried.</param>
             <param name="value">The expected value to be checked.</param>
-            <returns>
-                <c>true</c> if the option's value matches the given argument, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the option's value matches the given argument, <c>false</c> otherwise.</returns>
         </member>
         <member name="T:ModLib.Options.ServerOptions">
             <summary>
@@ -1500,24 +1528,24 @@
         </member>
         <member name="M:ModLib.Options.ServerOptions.#ctor">
             <summary>
-                Creates a new <see cref="T:ModLib.Options.ServerOptions" /> instance with an empty local holder.
+                Creates a new <see cref="T:ModLib.Options.ServerOptions"/> instance with an empty local holder.
             </summary>
             <remarks>
-                Note: Consider using <see cref="P:ModLib.Options.OptionUtils.SharedOptions" /> for an automatically-managed instance of this class instead.
+                Note: Consider using <see cref="P:ModLib.Options.OptionUtils.SharedOptions"/> for an automatically-managed instance of this class instead.
             </remarks>
         </member>
         <member name="M:ModLib.Options.ServerOptions.#ctor(ModLib.Options.ServerOptions)">
             <summary>
-                Creates a new <see cref="T:ModLib.Options.ServerOptions" /> instance with the same held values of the existing instance.
+                Creates a new <see cref="T:ModLib.Options.ServerOptions"/> instance with the same held values of the existing instance.
             </summary>
             <remarks>
-                Note: Consider using <see cref="P:ModLib.Options.OptionUtils.SharedOptions" /> for an automatically-managed instance of this class instead.
+                Note: Consider using <see cref="P:ModLib.Options.OptionUtils.SharedOptions"/> for an automatically-managed instance of this class instead.
             </remarks>
             <param name="source">The source whose values will be copied.</param>
         </member>
         <member name="M:ModLib.Options.ServerOptions.AddTemporaryOption(System.String,ModLib.Options.ConfigValue,System.Boolean)">
             <summary>
-                Adds a temporary option to this <see cref="T:ModLib.Options.ServerOptions" /> instance with the provided key and value.
+                Adds a temporary option to this <see cref="T:ModLib.Options.ServerOptions"/> instance with the provided key and value.
             </summary>
             <remarks>
                 Temporary options are raw representations of option values;
@@ -1525,11 +1553,11 @@
             </remarks>
             <param name="optionKey">The unique key for identifying the temporary option. If an existing option has the same key, it is overriden.</param>
             <param name="optionValue">The value to be saved with the given option key.</param>
-            <param name="removeOnRefresh">If true, this temporary option will be removed the next time <see cref="M:ModLib.Options.ServerOptions.RefreshOptions(System.Boolean)" /> is called.</param>
+            <param name="removeOnRefresh">If true, this temporary option will be removed the next time <see cref="M:ModLib.Options.ServerOptions.RefreshOptions(System.Boolean)"/> is called.</param>
         </member>
         <member name="M:ModLib.Options.ServerOptions.RemoveTemporaryOption(System.String)">
             <summary>
-                Removes a given temporary option from this <see cref="T:ModLib.Options.ServerOptions" /> instance.
+                Removes a given temporary option from this <see cref="T:ModLib.Options.ServerOptions"/> instance.
             </summary>
             <param name="optionKey">The option key to be removed.</param>
             <returns>
@@ -1542,8 +1570,7 @@
                 Determines if a given option key is temporary or not.
             </summary>
             <param name="optionKey">The option key to be searched.</param>
-            <returns>
-                <c>true</c> if the option is temporary, <c>false</c> otherwise.</returns>
+            <returns><c>true</c> if the option is temporary, <c>false</c> otherwise.</returns>
         </member>
         <member name="M:ModLib.Options.ServerOptions.RefreshOptions(System.Boolean)">
             <summary>
@@ -1565,9 +1592,9 @@
         </member>
         <member name="M:ModLib.Options.ServerOptions.ToString">
             <summary>
-                Returns a string containing the <see cref="T:ModLib.Options.ServerOptions" />' formatted local values.
+                Returns a string containing the <see cref="T:ModLib.Options.ServerOptions"/>' formatted local values.
             </summary>
-            <returns>A string containing the <see cref="T:ModLib.Options.ServerOptions" />' formatted local values.</returns>
+            <returns>A string containing the <see cref="T:ModLib.Options.ServerOptions"/>' formatted local values.</returns>
         </member>
         <member name="T:ModLib.Options.ClientOptionAttribute">
             <summary>
@@ -1584,7 +1611,7 @@
                 Retrieves the registered metadata of the current mod.
             </summary>
             <remarks>
-                If this property is accessed before the mod is registered to ModLib, a <see cref="T:ModLib.Registry.ModNotFoundException" /> is thrown.
+                If this property is accessed before the mod is registered to ModLib, a <see cref="T:ModLib.Registry.ModNotFoundException"/> is thrown.
             </remarks>
             <exception cref="T:ModLib.Registry.ModNotFoundException">The current mod assembly was not registered to ModLib.</exception>
         </member>
@@ -1594,7 +1621,7 @@
             </summary>
         </member>
         <member name="M:ModLib.Registry.RegisterMod(BepInEx.BaseUnityPlugin,System.Type)">
-            <inheritdoc cref="M:ModLib.Registry.RegisterMod(BepInEx.BaseUnityPlugin,System.Type,BepInEx.Logging.ManualLogSource)" />
+            <inheritdoc cref="M:ModLib.Registry.RegisterMod(BepInEx.BaseUnityPlugin,System.Type,BepInEx.Logging.ManualLogSource)"/>
         </member>
         <member name="M:ModLib.Registry.RegisterMod(BepInEx.BaseUnityPlugin,System.Type,BepInEx.Logging.ManualLogSource)">
             <summary>
@@ -1603,10 +1630,10 @@
             </summary>
             <param name="plugin">The <c>Plugin</c> class from which this mod is being registered.</param>
             <param name="optionHolder">
-                A class with <c>public static</c> fields of type <see cref="T:Configurable`1" />,
+                A class with <c>public static</c> fields of type <see cref="T:Configurable`1"/>,
                 which are retrieved via reflection to determine the mod's REMIX options.
             </param>
-            <param name="logSource">The log source of this mod. If LogUtils is present, a <see cref="T:LogUtils.Logger" /> will be created with this parameter as its <c>LogSource</c> value.</param>
+            <param name="logSource">The log source of this mod. If LogUtils is present, a <see cref="T:LogUtils.Logger"/> will be created with this parameter as its <c>LogSource</c> value.</param>
             <exception cref="T:System.InvalidOperationException">The current mod assembly is already registered to ModLib.</exception>
         </member>
         <member name="M:ModLib.Registry.RegisterMod(BepInEx.BaseUnityPlugin,System.Type,ModLib.Logging.ModLogger)">
@@ -1616,7 +1643,7 @@
             </summary>
             <param name="plugin">The <c>Plugin</c> class from which this mod is being registered.</param>
             <param name="optionHolder">
-                A class with <c>public static</c> fields of type <see cref="T:Configurable`1" />,
+                A class with <c>public static</c> fields of type <see cref="T:Configurable`1"/>,
                 which are retrieved via reflection to determine the mod's REMIX options.
             </param>
             <param name="logger">The wrapped logger for usage by this mod.</param>
@@ -1626,8 +1653,7 @@
             <summary>
                 Removes the current mod assembly from ModLib's registry.
             </summary>
-            <returns>
-                <c>true</c> if the mod was successfully unregistered, <c>false</c> otherwise (e.g. if it was not registered at all).</returns>
+            <returns><c>true</c> if the mod was successfully unregistered, <c>false</c> otherwise (e.g. if it was not registered at all).</returns>
         </member>
         <member name="M:ModLib.Registry.GetMod(System.Reflection.Assembly)">
             <summary>
@@ -1686,21 +1712,107 @@
         </member>
         <member name="M:ModLib.Registry.ModNotFoundException.#ctor">
             <summary>
-                Initializes a new instance of the <see cref="T:ModLib.Registry.ModNotFoundException" /> class.
+                Initializes a new instance of the <see cref="T:ModLib.Registry.ModNotFoundException"/> class.
             </summary>
         </member>
         <member name="M:ModLib.Registry.ModNotFoundException.#ctor(System.String)">
             <summary>
-                Initializes a new instance of the <see cref="T:ModLib.Registry.ModNotFoundException" /> class with a specified error message.
+                Initializes a new instance of the <see cref="T:ModLib.Registry.ModNotFoundException"/> class with a specified error message.
             </summary>
-            <inheritdoc />
+            <inheritdoc/>
         </member>
         <member name="M:ModLib.Registry.ModNotFoundException.#ctor(System.String,System.Exception)">
             <summary>
-                Initializes a new instance of the <see cref="T:ModLib.Registry.ModNotFoundException" /> class with a specified error message
+                Initializes a new instance of the <see cref="T:ModLib.Registry.ModNotFoundException"/> class with a specified error message
                 and a reference to the inner exception that is the cause of this exception.
             </summary>
-            <inheritdoc />
+            <inheritdoc/>
+        </member>
+        <member name="T:ModLib.Storage.ModPersistentSaveData">
+            <summary>
+                JSON-serializable data which is retrieved on initialization and stored in a dedicated file on shutdown.
+            </summary>
+        </member>
+        <member name="M:ModLib.Storage.ModPersistentSaveData.#ctor(System.Boolean,System.Boolean)">
+            <summary>
+                Creates a new persistent data for this mod.
+            </summary>
+            <param name="isGlobal">If true, all save slots will share the same data file. Otherwise, each slot has a separate file in its own folder.</param>
+            <param name="manualSave">If true, ModLib will not automatically save the stored data. Otherwise, the data is stored in a JSON file upon closing the game.</param>
+        </member>
+        <member name="M:ModLib.Storage.ModPersistentSaveData.GetData(System.String)">
+            <summary>
+                Retrieves the stored data with the given key.
+            </summary>
+            <param name="key">The key to search for.</param>
+            <returns>The data associated with the given key.</returns>
+            <exception cref="T:System.ArgumentNullException">key is null</exception>
+            <exception cref="T:System.Collections.Generic.KeyNotFoundException">No data was found with the given key.</exception>
+        </member>
+        <member name="M:ModLib.Storage.ModPersistentSaveData.GetData``1(System.String)">
+            <summary>
+                Retrieves the stored data with the given key.
+            </summary>
+            <typeparam name="T">The type of the data to be retrieved</typeparam>
+            <param name="key">The key to search for.</param>
+            <returns>The data associated with the given key.</returns>
+            <exception cref="T:System.ArgumentNullException">key is null</exception>
+            <exception cref="T:System.Collections.Generic.KeyNotFoundException">No data was found with the given key.</exception>
+            <exception cref="T:System.InvalidCastException">The stored data is not of the given type.</exception>
+        </member>
+        <member name="M:ModLib.Storage.ModPersistentSaveData.HasData(System.String)">
+            <summary>
+                Determines if the given key has any data associated to it in the persistent data.
+            </summary>
+            <param name="key">The key to search for.</param>
+            <returns>
+                <c>true</c> if any data is bound to the given key, <c>false</c> otherwise.
+                This method returns <c>false</c> if key is null.
+            </returns>
+        </member>
+        <member name="M:ModLib.Storage.ModPersistentSaveData.TryGetData(System.String,System.Object@)">
+            <summary>
+                Attempts to safely retrieve the stored data for the given key.
+            </summary>
+            <param name="key">The key to search for.</param>
+            <param name="data">The stored data for the given key.</param>
+            <returns>
+                <c>true</c> if valid data was found for the given key, <c>false</c> otherwise.
+                This method returns <c>false</c> if key is null.
+            </returns>
+        </member>
+        <member name="M:ModLib.Storage.ModPersistentSaveData.TryGetData``1(System.String,``0@)">
+            <summary>
+                Attempts to safely retrieve the stored data for the given key.
+            </summary>
+            <typeparam name="T">The type of the retrieved data.</typeparam>
+            <param name="key">The key to search for.</param>
+            <param name="data">The stored data for the given key.</param>
+            <returns>
+                <c>true</c> if valid data was found for the given key, <c>false</c> otherwise.
+                This method returns <c>false</c> if key is null.
+            </returns>
+        </member>
+        <member name="M:ModLib.Storage.ModPersistentSaveData.AddData(System.String,System.Object)">
+            <summary>
+                Adds a new key-value pair to the persistent data.
+            </summary>
+            <param name="key">The key for the new data.</param>
+            <param name="data">The data to be stored.</param>
+            <exception cref="T:System.ArgumentNullException">key is null</exception>
+            <exception cref="T:System.ArgumentException">A stored data already exists for the given key</exception>
+        </member>
+        <member name="M:ModLib.Storage.ModPersistentSaveData.ClearData">
+            <summary>
+                Clears all stored data.
+            </summary>
+        </member>
+        <member name="M:ModLib.Storage.ModPersistentSaveData.SetData(System.String,System.Object)">
+            <summary>
+                Sets the stored data of the given key to the provided value.
+            </summary>
+            <param name="key">The key the data will be bound to.</param>
+            <param name="data">The data to be stored.</param>
         </member>
     </members>
 </doc>

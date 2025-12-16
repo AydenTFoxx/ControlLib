@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using ImprovedInput;
 using ModLib;
 using ModLib.Input;
@@ -47,12 +48,13 @@ public static class Keybinds
         }
         catch (Exception ex)
         {
-            Main.Logger.LogError($"Failed to toggle Mind Blast option: {ex}");
+            Main.Logger.LogError($"Failed to toggle {self.Name} option: {ex}");
         }
     }
 
     private static class ImprovedInputAccess
     {
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public static void ToggleKeybind(Keybind keybind, bool enable) => ((PlayerKeybind)keybind).HideConfig = !enable;
     }
 }

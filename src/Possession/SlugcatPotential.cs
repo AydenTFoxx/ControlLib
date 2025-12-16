@@ -235,11 +235,17 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
             {
                 isAttuned = true;
                 potential += 120;
+
+                if (!player.room.game.IsArenaSession)
+                    Main.CueAchievement("enlightenment");
             }
             else if (isAttuned && (useRipple ? saveData.maximumRippleLevel > 1f && saveData.rippleLevel == saveData.minimumRippleLevel : saveData.karmaCap > 0 && saveData.karma == 0))
             {
                 isAttuned = false;
                 potential -= 120;
+
+                if (!player.room.game.IsArenaSession)
+                    Main.CueAchievement("fading_hope");
             }
         }
 
@@ -247,6 +253,14 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
 
         if (saveData.reinforcedKarma)
             potential = (int)(potential * 1.5f);
+
+        if (Main.CanUnlockAchievement("divine_slug")
+            && potential >= 1000
+            && player.SlugCatClass != MoreSlugcatsEnums.SlugcatStatsName.Spear
+            && !player.room.game.IsArenaSession)
+        {
+            Main.CueAchievement("divine_slug", true);
+        }
 
         return new SlugcatPotential(potential, isAttuned, isHardmode, isSofanthiel);
     }

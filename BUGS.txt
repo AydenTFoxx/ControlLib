@@ -5,7 +5,7 @@ TODO: Disable MindBlast unconditionally when in a Rain Meadow lobby;
 TODO: Reduce speed of possessed items and give the player better control of their trajectories. Also give them *some* friction for heavens' sake.
     Work-in-progress; Needs testing.
 
-Possessing the same item twice causes it to be thrown at the player's position, sometimes with an arbitrary offset.
+Possessing the same item twice causes it to be thrown from the player's position, sometimes with an arbitrary offset.
 
 Possessing a spear stuck in a wall/ceiling leaves behind an invisible beam, which can still be climbed by Slugcat.
 
@@ -14,6 +14,7 @@ TargetSelector sometimes fails to query for targets, as if the player had just q
 PossessionTimer lerps kinda funny when changing screens, swiftly jumping between the last position and the new one.
 
 Rarely, starting an item possession breaks the player's graphics module, causing water to disappear and rendering on the entire room to not work at all. Other rooms are unaffected by this bug.
+    Fixed! Silly BodyChunk physics when mass is zero.
 
 TODO: Add support for possessing items with TargetSelector, instead of using the Debug class.
 
@@ -24,6 +25,8 @@ TODO: Add support for possessing items with TargetSelector, instead of using the
 // Slugpup ID.-1.5511 // Eepy
 // Slugpup ID.-1.1694 // Brave pup
 // Slugpup ID.-1.4180 // Shadow pup
+
+// Slugpup ID.-1.9798 // Chaos II, Inv Pup #1
 
 // TODO: A mod where Saint's Attunement ability is replaced with a "Revival" ability, akin to Ascended Saint.
 //       Karmic Burst is disabled in all modes except Arena (configurable, can also be set to only enable for challenges)

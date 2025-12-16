@@ -199,6 +199,7 @@ public class MindBlast : CosmeticSprite
             {
                 enlightenedRoom = true;
 
+                int blastedCrits = 0;
                 foreach (PhysicalObject physicalObject in room.physicalObjects.SelectMany(static list => list))
                 {
                     if (!RippleLayerCheck(physicalObject.abstractPhysicalObject, player.abstractPhysicalObject)) continue;
@@ -258,9 +259,18 @@ public class MindBlast : CosmeticSprite
 
                     if (stunPower <= 0f
                         || physicalObject is not Creature creature
-                        || creature is Player or { dead: true }) continue;
+                        || creature is Player) continue;
 
                     bool isPlayerFriend = IsPlayerFriend(creature.abstractCreature);
+
+                    if (isPlayerFriend)
+                    {
+                        Main.Logger.LogInfo($"Protecting friend of player: {creature}");
+
+                        DeathProtection.CreateInstance(creature, static (c) => c.stun == 0 && c.IsTileSolid(0, 0, -1));
+                    }
+
+                    if (creature.dead) continue;
 
                     int blastPower = (int)(stunPower * (creature.Template.baseDamageResistance * 0.1f) * (isPlayerFriend ? 0.5f : Power));
 
@@ -268,6 +278,8 @@ public class MindBlast : CosmeticSprite
                     creature.Deafen(blastPower);
 
                     if (isPlayerFriend) continue;
+
+                    blastedCrits++;
 
                     if (creature.stun >= StunDeathThreshold)
                     {
@@ -307,17 +319,16 @@ public class MindBlast : CosmeticSprite
                         }
                     }
 
-                    for (int j = 0; j < room.locusts.cloudLocusts.Count; j++)
+                    for (int i = room.locusts.cloudLocusts.Count - 1; i >= 0; i--)
                     {
-                        LocustSystem.CloudLocust locust = room.locusts.cloudLocusts[j];
+                        LocustSystem.CloudLocust locust = room.locusts.cloudLocusts[i];
 
-                        if (Custom.DistLess(locust.pos, pos, StunFactor * 0.75f * Power))
-                        {
-                            locust.alive = false;
-                            room.locusts.cloudLocusts[j] = locust;
+                        if (!Custom.DistLess(locust.pos, pos, StunFactor * 0.75f * Power)) return;
 
-                            room.locusts.groundLocusts.Add(new LocustSystem.GroundLocust(locust) { Poisoned = true });
-                        }
+                        locust.alive = false;
+                        room.locusts.cloudLocusts[i] = locust;
+
+                        room.locusts.groundLocusts.Add(new LocustSystem.GroundLocust(locust) { Poisoned = true });
                     }
 
                     room.locusts.spawnMultiplier = -100f * Power; // Note: This would break vanilla Watcher; There are two hooks in TelekineticsHooks (DelayLocustSpawningILHook and DelayLocustWarmUpHook) which prevent that, with this very use case in mind.
@@ -332,6 +343,9 @@ public class MindBlast : CosmeticSprite
 
                 room.PlaySound(SoundID.Firecracker_Bang, pos, 1f, (Random.value * 1.5f) + (Random.value * Power));
                 room.PlaySound(SoundID.SS_AI_Give_The_Mark_Boom, pos, 1f, Random.value + (Random.value * Power));
+
+                if (blastedCrits >= 8 && !room.game.IsArenaSession)
+                    Main.CueAchievement("judgement");
             }
 
             if (FadeProgress <= 0f)
@@ -509,20 +523,10 @@ public class MindBlast : CosmeticSprite
 
     private bool IsPlayerFriend(AbstractCreature creature)
     {
-        if (creature.abstractAI?.RealAI is not IReactToSocialEvents or FriendTracker.IHaveFriendTracker) return false;
+        ArtificialIntelligence? AI = creature.realizedCreature is Lizard lizor ? lizor.AI : creature.abstractAI?.RealAI;
 
-        bool result = room.game.session.creatureCommunities.LikeOfPlayer(creature.creatureTemplate.communityID, room.world?.RegionNumber ?? 0, player.playerState.playerNumber) >= 0.5f;
-
-        Main.Logger.LogDebug($"# Community of {creature} likes player? {result}");
-
-        if (!result)
-        {
-            result = creature.abstractAI.RealAI.friendTracker?.friend == player;
-
-            Main.Logger.LogDebug($"# Is {creature} friend of player? {result}");
-        }
-
-        return result;
+        return AI is not null && ((AI is FriendTracker.IHaveFriendTracker && AI.friendTracker?.friend == player)
+            || (!AI.DynamicRelationship(player.abstractCreature).GoForKill && AI is IReactToSocialEvents && room.game.session.creatureCommunities.LikeOfPlayer(creature.creatureTemplate.communityID, room.world?.RegionNumber ?? 0, player.playerState.playerNumber) >= 0.5f));
     }
 
     public static MindBlast CreateInstance(Player player, PossessionManager? manager, bool allowMultiple = false)

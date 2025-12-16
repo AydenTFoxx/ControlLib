@@ -40,16 +40,13 @@ public class PossessionMark : PlayerAccessory
         FollowCreature = target;
     }
 
+    public void Invalidate() => invalidated = true;
+
     public override void Update(bool eu)
     {
         base.Update(eu);
 
-        if (invalidated)
-        {
-            if (alpha <= 0f)
-                Destroy();
-            return;
-        }
+        if (invalidated) return;
 
         if (Target.room is not null && Target.room != room)
         {
@@ -69,11 +66,13 @@ public class PossessionMark : PlayerAccessory
         sLeaser.sprites[0] = new FSprite("Futile_White", true)
         {
             shader = rCam.game.rainWorld.Shaders["FlatLight"],
-            scale = 2f
+            scale = 2f,
+            alpha = 0f
         };
         sLeaser.sprites[1] = new FSprite("pixel", true)
         {
-            scale = 5f
+            scale = 5f,
+            alpha = 0f
         };
 
         base.InitiateSprites(sLeaser, rCam);
@@ -83,9 +82,14 @@ public class PossessionMark : PlayerAccessory
     {
         this.camPos = camPos;
 
-        targetAlpha = invalidated ? 0f : 1f;
+        UpdateAlpha(!invalidated, maxDelta: 0.015f);
 
-        if (UpdateAlpha(speed: 0.1f) <= 0f) return;
+        if (alpha <= 0f)
+        {
+            if (invalidated)
+                Destroy();
+            return;
+        }
 
         sLeaser.sprites[0].alpha = alpha * 2f * 0.2f;
         sLeaser.sprites[0].SetPosition(MarkPos);

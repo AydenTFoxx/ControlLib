@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using RWCustom;
 using UnityEngine;
 
@@ -30,9 +31,9 @@ public abstract class PlayerAccessory : CosmeticSprite
     protected float alpha;
 
     /// <summary>
-    ///     The transparency the accessory will lerp towards. After setting this field, call <see cref="UpdateAlpha"/> on every tick so <c>alpha</c> smoothly transitions to this value.
+    ///     If true, <see cref="alpha"/> has just reached the intended target value with <see cref="UpdateAlpha"/>.
     /// </summary>
-    protected float targetAlpha;
+    protected bool justReachedTargetAlpha = true;
 
     /// <summary>
     ///     The velocity of the accessory object; Preferred over <see cref="CosmeticSprite.vel"/> for smoothing functions such as <see cref="Vector2.SmoothDamp(Vector2, Vector2, ref Vector2, float)"/>.
@@ -107,14 +108,31 @@ public abstract class PlayerAccessory : CosmeticSprite
     }
 
     /// <summary>
+    ///     Updates the accessory's <see cref="alpha"/> value at the provided rate, moving it towards <c>1f</c> or <c>0f</c> depending on <see cref="targetAlpha"/>.
+    /// </summary>
+    /// <param name="targetAlpha">If true, <see cref="alpha"/> will move towards <c>1f</c>. Otherwise, it'll move towards <c>0f</c>.</param>
+    /// <param name="maxDelta">The absolute value by which <see cref="alpha"/> is incremented on every tick.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void UpdateAlpha(bool targetAlpha, float maxDelta = 0.02f) => UpdateAlpha(targetAlpha ? 1f : 0f, maxDelta);
+
+    /// <summary>
     ///     Updates the accessory's <see cref="alpha"/> value, moving it towards <see cref="targetAlpha"/> at the provided rate.
     /// </summary>
-    /// <param name="speed">The value by which <see cref="alpha"/> is incremented on every tick.</param>
-    /// <returns>The new value of <see cref="alpha"/>.</returns>
-    public float UpdateAlpha(float speed = 0.05f) =>
-        targetAlpha == alpha
-            ? alpha
-            : (alpha = Mathf.Clamp01(alpha + ((targetAlpha - alpha) * speed)));
+    /// <param name="targetAlpha">The value <see cref="alpha"/> will move towards.</param>
+    /// <param name="maxDelta">The absolute value by which <see cref="alpha"/> is incremented on every tick.</param>
+    public void UpdateAlpha(float targetAlpha, float maxDelta = 0.02f)
+    {
+        if (targetAlpha != alpha)
+        {
+            alpha = Mathf.MoveTowards(alpha, targetAlpha, maxDelta);
+
+            justReachedTargetAlpha = targetAlpha == alpha;
+        }
+        else
+        {
+            justReachedTargetAlpha = false;
+        }
+    }
 
     /// <summary>
     ///     Updates the accessory's fields used for lerping between colors.

@@ -46,7 +46,7 @@ public static class PossessionExts
             }
         }
 
-        Main.Logger.LogInfo($"New PossessionManager instance:{Environment.NewLine}{newManager}");
+        Main.Logger.LogInfo($"New PossessionManager instance: {newManager}");
         return newManager;
     }
 

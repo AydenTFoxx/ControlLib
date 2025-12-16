@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using ControlLib.Possession;
 using ModLib.Collections;
@@ -34,18 +33,12 @@ public class ObjectController : PlayerCarryableItem
                 originalGravity = value.GetLocalGravity();
                 value.SetLocalGravity(0f);
 
-                targetVel = new Vector2[value.bodyChunks.Length, 2];
-
                 _activeInstances[value] = this;
             }
         }
     }
 
-    public Player? Owner
-    {
-        get;
-        set => field = field is null ? value : throw new InvalidOperationException("Owner cannot be modified after being set to a non-null value.");
-    }
+    public Player? Owner { get; set; }
 
     private Player.InputPackage input;
     private Player.InputPackage lastInput;
@@ -56,11 +49,12 @@ public class ObjectController : PlayerCarryableItem
     private int life;
 
     private Creature.Grasp? TargetGrasp;
-    private Vector2[,]? targetVel;
+    private Vector2 targetVel;
 
+    private Vector2 vel;
     private float velMultiplier;
 
-    private readonly bool spinClockwise = UnityEngine.Random.value <= 0.5f;
+    private readonly bool spinClockwise = Random.value <= 0.5f;
 
     public ObjectController(AbstractPhysicalObject abstractController, PhysicalObject? target, Player? owner)
         : base(abstractController)
@@ -69,7 +63,7 @@ public class ObjectController : PlayerCarryableItem
         Owner = owner;
 
         bodyChunks = [
-            new BodyChunk(this, 0, Vector2.zero, 12f, 0f)
+            new BodyChunk(this, 0, Vector2.zero, 12f, 0.01f)
         ];
         bodyChunkConnections = [];
     }
@@ -115,6 +109,7 @@ public class ObjectController : PlayerCarryableItem
         TargetGrasp = null;
 
         Target = null;
+        Owner = null;
 
         room?.AddObject(new ReverseShockwave(firstChunk.pos, 16f, 0.125f, 15));
     }
@@ -150,7 +145,7 @@ public class ObjectController : PlayerCarryableItem
             Owner ??= upPicker as Player;
         }
 
-        Main.Logger.LogDebug($"ObjectController was picked up by {upPicker}!");
+        Main.Logger.LogDebug($"[{this}] was picked up by {upPicker}!");
 
         if (Target is null || Owner is null) return;
 
@@ -163,10 +158,7 @@ public class ObjectController : PlayerCarryableItem
             base.PickedUp(upPicker);
         }
 
-        if (Target.graphicsModule != null && Owner.Grabability(Target) < (Player.ObjectGrabability)5)
-        {
-            Target.graphicsModule.BringSpritesToFront();
-        }
+        Target.graphicsModule?.BringSpritesToFront();
     }
 
     public override void PlaceInRoom(Room placeRoom)
@@ -223,32 +215,25 @@ public class ObjectController : PlayerCarryableItem
 
         input = Owner.GetRawInput();
 
-        if (targetVel is not null)
+        Vector2 moveDir = GetMoveDirection();
+        for (int i = 0; i < Target.bodyChunks.Length; i++)
         {
-            Vector2 moveDir = GetMoveDirection();
-            for (int i = 0; i < Target.bodyChunks.Length; i++)
+            BodyChunk bodyChunk = Target.bodyChunks[i];
+
+            if (moveDir != Vector2.zero)
             {
-                BodyChunk bodyChunk = Target.bodyChunks[i];
+                velMultiplier = Mathf.Min(velMultiplier + 0.05f, 16f);
 
-                targetVel[i, 1] = targetVel[i, 0];
-
-                if (moveDir != Vector2.zero)
-                {
-                    targetVel[i, 0] = moveDir * (4 + velMultiplier);
-
-                    velMultiplier = targetVel[i, 1].normalized == targetVel[i, 0].normalized
-                        ? Mathf.Min(velMultiplier + 0.01f, 4f)
-                        : Mathf.Max(velMultiplier - 0.001f, 0f);
-                }
-                else
-                {
-                    targetVel[i, 0] -= targetVel[i, 0] * 0.05f;
-
-                    velMultiplier = Mathf.Max(velMultiplier - 0.005f, 0f);
-                }
-
-                bodyChunk.vel = Vector2.MoveTowards(bodyChunk.vel, targetVel[i, 0], 240f);
+                targetVel = moveDir * (4f + velMultiplier);
             }
+            else if (targetVel != Vector2.zero)
+            {
+                targetVel = Vector2.Max(targetVel - (targetVel * 0.05f), Vector2.zero);
+
+                velMultiplier = targetVel == Vector2.zero ? 0f : Mathf.Max(velMultiplier - 0.1f, 0f);
+            }
+
+            bodyChunk.vel = Vector2.SmoothDamp(bodyChunk.vel, targetVel, ref vel, 0.1f);
         }
 
         if (this is { input.thrw: true, TargetGrasp: not null })
@@ -279,10 +264,16 @@ public class ObjectController : PlayerCarryableItem
 
             if (weapon.room is not null)
             {
-                foreach (ScavengerAI scavAI in weapon.room.updateList.OfType<Scavenger>().Select(scav => scav.AI))
+                foreach (ScavengerAI scavAI in weapon.room.updateList.OfType<Scavenger>().Where(static scav => scav.Consious).Select(static scav => scav.AI))
                 {
-                    if (scavAI.idleCounter > 0)
+                    if (!scavAI.VisualContact(weapon.firstChunk)) continue;
+
+                    if (scavAI.itemTracker is not null && scavAI.itemTracker.items.Contains(scavAI.itemTracker.RepresentationForObject(Target, false)))
+                    {
+                        scavAI.itemTracker.SeeItem(Target.abstractPhysicalObject);
+
                         scavAI.MakeLookHere(weapon.firstChunk.pos);
+                    }
                 }
             }
         }

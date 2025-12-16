@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using ControlLib.Meadow;
 using ControlLib.Possession.Graphics;
@@ -45,6 +46,8 @@ public class PossessionManager : IDisposable
     private bool didReachLowPossessionTime;
     private bool disposedValue;
 
+    public List<CreatureTemplate.Type>? killedPossessionTypes = Main.CanUnlockAchievement("sacrilege") ? [] : null;
+
     public bool IsAttunedSlugcat { get; }
     public bool IsHardmodeSlugcat { get; }
     public bool IsSofanthielSlugcat { get; }
@@ -84,6 +87,9 @@ public class PossessionManager : IDisposable
 
         Power = IsAttunedSlugcat ? 1.5f : IsHardmodeSlugcat ? 0.75f : 1f;
 
+        if (IsSofanthielSlugcat)
+            Power -= 0.25f;
+
         MaxPossessionTime = snapshot.MaxPossessionTime;
         PossessionTime = snapshot.PossessionTime;
         PossessionCooldown = snapshot.PossessionCooldown;
@@ -107,10 +113,7 @@ public class PossessionManager : IDisposable
         IsHardmodeSlugcat = dynamicPotential.IsHardmode;
         IsSofanthielSlugcat = dynamicPotential.IsSofanthiel;
 
-        Power = IsAttunedSlugcat ? 1.5f : IsHardmodeSlugcat ? 0.75f : 1f;
-
-        if (IsSofanthielSlugcat)
-            Power -= 0.25f;
+        Power = (IsAttunedSlugcat ? 1.5f : IsHardmodeSlugcat ? 0.75f : 1f) + (IsSofanthielSlugcat ? -0.25f : SlugcatPotential.GetStaticPotential(player.SlugCatClass).Potential / dynamicPotential.Potential);
 
         MaxPossessionTime = dynamicPotential.Potential;
         PossessionTime = MaxPossessionTime;
@@ -131,6 +134,7 @@ public class PossessionManager : IDisposable
     /// Determines if the player is allowed to start a new possession.
     /// </summary>
     /// <returns><c>true</c> if the player can use their possession ability, <c>false</c> otherwise.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool CanPossess() => this is { PossessionTime: > 0, PossessionCooldown: 0, OnMindBlastCooldown: false };
 
     /// <summary>
@@ -173,9 +177,23 @@ public class PossessionManager : IDisposable
     /// </summary>
     public void ResetAllPossessions()
     {
+        if (player.room is not null)
+        {
+            RoomCamera? camera = player.room.world.game.cameras.FirstOrDefault();
+            if (camera is not null && MyPossessions.Any(c => c.abstractCreature == camera.followAbstractCreature))
+            {
+                Main.Logger.LogDebug($"Resetting camera to {player}.");
+
+                if (camera.followAbstractCreature.Room != player.abstractCreature.Room)
+                    camera.MoveCamera(player.room, 0);
+
+                camera.followAbstractCreature = player.abstractCreature;
+            }
+        }
+
         MyPossessions.Clear();
 
-        for (int i = 0; i < PossessedItems.Count; i++)
+        for (int i = PossessedItems.Count - 1; i >= 0; i--)
         {
             if (ObjectController.TryGetController(PossessedItems[i], out ObjectController controller))
             {
@@ -192,6 +210,28 @@ public class PossessionManager : IDisposable
         }
 
         DestroyFadeOutController(player);
+
+        if (player.room is not null)
+        {
+            foreach (PossessionMark mark in player.room.updateList.OfType<PossessionMark>())
+            {
+                if (!mark.Target.TryGetPossession(out Player possessor)
+                    || !possessor.TryGetPossessionManager(out PossessionManager manager)
+                    || manager == this)
+                {
+                    Main.Logger.LogDebug($"Destroying orphaned PossessionMark! (Owner: {mark.Owner} | Target: {mark.Target})");
+
+                    mark.Invalidate();
+
+                    if (possessionTimer is not null && possessionTimer.FollowMark == mark)
+                    {
+                        Main.Logger.LogDebug($"PossessionTimer of {player} is no longer following this Mark.");
+
+                        possessionTimer.FollowMark = null;
+                    }
+                }
+            }
+        }
 
         Main.Logger.LogDebug($"{player} is no longer possessing anything.");
     }
@@ -238,15 +278,26 @@ public class PossessionManager : IDisposable
 
         possessionTimer?.FollowMark = new PossessionMark(target, player);
 
-        RoomCamera camera = player.abstractCreature.world.game.cameras[0];
-        if (camera.followAbstractCreature == player.abstractCreature)
+        RoomCamera? camera = player.abstractCreature.world.game.cameras.FirstOrDefault();
+        if (camera is not null && camera.followAbstractCreature == player.abstractCreature)
         {
             camera.followAbstractCreature = target.abstractCreature;
+
+            if (target.room != player.room)
+                camera.MoveCamera(camera.followAbstractCreature.realizedCreature.room, 0);
 
             Main.Logger.LogInfo($"Camera is now following {camera.followAbstractCreature}.");
         }
 
         player.controller = GetFadeOutController(player);
+
+        if (!player.room.game.IsArenaSession)
+        {
+            Main.CueAchievement("possessions");
+
+            if (MyPossessions.Count + PossessedItems.Count >= 7)
+                Main.CueAchievement("hive_mind");
+        }
 
         Main.Logger.LogDebug($"({player}) Started possessing creature: {target}.");
     }
@@ -259,8 +310,8 @@ public class PossessionManager : IDisposable
     {
         MyPossessions.Remove(target);
 
-        RoomCamera camera = player.abstractCreature.world.game.cameras[0];
-        if (camera.followAbstractCreature == target.abstractCreature)
+        RoomCamera? camera = player.abstractCreature.world.game.cameras.FirstOrDefault();
+        if (camera is not null && camera.followAbstractCreature == target.abstractCreature)
         {
             Creature? nextTarget = MyPossessions.LastOrDefault();
 
@@ -319,7 +370,19 @@ public class PossessionManager : IDisposable
         if (Extras.IsOnlineSession)
             RequestMeadowPossessionSync(target, true);
 
-        player.controller = GetFadeOutController(player);
+        if (target != player)
+            player.controller = GetFadeOutController(player);
+
+        if (!player.room.game.IsArenaSession)
+        {
+            Main.CueAchievement("commando");
+
+            if (target == player)
+                Main.CueAchievement("belief");
+
+            if (MyPossessions.Count + PossessedItems.Count >= 7)
+                Main.CueAchievement("hive_mind");
+        }
 
         Main.Logger.LogDebug($"({player}) Started possessing item: {target}.");
     }
@@ -409,9 +472,11 @@ public class PossessionManager : IDisposable
             return;
         }
 
-        if (IsOptionEnabled(Options.KINETIC_ABILITIES) && player.WasKeyJustPressed(Keybinds.POSSESS_ITEM, true))
+        if (IsOptionEnabled(Options.KINETIC_ABILITIES) && player.WasKeyJustPressed(Keybinds.POSSESS_ITEM, true) && CanPossess())
         {
-            Debug.StartItemPossession(player.playerState.playerNumber.ToString(), player.grasps[0] is not null and { grabbed: not ObjectController } ? "0" : "1");
+            int targetID = player.grasps[0] is not null and { grabbed: not ObjectController } ? 0 : 1;
+
+            Debug.StartItemPossession(player.playerState.playerNumber.ToString(), player.grasps[targetID]?.grabbed.abstractPhysicalObject.ID.number.ToString());
             return;
         }
 
@@ -453,7 +518,7 @@ public class PossessionManager : IDisposable
 
                 foreach (Creature crit in MyPossessions)
                 {
-                    if (crit.dead || !crit.abstractCreature.controlled)
+                    if (crit.dead || !crit.abstractCreature.controlled || crit.abstractCreature.InDen)
                     {
                         StopCreaturePossession(crit);
                     }
@@ -538,7 +603,7 @@ public class PossessionManager : IDisposable
 
         if (IsSofanthielSlugcat && player.input[0].mp)
         {
-            ForceVisiblePips = 80;
+            ForceVisiblePips = 60;
         }
         else if (ForceVisiblePips > 0)
         {
@@ -547,12 +612,12 @@ public class PossessionManager : IDisposable
 
         if (this is { didReachLowPossessionTime: true, player.submerged: false, PossessionCooldown: 0, IsPossessing: false })
         {
-            player.exhausted = IsHardmodeSlugcat || player.Malnourished || player.gourmandExhausted;
+            player.exhausted = player.Malnourished || player.gourmandExhausted;
 
             player.airInLungs = Math.Min(player.airInLungs + (IsAttunedSlugcat ? 0.025f : 0.05f), 1f);
             player.aerobicLevel = Math.Max(player.aerobicLevel - (IsHardmodeSlugcat ? 0.05f : 0.025f), 0f);
 
-            didReachLowPossessionTime = player.airInLungs == 1f;
+            didReachLowPossessionTime = player.airInLungs < 1f;
         }
 
         if (SpritesNeedReset && player.warpPointCooldown == 0)
@@ -613,7 +678,7 @@ public class PossessionManager : IDisposable
     /// <returns>A <c>string</c> containing the instance's values and possessions.</returns>
     public override string ToString()
     {
-        return new StringBuilder($"{(disposedValue ? "[DISPOSED] " : "")}{nameof(PossessionManager)}: {player} ({player?.SlugCatClass}){Environment.NewLine}")
+        return new StringBuilder($"{(disposedValue ? "[DISPOSED] " : "")}{player} ({player?.SlugCatClass}){Environment.NewLine}")
             .AppendLine($"Attuned: {(IsAttunedSlugcat ? "Yes" : "No")}")
             .AppendLine($"Hardmode: {(IsHardmodeSlugcat ? "Yes" : "No")}")
             .AppendLine($"Power: {Power}{(IsSofanthielSlugcat ? " (Sofanthiel)" : "")}")
@@ -648,12 +713,8 @@ public class PossessionManager : IDisposable
             player.controller = null;
     }
 
-    public static FadeOutController GetFadeOutController(Player player)
-    {
-        Player.InputPackage input = player.GetRawInput();
-
-        return new FadeOutController(player, input.x, player.standing ? 1 : input.y, 15);
-    }
+    public static FadeOutController GetFadeOutController(Player player) =>
+        new(player, player.input[0].x, player.standing ? 1 : player.input[0].y, 15);
 
     /// <summary>
     /// Formats a list all of the player's possessed creatures for logging purposes.
@@ -662,6 +723,9 @@ public class PossessionManager : IDisposable
     /// <returns>A formatted <c>string</c> listing all of the possessed creatures' names and IDs.</returns>
     public static string FormatPossessions<T>(ICollection<T> possessions)
     {
+        if (possessions is null or { Count: 0 })
+            return string.Empty;
+
         StringBuilder stringBuilder = new();
 
         foreach (T element in possessions)
@@ -711,6 +775,7 @@ public class PossessionManager : IDisposable
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void LogSofanthielDeath(Player player, string messageA, string messageB, string extras = "") =>
         Main.Logger.LogMessage($"{(Random.value < 0.5f ? messageA : messageB)}, {(player.SlugCatClass == MoreSlugcatsEnums.SlugcatStatsName.Sofanthiel ? "gamer" : player.SlugCatClass.ToString())}.{extras}");
 

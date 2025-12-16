@@ -27,7 +27,7 @@ public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manage
 
     private float rubberRadius;
 
-    private bool ShouldShowPips => player is not null && !player.dead && (Manager.IsPossessing || ((!Manager.IsSofanthielSlugcat || player.FoodInStomach >= player.MaxFoodInStomach) && Manager.PossessionTime < Manager.MaxPossessionTime) || Manager.ForceVisiblePips != 0);
+    private bool ShouldShowPips => player is not null and { dead: false, inShortcut: false } && (Manager.IsPossessing || ((!Manager.IsSofanthielSlugcat || player.FoodInStomach >= player.MaxFoodInStomach) && Manager.PossessionTime < Manager.MaxPossessionTime) || Manager.ForceVisiblePips != 0);
 
     private Color FlashingPipColor =>
         Manager.TargetSelector?.State is TargetSelector.QueryingState
@@ -38,6 +38,9 @@ public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manage
 
     public override void DrawSprites(RoomCamera.SpriteLeaser sLeaser, RoomCamera rCam, float timeStacker, Vector2 camPos)
     {
+        if (FollowMark is not null and { slatedForDeletetion: true })
+            FollowMark = null;
+
         lastPos = pos;
         pos = FollowMark is not null
             ? FollowMark.MarkPos
@@ -45,26 +48,23 @@ public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manage
                 ? Vector2.SmoothDamp(lastPos, GetMarkPos(camPos, timeStacker), ref velocity, 0.05f)
                 : GetMarkPos(camPos, timeStacker);
 
-        targetAlpha = Mathf.Clamp01(targetAlpha + (((ShouldShowPips ? 1f : 0f) - alpha) * 0.05f));
+        UpdateAlpha(ShouldShowPips, maxDelta: 0.015f);
 
-        if (UpdateAlpha() <= 0f) return;
-
-        float pipScale = Manager.MaxPossessionTime / PipSpritesLength;
-
-        for (int m = 0; m < sLeaser.sprites.Length; m++)
+        if (alpha <= 0f)
         {
-            FSprite pip = sLeaser.sprites[m];
-
-            float num22 = pipScale * m;
-            float num23 = pipScale * (m + 1);
-            pip.scale = Manager.PossessionTime <= num22
-                ? 0f
-                : Manager.PossessionTime >= num23
-                    ? 1f
-                    : (Manager.PossessionTime - num22) / pipScale;
+            if (justReachedTargetAlpha)
+            {
+                for (int m = 0; m < sLeaser.sprites.Length; m++)
+                {
+                    sLeaser.sprites[m].alpha = 0f;
+                }
+            }
+            return;
         }
 
         UpdateColorLerp(Manager.LowPossessionTime || Manager.TargetSelector?.State is TargetSelector.QueryingState);
+
+        float pipScale = Manager.MaxPossessionTime / PipSpritesLength;
 
         float radius = Manager.IsPossessing ? 12f : 6f;
         rubberRadius += (radius - rubberRadius) * 0.045f;
@@ -77,6 +77,12 @@ public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manage
         for (int i = 0; i < sLeaser.sprites.Length; i++)
         {
             FSprite pip = sLeaser.sprites[i];
+
+            pip.scale = Manager.PossessionTime <= (pipScale * i)
+                ? 0f
+                : Manager.PossessionTime >= (pipScale * (i + 1))
+                    ? 1f
+                    : (Manager.PossessionTime - (pipScale * i)) / pipScale;
 
             pip.alpha = alpha;
             pip.color = Color.Lerp(PipColor, FlashingPipColor, colorTime);
@@ -93,7 +99,7 @@ public class PossessionTimer(PossessionManager manager) : PlayerAccessory(manage
 
         for (int i = 0; i < PipSpritesLength; i++)
         {
-            sLeaser.sprites[i] = new FSprite("WormEye");
+            sLeaser.sprites[i] = new FSprite("WormEye") { alpha = 0f };
         }
 
         base.InitiateSprites(sLeaser, rCam);

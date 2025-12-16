@@ -12,6 +12,7 @@ namespace ControlLib.Possession.Graphics;
 public class TargetCursor(PossessionManager manager) : PlayerAccessory(manager)
 {
     private Vector2 targetPos;
+    private float targetAlpha;
 
     private FSprite? cursorSprite;
 
@@ -69,18 +70,20 @@ public class TargetCursor(PossessionManager manager) : PlayerAccessory(manager)
     {
         pos = GetMarkPos(camPos, timeStacker);
 
-        cursorSprite ??= sLeaser.sprites[0];
-
-        cursorSprite.alpha = UpdateAlpha();
+        UpdateAlpha(targetAlpha, maxDelta: 0.025f);
 
         if (alpha <= 0f)
         {
-            this.camPos = camPos;
+            if (justReachedTargetAlpha)
+                cursorSprite?.alpha = 0f;
             return;
         }
 
         UpdateColorLerp(Manager is { TargetSelector: not null, TargetSelector.ExceededTimeLimit: true });
 
+        cursorSprite ??= sLeaser.sprites[0];
+
+        cursorSprite.alpha = alpha;
         cursorSprite.color = Color.Lerp(Color.white, FlashColor, colorTime);
 
         cursorSprite.SetPosition(Vector2.SmoothDamp(cursorSprite.GetPosition(), targetPos, ref velocity, 0.1f));
@@ -92,7 +95,7 @@ public class TargetCursor(PossessionManager manager) : PlayerAccessory(manager)
     {
         sLeaser.sprites = new FSprite[1];
 
-        sLeaser.sprites[0] = cursorSprite = new FSprite("guardEye");
+        sLeaser.sprites[0] = cursorSprite = new FSprite("guardEye") { alpha = 0f };
 
         base.InitiateSprites(sLeaser, rCam);
     }

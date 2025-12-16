@@ -426,36 +426,45 @@ public static class Debug
     ///     If successful, a <see cref="Result"/> instance containing the new <see cref="ObjectController"/> instance.
     ///     Otherwise, a <see cref="Result"/> object with a string detailing why the method call failed.
     /// </returns>
-    [CommandSyntax(nameof(StartItemPossession), "playerIndex", "playerGrasp?")]
+    [CommandSyntax(nameof(StartItemPossession), "playerIndex", "itemID?")]
     public static Result StartItemPossession(string playerIndex) => StartItemPossession(playerIndex, null);
 
     /// <summary>
     ///     Initializes a new item possession for the given player, using the specified grasp if possible.
     /// </summary>
     /// <param name="playerIndex">The index of the player to be targeted.</param>
-    /// <param name="playerGrasp">The grasp to be used, or <c>null</c> to use a nearby object in the room instead.</param>
+    /// <param name="itemID">The ID of the item to possess, or <c>null</c> to select a nearby carryable item instead.</param>
     /// <returns>
     ///     If successful, a <see cref="Result"/> instance containing the new <see cref="ObjectController"/> instance.
     ///     Otherwise, a <see cref="Result"/> object with a string detailing why the method call failed.
     /// </returns>
-    public static Result StartItemPossession(string playerIndex, string? playerGrasp)
+    public static Result StartItemPossession(string playerIndex, string? itemID)
     {
         if (!ValidatePlayerIndex(playerIndex, out Player? player, out Result validationResult))
             return validationResult;
 
         PhysicalObject? targetItem = null;
-        if (TryParseInt(playerGrasp, out int graspToUse))
-        {
-            targetItem = player.grasps[graspToUse]?.grabbed;
-            player.grasps[graspToUse]?.Release();
 
-            if (targetItem is ObjectController)
-                targetItem = null;
+        if (TryParseInt(itemID, out int inputID, allowSigns: true))
+        {
+            EntityID targetID = new(-1, inputID);
+
+            targetItem = player.room.physicalObjects.SelectMany(static obj => obj).FirstOrDefault(p => p.abstractPhysicalObject.ID == targetID);
+
+            if (targetItem is not null and { grabbedBy.Count: > 0 })
+            {
+                targetItem.AllGraspsLetGoOfThisObject(true);
+            }
         }
 
-        targetItem ??= player.room.updateList.OfType<PlayerCarryableItem>().OrderBy(static item => item, new TargetSelector.TargetSorter(player.mainBodyChunk.pos)).FirstOrDefault(p => p.grabbedBy.Count == 0);
+        if (targetItem is null)
+        {
+            IEnumerable<PhysicalObject> eligibleObjects = player.room.physicalObjects.SelectMany(static obj => obj).OrderBy(static item => item, new TargetSelector.TargetSorter(player.mainBodyChunk.pos)).Where(obj => obj.grabbedBy.Count == 0 && Custom.DistLess(player.mainBodyChunk.pos, obj.firstChunk.pos, TargetSelector.GetPossessionRange() * 3f));
 
-        targetItem ??= player.room.updateList.OfType<Creature>().FirstOrDefault(c => c.grabbedBy.Count == 0 && player.IsCreatureLegalToHoldWithoutStun(c));
+            targetItem = eligibleObjects.OfType<PlayerCarryableItem>().FirstOrDefault();
+
+            targetItem ??= eligibleObjects.OfType<Creature>().FirstOrDefault(c => c is Player plr ? plr.onBack is null : player.IsCreatureLegalToHoldWithoutStun(c));
+        }
 
         if (targetItem is null)
             return NoTargetFoundResult;

@@ -143,14 +143,17 @@ public class DeathProtection : UpdatableAndDeletable
         if (ModManager.Watcher)
             Target.repelLocusts = Math.Max(Target.repelLocusts, 10 * Math.Max(lifespan, 2));
 
-        for (int i = 0; i < Target.grabbedBy.Count; i++)
+        if (Target.grabbedBy.Count > 0)
         {
-            Creature? grabber = Target.grabbedBy[i]?.grabber;
+            for (int i = Target.grabbedBy.Count - 1; i >= 0; i--)
+            {
+                Creature.Grasp grasp = Target.grabbedBy[i];
 
-            if (grabber is null or Player) continue;
+                if (grasp is null or { grabber: null or Player }) return;
 
-            grabber.ReleaseGrasp(Target.grabbedBy[i].graspUsed);
-            grabber.Stun(20);
+                grasp.grabber.ReleaseGrasp(grasp.graspUsed);
+                grasp.grabber.Stun(20);
+            }
         }
 
         if (Target.room is not null)
@@ -180,9 +183,7 @@ public class DeathProtection : UpdatableAndDeletable
                     patch.trackedCreatures.RemoveAll(tc => tc.creature == Target);
                 }
 
-                foreach (WormGrass.Worm worm in from WormGrass.Worm worm in wormGrass.worms
-                                                where worm.focusCreature == Target
-                                                select worm)
+                foreach (WormGrass.Worm worm in wormGrass.worms.Where(w => w.focusCreature == Target))
                 {
                     worm.focusCreature = null;
                 }
@@ -342,6 +343,9 @@ public class DeathProtection : UpdatableAndDeletable
 
         if (target.dead)
         {
+            if (!target.room.game.IsArenaSession)
+                Main.CueAchievement("saving_grace");
+
             protection.ReviveTarget();
         }
 

@@ -93,11 +93,45 @@ public static class PossessionHooks
 
         orig.Invoke(self);
 
-        if ((!Extras.IsMeadowEnabled || MeadowUtils.IsMine(self))
-            && self.TryGetPossession(out Player possessor)
-            && possessor.TryGetPossessionManager(out PossessionManager manager))
+        // if killed by self (or death pit) while possessed, or killed by a possessed crit -> KilledSomething(self.GetType(), manager);
+
+        if (Extras.IsMeadowEnabled && !MeadowUtils.IsMine(self)) return;
+
+        if (self.TryGetPossession(out Player myPossessor)
+            && myPossessor.TryGetPossessionManager(out PossessionManager myManager))
         {
-            manager.StopCreaturePossession(self);
+            if (Main.CanUnlockAchievement("sacrilege")
+                && (self.killTag == self.abstractCreature || self.mainBodyChunk.pos.y < 0))
+            {
+                KilledSomething(self.abstractCreature.creatureTemplate.type, myManager); // Killed by self (e.g. bombs) or fell in a death pit
+            }
+
+            myManager.StopCreaturePossession(self);
+        }
+        else if (Main.CanUnlockAchievement("sacrilege")
+            && self.killTag is not null and { realizedCreature: not null }
+            && self.killTag.realizedCreature.TryGetPossession(out Player otherPossessor)
+            && otherPossessor.TryGetPossessionManager(out PossessionManager otherManager))
+        {
+            KilledSomething(self.abstractCreature.creatureTemplate.type, otherManager); // Killed by possessed creature
+        }
+
+        static void KilledSomething(CreatureTemplate.Type victimType, PossessionManager manager)
+        {
+            if (manager.killedPossessionTypes is null
+                || manager.killedPossessionTypes.Contains(victimType)) return;
+
+            manager.killedPossessionTypes.Add(victimType);
+
+            Main.Logger.LogDebug($"{manager.GetPlayer()} killed a new creature type! {victimType} ({manager.killedPossessionTypes.Count}/5)");
+
+            if (manager.killedPossessionTypes.Count >= 5)
+            {
+                Main.CueAchievement("sacrilege", true);
+
+                manager.killedPossessionTypes.Clear();
+                manager.killedPossessionTypes = null;
+            }
         }
     }
 
@@ -293,6 +327,9 @@ public static class PossessionHooks
         creature.room.AddObject(new Explosion.ExplosionLight(revivePos, 180f * protection.Power, 1f, 80, RainWorld.GoldRGB));
 
         creature.room.PlaySound(SoundID.SB_A14, creature.mainBodyChunk, false, 1f, 1.25f + (UnityEngine.Random.value * 0.5f));
+
+        if (creature is Player && !creature.room.game.IsArenaSession)
+            Main.CueAchievement("saving_grace");
 
         Main.Logger.LogInfo($"{creature} was saved from destruction!");
         return true;
