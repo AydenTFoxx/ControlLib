@@ -399,10 +399,12 @@ public static class Debug
         {
             EntityID targetID = new(-1, inputID);
 
-            target = player.room.physicalObjects.OfType<Creature>().FirstOrDefault(c => c.abstractCreature.ID == targetID);
+            target = player.room.physicalObjects.SelectMany(static list => list).OfType<Creature>().FirstOrDefault(c => c.abstractCreature.ID == targetID);
         }
-
-        target ??= player.room.physicalObjects.OfType<Creature>().OrderBy(static crit => crit, new TargetSelector.TargetSorter(player.mainBodyChunk.pos)).FirstOrDefault();
+        else
+        {
+            target = player.room.physicalObjects.OfType<Creature>().OrderBy(static crit => crit, new TargetSelector.TargetSorter(player.mainBodyChunk.pos)).FirstOrDefault();
+        }
 
         if (target is null)
             return NoTargetFoundResult;
@@ -415,7 +417,9 @@ public static class Debug
 
         manager.StartCreaturePossession(target);
 
-        return new Result(true, target.abstractCreature.controlled);
+        return target.abstractCreature.controlled
+            ? new Result(true, target)
+            : new Result(false, $"Failed to possess {target}! See logs for details.");
     }
 
     /// <summary>
@@ -468,6 +472,14 @@ public static class Debug
 
         if (targetItem is null)
             return NoTargetFoundResult;
+
+        if (targetItem is Spear spear)
+        {
+            if (spear is not ExplosiveSpear)
+                spear.abstractSpear.stuckInWallCycles = 0;
+
+            spear.ChangeMode(Weapon.Mode.Free);
+        }
 
         Main.Logger.LogDebug($"Selected target is: {targetItem}");
 

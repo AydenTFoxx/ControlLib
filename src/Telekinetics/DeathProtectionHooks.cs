@@ -128,7 +128,7 @@ public static class DeathProtectionHooks
     /// </summary>
     private static void InterruptGameOverHook(On.RainWorldGame.orig_GameOver orig, RainWorldGame self, Creature.Grasp dependentOnGrasp)
     {
-        if (self.Players.Any(ac => ac.realizedCreature is Player { AI: null } player && DeathProtection.HasProtection(player))) return;
+        if (self.Players.Any(static ac => ac.realizedCreature is Player { AI: null } player && DeathProtection.HasProtection(player))) return;
 
         orig.Invoke(self, dependentOnGrasp);
     }

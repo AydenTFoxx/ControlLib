@@ -5,7 +5,7 @@
 		<TargetFramework>net481</TargetFramework>
 		<LangVersion>latest</LangVersion>
 		<Nullable>enable</Nullable>
-		<PathMap>$(MSBuildProjectDirectory)=/$(SolutionName)</PathMap>
+		<PathMap>$(MSBuildProjectDirectory)=/Possessions</PathMap>
 	</PropertyGroup>
 
 	<!-- Compiler settings -->

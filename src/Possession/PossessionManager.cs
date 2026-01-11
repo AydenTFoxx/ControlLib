@@ -72,7 +72,7 @@ public class PossessionManager : IDisposable
     public bool IsValid => player is not null && !disposedValue;
 
     public bool IsPossessing => MyPossessions.Count > 0 || PossessedItems.Count > 0;
-    public bool LowPossessionTime => (IsPossessing && PossessionTime <= 60) || (OnMindBlastCooldown && PossessionTime <= quarterPossessionTime);
+    public bool LowPossessionTime => (IsPossessing || OnMindBlastCooldown) && PossessionTime <= quarterPossessionTime;
 
     public PossessionManager(in ManagerDataSnapshot snapshot)
     {
@@ -113,7 +113,10 @@ public class PossessionManager : IDisposable
         IsHardmodeSlugcat = dynamicPotential.IsHardmode;
         IsSofanthielSlugcat = dynamicPotential.IsSofanthiel;
 
-        Power = (IsAttunedSlugcat ? 1.5f : IsHardmodeSlugcat ? 0.75f : 1f) + (IsSofanthielSlugcat ? -0.25f : SlugcatPotential.GetStaticPotential(player.SlugCatClass).Potential / dynamicPotential.Potential);
+        Power = IsAttunedSlugcat ? 1.5f : IsHardmodeSlugcat ? 0.75f : 1f;
+
+        if (IsSofanthielSlugcat)
+            Power -= 0.25f;
 
         MaxPossessionTime = dynamicPotential.Potential;
         PossessionTime = MaxPossessionTime;
@@ -578,6 +581,7 @@ public class PossessionManager : IDisposable
                     }
 
                     PossessionTime = -80;
+                    OnMindBlastCooldown = true;
                 }
 
                 PossessionCooldown = 200;
@@ -591,7 +595,7 @@ public class PossessionManager : IDisposable
         }
         else if (PossessionTime < MaxPossessionTime && (!IsSofanthielSlugcat || player.FoodInStomach == player.MaxFoodInStomach))
         {
-            PossessionTime += IsHardmodeSlugcat ? 0.25f : 0.5f;
+            PossessionTime += (IsHardmodeSlugcat ? 0.25f : 0.5f) * (IsSofanthielSlugcat || OnMindBlastCooldown ? 0.5f : 1f);
         }
         else if (PossessionTime > MaxPossessionTime)
         {
@@ -632,12 +636,11 @@ public class PossessionManager : IDisposable
     {
         if (IsPossessing) return false;
 
-        bool keysPressed = (player.Consious && player.IsKeyDown(Keybinds.MIND_BLAST, true) && player.IsKeyDown(Keybinds.POSSESS, true))
-                        || (player is { dead: false, dangerGrasp: not null, dangerGraspTime: <= 60 } && IsOptionEnabled(Options.DANGER_MIND_BLAST) && player.IsKeyDown(Keybinds.MIND_BLAST, true));
+        bool mindBlastPressed = (player.Consious || (player is { dead: false, dangerGrasp: not null, dangerGraspTime: <= 60 } && IsOptionEnabled(Options.DANGER_MIND_BLAST))) && player.IsKeyDown(Keybinds.MIND_BLAST, true);
 
         MindBlast? instance = null;
 
-        if (keysPressed && PossessionCooldown == 0 && PossessionTime == MaxPossessionTime)
+        if (mindBlastPressed && player.IsKeyDown(Keybinds.POSSESS, true) && PossessionCooldown == 0 && PossessionTime == MaxPossessionTime)
         {
             TargetSelector?.ExceededTimeLimit = true;
 
@@ -657,7 +660,7 @@ public class PossessionManager : IDisposable
 
         if (instance is not null || (MindBlast.TryGetInstance(player, out instance) && !instance.Expired))
         {
-            if (player.Consious && keysPressed)
+            if (player.Consious && mindBlastPressed)
             {
                 instance.pos = TargetSelector?.GetTargetPos() ?? player.mainBodyChunk.pos;
 

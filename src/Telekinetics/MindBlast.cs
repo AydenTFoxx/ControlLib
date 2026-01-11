@@ -50,7 +50,7 @@ public class MindBlast : CosmeticSprite
         Power = manager is not null ? manager.Power : 1f;
 
         if (OptionUtils.IsOptionEnabled(Options.WORLDWIDE_MIND_CONTROL))
-            Power *= 5f;
+            Power *= 3f;
 
         soundLoop = new ChunkDynamicSoundLoop(player.mainBodyChunk)
         {
@@ -172,8 +172,6 @@ public class MindBlast : CosmeticSprite
 
         if (Expired)
         {
-            if (room is null) return;
-
             if (!enlightenedRoom)
             {
                 Vector2 targetVel = new(0f, 2f);
@@ -476,7 +474,7 @@ public class MindBlast : CosmeticSprite
 
             room.PlaySound(SoundID.SS_AI_Talk_1, player.mainBodyChunk, false, 1f, 0.4f);
 
-            Custom.Log("Ascend saint pebbles - MindBlast Edition");
+            Custom.Log($"Ascend {player.SlugCatClass} pebbles - MindBlast Edition");
 
             if (oracle.oracleBehavior is CLOracleBehavior oracleBehavior)
             {
@@ -497,7 +495,7 @@ public class MindBlast : CosmeticSprite
 
             storySession.saveState.deathPersistentSaveData.ripMoon = true;
 
-            Custom.Log("Ascend saint moon - MindBlast Edition");
+            Custom.Log($"Ascend {player.SlugCatClass} moon - MindBlast Edition");
 
             if (oracle.oracleBehavior is SLOracleBehaviorHasMark oracleBehavior)
             {
@@ -525,8 +523,20 @@ public class MindBlast : CosmeticSprite
     {
         ArtificialIntelligence? AI = creature.realizedCreature is Lizard lizor ? lizor.AI : creature.abstractAI?.RealAI;
 
+        // Criteria to not be mind-blasted:
+
+        // - Crit has a friend tracker
+        // - Crit is friend of player
+
+        // OR:
+
+        // - Crit reacts to social events
+        // - Crit has a generic tracker
+        // - Crit does not want to attack or eat the player
+        // - Crit's community is friendly to this player (rep >= 0.5)
+
         return AI is not null && ((AI is FriendTracker.IHaveFriendTracker && AI.friendTracker?.friend == player)
-            || (!AI.DynamicRelationship(player.abstractCreature).GoForKill && AI is IReactToSocialEvents && room.game.session.creatureCommunities.LikeOfPlayer(creature.creatureTemplate.communityID, room.world?.RegionNumber ?? 0, player.playerState.playerNumber) >= 0.5f));
+            || (AI is IReactToSocialEvents && AI.tracker is not null && !AI.DynamicRelationship(player.abstractCreature).GoForKill && room.game.session.creatureCommunities.LikeOfPlayer(creature.creatureTemplate.communityID, room.world?.RegionNumber ?? 0, player.playerState.playerNumber) >= 0.5f));
     }
 
     public static MindBlast CreateInstance(Player player, PossessionManager? manager, bool allowMultiple = false)

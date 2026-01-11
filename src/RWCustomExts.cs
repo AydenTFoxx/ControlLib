@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 
@@ -19,9 +20,9 @@ public static class RWCustomExts
     {
         for (int i = self.grabbedBy.Count - 1; i >= 0; i--)
         {
-            Creature? grabber = self.grabbedBy[i]?.grabber;
+            Creature? grabber = self.grabbedBy.ElementAtOrDefault(i)?.grabber;
 
-            if (grabber is null) return;
+            if (grabber is null) continue;
 
             grabber.LoseAllGrasps();
             grabber.Stun(stun);

@@ -229,23 +229,23 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
 
         (int potential, bool isAttuned, bool isHardmode, bool isSofanthiel) = staticPotential;
 
-        if (OptionUtils.IsOptionEnabled(Options.KARMIC_PROMOTION))
+        if (storySession.saveState.cycleNumber != 0 && OptionUtils.IsOptionEnabled(Options.KARMIC_PROMOTION))
         {
-            if (!isAttuned && (useRipple ? saveData.maximumRippleLevel > 1f && saveData.rippleLevel == saveData.maximumRippleLevel : saveData.karmaCap >= 4 && saveData.karma == saveData.karmaCap))
+            if (useRipple ? saveData.maximumRippleLevel > 1f && saveData.rippleLevel == saveData.maximumRippleLevel : saveData.karmaCap >= 4 && saveData.karma == saveData.karmaCap)
             {
+                if (!isAttuned && !player.room.game.IsArenaSession)
+                    Main.CueAchievement("enlightenment");
+
                 isAttuned = true;
                 potential += 120;
-
-                if (!player.room.game.IsArenaSession)
-                    Main.CueAchievement("enlightenment");
             }
-            else if (isAttuned && (useRipple ? saveData.maximumRippleLevel > 1f && saveData.rippleLevel == saveData.minimumRippleLevel : saveData.karmaCap > 0 && saveData.karma == 0))
+            else if (useRipple ? saveData.maximumRippleLevel > 1f && saveData.rippleLevel == saveData.minimumRippleLevel : saveData.karmaCap > 0 && saveData.karma == 0)
             {
+                if (isAttuned && !player.room.game.IsArenaSession)
+                    Main.CueAchievement("fading_hope");
+
                 isAttuned = false;
                 potential -= 120;
-
-                if (!player.room.game.IsArenaSession)
-                    Main.CueAchievement("fading_hope");
             }
         }
 
@@ -256,7 +256,6 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
 
         if (Main.CanUnlockAchievement("divine_slug")
             && potential >= 1000
-            && player.SlugCatClass != MoreSlugcatsEnums.SlugcatStatsName.Spear
             && !player.room.game.IsArenaSession)
         {
             Main.CueAchievement("divine_slug", true);

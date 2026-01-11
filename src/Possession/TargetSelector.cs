@@ -47,14 +47,7 @@ public partial class TargetSelector(Player player, PossessionManager manager) : 
 
     public bool ExceededTimeLimit
     {
-        get
-        {
-            if (Input.InputTime > Manager.MaxPossessionTime)
-            {
-                field = true;
-            }
-            return field;
-        }
+        get => field || Input.InputTime > Manager.MaxPossessionTime;
         set => field = value;
     }
 

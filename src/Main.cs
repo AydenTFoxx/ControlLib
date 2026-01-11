@@ -21,8 +21,8 @@ namespace ControlLib;
 public class Main : ModPlugin
 {
     public const string PLUGIN_NAME = "Possessions";
-    public const string PLUGIN_GUID = "ynhzrfxn.controllib";
-    public const string PLUGIN_VERSION = "0.9.0";
+    public const string PLUGIN_GUID = "ynhzrfxn.possessions";
+    public const string PLUGIN_VERSION = "0.9.1";
 
     public static bool HasFakeAchievements;
 

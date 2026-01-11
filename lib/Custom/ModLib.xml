@@ -997,6 +997,11 @@
                 Notice: All visible methods are <c>virtual</c>, and may be overriden to load your mod's assets and hooks into the game.
             </remarks>
         </member>
+        <member name="F:ModLib.ModPlugin.Options">
+            <summary>
+                The REMIX option interface registered for this mod, if any. This field is read-only.
+            </summary>
+        </member>
         <member name="P:ModLib.ModPlugin.IsModEnabled">
             <summary>
                 Determines if this mod has successfuly been enabled.
