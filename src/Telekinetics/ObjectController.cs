@@ -118,6 +118,8 @@ public class ObjectController : PlayerCarryableItem
     {
         if (grasp.grabber is not Player player || (Owner is not null && player != Owner)) return;
 
+        PickedUp(grasp.grabber);
+
         Owner ??= player;
 
         if (Target is not null)
@@ -127,8 +129,6 @@ public class ObjectController : PlayerCarryableItem
         }
 
         input.x = Owner.ThrowDirection;
-
-        PickedUp(grasp.grabber);
 
         base.Grabbed(grasp);
     }
@@ -149,8 +149,18 @@ public class ObjectController : PlayerCarryableItem
 
         if (Target is null || Owner is null) return;
 
+        if (Target is IHaveAStalk haveAStalk)
+        {
+            haveAStalk.DetatchStalk();
+        }
+
         if (Target is PlayerCarryableItem carryableItem)
         {
+            if (Target is Spear { stuckInWall: not null, room.readyForAI: true } spear)
+            {
+                spear.resetHorizontalBeamState();
+            }
+
             carryableItem.PickedUp(upPicker);
         }
         else
@@ -288,7 +298,7 @@ public class ObjectController : PlayerCarryableItem
         }
     }
 
-    public override string ToString() => $"{nameof(ObjectController)}: Target: {Target} | Owner: {Owner}";
+    public override string ToString() => $"{nameof(ObjectController)} (Target: {Target}; Owner: {Owner})";
 
     // Adapted from Player.PointDir() method
     private Vector2 GetMoveDirection()

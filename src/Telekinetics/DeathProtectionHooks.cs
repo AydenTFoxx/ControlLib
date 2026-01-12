@@ -64,7 +64,7 @@ public static class DeathProtectionHooks
     {
         Extras.WrapAction(static () =>
         {
-            IL.BigEel.JawsSnap -= IgnoreLeviathanBiteILHook;
+            //IL.BigEel.JawsSnap -= IgnoreLeviathanBiteILHook; // No idea why yet, but this fella throws when exiting the game.
             IL.BigEelAI.IUseARelationshipTracker_UpdateDynamicRelationship -= IgnoreProtectedCreatureILHook;
 
             IL.BulletDrip.Strike -= PreventRainDropStunILHook;

@@ -18,7 +18,7 @@ namespace Possessions;
 /// <remarks>
 ///     To use a given method in-game, call the following command:<br/>
 ///     <code>
-///     > invoke ControlLib.Debug.{MethodNameHere}
+///     > invoke Possessions.Debug.{MethodNameHere}
 ///     </code>
 ///     Note most methods also require the player's ID or index as their first argument, which is <c>0</c> in singleplayer.
 /// </remarks>
@@ -92,7 +92,7 @@ public static class Debug
     [AttributeUsage(AttributeTargets.Method)]
     public sealed class CommandSyntaxAttribute(string name, params string[] args) : Attribute
     {
-        public string GetFullInvocation() => $"invoke ControlLib.Debug.{this}";
+        public string GetFullInvocation() => $"invoke Possessions.Debug.{this}";
 
         public override string ToString()
         {
@@ -472,14 +472,6 @@ public static class Debug
 
         if (targetItem is null)
             return NoTargetFoundResult;
-
-        if (targetItem is Spear spear)
-        {
-            if (spear is not ExplosiveSpear)
-                spear.abstractSpear.stuckInWallCycles = 0;
-
-            spear.ChangeMode(Weapon.Mode.Free);
-        }
 
         Main.Logger.LogDebug($"Selected target is: {targetItem}");
 

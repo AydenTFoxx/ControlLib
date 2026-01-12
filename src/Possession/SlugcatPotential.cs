@@ -255,7 +255,7 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
             potential = (int)(potential * 1.5f);
 
         if (Main.CanUnlockAchievement("divine_slug")
-            && potential >= 1000
+            && (potential - staticPotential.Potential) >= 500
             && !player.room.game.IsArenaSession)
         {
             Main.CueAchievement("divine_slug", true);
