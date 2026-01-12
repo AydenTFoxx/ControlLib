@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using ControlLib.Possession;
+using Possessions.Possession;
 using RainMeadow;
 using RainMeadow.Generics;
 
-namespace ControlLib.Meadow;
+namespace Possessions.Meadow;
 
 public class SerializableDataSnapshot : Serializer.ICustomSerializable
 {

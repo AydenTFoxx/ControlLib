@@ -2,7 +2,7 @@ using System;
 using MoreSlugcats;
 using UnityEngine;
 
-namespace ControlLib;
+namespace Possessions;
 
 /// <summary>
 ///     The scavengers at ScavExplosions Inc. only provide the finest of destructive utilities!

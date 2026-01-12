@@ -4,7 +4,7 @@ using ModLib.Options;
 using MoreSlugcats;
 using Watcher;
 
-namespace ControlLib.Possession;
+namespace Possessions.Possession;
 
 /// <summary>
 ///     Determines the total possession time (static or dynamic) for a given slugcat.

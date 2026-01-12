@@ -5,12 +5,12 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
-using ControlLib.Enums;
-using ControlLib.Possession;
-using ControlLib.Telekinetics;
+using Possessions.Enums;
+using Possessions.Possession;
+using Possessions.Telekinetics;
 using RWCustom;
 
-namespace ControlLib;
+namespace Possessions;
 
 /// <summary>
 ///     Debug-only methods for testing purposes, meant to be called using the Dev Console mod.

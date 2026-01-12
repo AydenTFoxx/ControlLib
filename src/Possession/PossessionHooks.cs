@@ -1,7 +1,7 @@
 using System;
 using System.Reflection;
-using ControlLib.Possession.Graphics;
-using ControlLib.Telekinetics;
+using Possessions.Possession.Graphics;
+using Possessions.Telekinetics;
 using ModLib;
 using ModLib.Meadow;
 using Mono.Cecil.Cil;
@@ -9,7 +9,7 @@ using MonoMod.Cil;
 using UnityEngine;
 using Watcher;
 
-namespace ControlLib.Possession;
+namespace Possessions.Possession;
 
 /// <summary>
 /// A collection of hooks for updating creatures' possession states.

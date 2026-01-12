@@ -5,7 +5,7 @@ using ModLib.Input;
 using ModLib.Options;
 using UnityEngine;
 
-namespace ControlLib;
+namespace Possessions;
 
 /// <summary>
 /// Holds definitions and raw values of the mod's REMIX options.

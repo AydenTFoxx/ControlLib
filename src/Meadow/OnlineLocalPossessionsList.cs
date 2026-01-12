@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using RainMeadow;
 
-namespace ControlLib.Meadow;
+namespace Possessions.Meadow;
 
 public class OnlineLocalPossessionsList : SerializableDictionary<OnlineEntity.EntityId, ushort, Creature, Player>
 {

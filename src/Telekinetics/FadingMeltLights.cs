@@ -1,7 +1,7 @@
 using RWCustom;
 using UnityEngine;
 
-namespace ControlLib.Telekinetics;
+namespace Possessions.Telekinetics;
 
 /// <summary>
 ///     A fully-independent implementation of <c>SB_A14</c> and <see cref="MoreSlugcats.HRKarmaShrine"/>'s "karmic increase" effect,

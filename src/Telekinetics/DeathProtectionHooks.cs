@@ -6,7 +6,7 @@ using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
 
-namespace ControlLib.Telekinetics;
+namespace Possessions.Telekinetics;
 
 // Notice: The following methods are not included here, but must be hooked to as well to actually prevent death:
 //      Creature.Die(), UpdatableAndDeletable.Destroy(), Player.Destroy()

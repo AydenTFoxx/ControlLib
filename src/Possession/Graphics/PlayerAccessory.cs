@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using RWCustom;
 using UnityEngine;
 
-namespace ControlLib.Possession.Graphics;
+namespace Possessions.Possession.Graphics;
 
 /// <summary>
 ///     A cosmetic sprite which follows the player around, with simple tools for visual behavior.

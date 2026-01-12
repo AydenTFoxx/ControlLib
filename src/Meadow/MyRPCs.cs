@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using ControlLib.Possession;
+using Possessions.Possession;
 using ModLib.Meadow;
 using RainMeadow;
 
-namespace ControlLib.Meadow;
+namespace Possessions.Meadow;
 
 /// <summary>
 ///     Rain Meadow RPCs used for syncing the mod's behavior across multiple clients.

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using ControlLib.Meadow;
-using ControlLib.Possession.Graphics;
-using ControlLib.Telekinetics;
+using Possessions.Meadow;
+using Possessions.Possession.Graphics;
+using Possessions.Telekinetics;
 using ModLib;
 using ModLib.Collections;
 using ModLib.Input;
@@ -17,7 +17,7 @@ using Watcher;
 using Random = UnityEngine.Random;
 using static ModLib.Options.OptionUtils;
 
-namespace ControlLib.Possession;
+namespace Possessions.Possession;
 
 /// <summary>
 /// Stores and manages the player's possessed creatures.

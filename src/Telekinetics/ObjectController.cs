@@ -1,12 +1,12 @@
 using System.Linq;
-using ControlLib.Possession;
+using Possessions.Possession;
 using ModLib.Collections;
 using ModLib.Input;
 using ModLib.Options;
 using RWCustom;
 using UnityEngine;
 
-namespace ControlLib.Telekinetics;
+namespace Possessions.Telekinetics;
 
 public class ObjectController : PlayerCarryableItem
 {

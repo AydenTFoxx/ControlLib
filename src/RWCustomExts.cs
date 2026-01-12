@@ -2,7 +2,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 
-namespace ControlLib;
+namespace Possessions;
 
 public static class RWCustomExts
 {

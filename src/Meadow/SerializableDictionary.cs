@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using RainMeadow;
 
-namespace ControlLib.Meadow;
+namespace Possessions.Meadow;
 
 public abstract class SerializableDictionary<TOnlineKey, TOnlineValue, TLocalKey, TLocalValue> : Serializer.ICustomSerializable
 {

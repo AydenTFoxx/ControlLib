@@ -4,9 +4,9 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Permissions;
 using BepInEx;
-using ControlLib.Enums;
-using ControlLib.Possession;
-using ControlLib.Telekinetics;
+using Possessions.Enums;
+using Possessions.Possession;
+using Possessions.Telekinetics;
 using FakeAchievements;
 using ModLib;
 using ModLib.Logging;
@@ -15,7 +15,7 @@ using ModLib.Logging;
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
 #pragma warning restore CS0618 // Type or member is obsolete
 
-namespace ControlLib;
+namespace Possessions;
 
 [BepInPlugin(PLUGIN_GUID, PLUGIN_NAME, PLUGIN_VERSION)]
 public class Main : ModPlugin

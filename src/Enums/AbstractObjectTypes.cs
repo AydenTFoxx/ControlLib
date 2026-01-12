@@ -1,4 +1,4 @@
-namespace ControlLib.Enums;
+namespace Possessions.Enums;
 
 /// <summary>
 ///     Static registry of abstract physical object types, used for realization of physical object instances.

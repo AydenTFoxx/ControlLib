@@ -1,9 +1,9 @@
 using System;
-using ControlLib.Meadow;
+using Possessions.Meadow;
 using ModLib;
 using ModLib.Collections;
 
-namespace ControlLib.Possession;
+namespace Possessions.Possession;
 
 /// <summary>
 /// Extension methods for retrieving the possession holders of a given creature.

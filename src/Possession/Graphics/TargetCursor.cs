@@ -1,9 +1,9 @@
-using ControlLib.Telekinetics;
+using Possessions.Telekinetics;
 using ModLib;
 using ModLib.Options;
 using UnityEngine;
 
-namespace ControlLib.Possession.Graphics;
+namespace Possessions.Possession.Graphics;
 
 /// <summary>
 ///     A controllable sprite used for selecting creatures for possession, akin to to Saint's karmic burst sprite.

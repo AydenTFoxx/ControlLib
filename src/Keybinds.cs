@@ -5,7 +5,7 @@ using ModLib;
 using ModLib.Input;
 using UnityEngine;
 
-namespace ControlLib;
+namespace Possessions;
 
 /// <summary>
 /// Static handler for this mod's keybinds.

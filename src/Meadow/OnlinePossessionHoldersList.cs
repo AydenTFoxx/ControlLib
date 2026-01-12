@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
-using ControlLib.Possession;
+using Possessions.Possession;
 using RainMeadow;
 
-namespace ControlLib.Meadow;
+namespace Possessions.Meadow;
 
 public class OnlinePossessionHoldersList : SerializableDictionary<OnlineEntity.EntityId, SerializableDataSnapshot, Player, PossessionManager>
 {

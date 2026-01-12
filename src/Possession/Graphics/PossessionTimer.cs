@@ -1,7 +1,7 @@
 using RWCustom;
 using UnityEngine;
 
-namespace ControlLib.Possession.Graphics;
+namespace Possessions.Possession.Graphics;
 
 /// <summary>
 ///     A visual display of the player's <c>PossessionTime</c> value, similar to Saint's ascension time displayed when using or recharging their ability.

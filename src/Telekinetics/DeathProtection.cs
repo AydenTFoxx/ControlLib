@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using ControlLib.Possession;
+using Possessions.Possession;
 using ModLib.Collections;
 
-namespace ControlLib.Telekinetics;
+namespace Possessions.Telekinetics;
 
 /// <summary>
 ///     Prevents all death of its target creature while active.

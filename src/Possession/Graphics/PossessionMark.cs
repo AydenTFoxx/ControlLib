@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace ControlLib.Possession.Graphics;
+namespace Possessions.Possession.Graphics;
 
 /// <summary>
 ///     A Mark of Communication-like sprite which appears above possessed creatures' heads.

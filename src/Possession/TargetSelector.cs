@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using ControlLib.Possession.Graphics;
-using ControlLib.Telekinetics;
+using Possessions.Possession.Graphics;
+using Possessions.Telekinetics;
 using ModLib;
 using ModLib.Collections;
 using ModLib.Input;
@@ -10,7 +10,7 @@ using RWCustom;
 using UnityEngine;
 using static ModLib.Options.OptionUtils;
 
-namespace ControlLib.Possession;
+namespace Possessions.Possession;
 
 /// <summary>
 /// Selects creatures for possession based on relevance and distance to the player.

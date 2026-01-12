@@ -1,12 +1,12 @@
 using System.Reflection;
-using ControlLib.Enums;
+using Possessions.Enums;
 using ModLib;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using RWCustom;
 using UnityEngine;
 
-namespace ControlLib.Telekinetics;
+namespace Possessions.Telekinetics;
 
 public static class TelekineticsHooks
 {

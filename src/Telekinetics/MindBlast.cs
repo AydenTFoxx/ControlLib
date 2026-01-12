@@ -1,5 +1,5 @@
 using System.Linq;
-using ControlLib.Possession;
+using Possessions.Possession;
 using ModLib.Collections;
 using ModLib.Options;
 using MoreSlugcats;
@@ -7,7 +7,7 @@ using Noise;
 using RWCustom;
 using UnityEngine;
 
-namespace ControlLib.Telekinetics;
+namespace Possessions.Telekinetics;
 
 public class MindBlast : CosmeticSprite
 {

@@ -3,7 +3,7 @@ using System.Linq;
 using ModLib.Collections;
 using static ModLib.Options.OptionUtils;
 
-namespace ControlLib.Possession;
+namespace Possessions.Possession;
 
 public partial class TargetSelector
 {
