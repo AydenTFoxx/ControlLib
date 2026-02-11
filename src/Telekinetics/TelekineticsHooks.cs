@@ -14,8 +14,6 @@ public static class TelekineticsHooks
     {
         Extras.WrapAction(static () =>
         {
-            IL.Creature.RippleViolenceCheck += NoViolenceWhileProtectedILHook;
-
             IL.LocustSystem.Update += DelayLocustSpawningILHook;
 
             IL.Player.TossObject += TossPossessedItemILHook;
@@ -34,8 +32,6 @@ public static class TelekineticsHooks
     {
         Extras.WrapAction(static () =>
         {
-            IL.Creature.RippleViolenceCheck -= NoViolenceWhileProtectedILHook;
-
             IL.LocustSystem.Update -= DelayLocustSpawningILHook;
 
             IL.Player.TossObject -= TossPossessedItemILHook;
@@ -144,27 +140,6 @@ public static class TelekineticsHooks
         //     }
         // }
         // this.DoGrounding();
-    }
-
-    /// <summary>
-    ///     Prevents any violence against creatures who are death-protected. Why is it an IL hook? Because silly.
-    /// </summary>
-    private static void NoViolenceWhileProtectedILHook(ILContext context)
-    {
-        ILCursor c = new(context);
-        ILCursor d = new(context);
-
-        ILLabel? target = null;
-
-        c.GotoNext(x => x.MatchBrfalse(out target));
-
-        // Target: if (source != null && source.owner.abstractPhysicalObject.rippleLayer != this.abstractCreature.rippleLayer && !source.owner.abstractPhysicalObject.rippleBothSides && !this.abstractCreature.rippleBothSides) { ... }
-        //                           ^ HERE (Insert)
-
-        d.Emit(OpCodes.Ldarg_1).EmitDelegate(DeathProtection.HasProtection);
-        d.Emit(OpCodes.Brtrue, target);
-
-        // Result: if (source != null && !DeathProtection.HasProtection(source.owner as Creature) && source.owner.abstractPhysicalObject.rippleLayer != this.abstractCreature.rippleLayer && !source.owner.abstractPhysicalObject.rippleBothSides && !this.abstractCreature.rippleBothSides) { ... }
     }
 
     private static void TossPossessedItemILHook(ILContext context)

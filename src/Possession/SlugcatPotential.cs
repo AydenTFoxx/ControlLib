@@ -225,7 +225,7 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
         DeathPersistentSaveData saveData = storySession.saveState.deathPersistentSaveData;
 
         bool useRipple = saveData.minimumRippleLevel >= 1f;
-        int extraTime = (useRipple ? (int)(saveData.rippleLevel * 2f) - 1 : saveData.karma) * 40;
+        int karmicBonusTime = (useRipple ? (int)(saveData.rippleLevel * 2f) - 1 : saveData.karma) * 40;
 
         (int potential, bool isAttuned, bool isHardmode, bool isSofanthiel) = staticPotential;
 
@@ -236,20 +236,20 @@ public readonly struct SlugcatPotential(int potential, bool isAttuned = false, b
                 if (!isAttuned && !player.room.game.IsArenaSession)
                     Main.CueAchievement("enlightenment");
 
+                potential += isAttuned ? 60 : 120;
                 isAttuned = true;
-                potential += 120;
             }
-            else if (useRipple ? saveData.maximumRippleLevel > 1f && saveData.rippleLevel == saveData.minimumRippleLevel : saveData.karmaCap > 0 && saveData.karma == 0)
+            else if (useRipple ? saveData.maximumRippleLevel > 1f && saveData.rippleLevel == saveData.minimumRippleLevel : saveData.karmaCap >= 4 && saveData.karma == 0)
             {
                 if (isAttuned && !player.room.game.IsArenaSession)
                     Main.CueAchievement("fading_hope");
 
+                potential -= isHardmode ? 120 : 60;
                 isAttuned = false;
-                potential -= 120;
             }
         }
 
-        potential += extraTime;
+        potential += karmicBonusTime;
 
         if (saveData.reinforcedKarma)
             potential = (int)(potential * 1.5f);

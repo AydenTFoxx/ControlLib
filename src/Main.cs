@@ -22,9 +22,7 @@ public class Main : ModPlugin
 {
     public const string PLUGIN_NAME = "Possessions";
     public const string PLUGIN_GUID = "ynhzrfxn.possessions";
-    public const string PLUGIN_VERSION = "0.9.1";
-
-    public static bool HasFakeAchievements;
+    public const string PLUGIN_VERSION = "0.9.2";
 
 #nullable disable warnings
 
@@ -44,9 +42,7 @@ public class Main : ModPlugin
     {
         base.LoadResources();
 
-        HasFakeAchievements = CompatibilityManager.IsModEnabled("ddemile.fake_achievements");
-
-        if (!HasFakeAchievements) return;
+        if (!Extras.IsFakeAchievementsEnabled) return;
 
         Logger.LogDebug("FakeAchievements found! Loading unlocked achievements...");
 
@@ -89,8 +85,6 @@ public class Main : ModPlugin
     {
         base.ApplyHooks();
 
-        DeathProtectionHooks.ApplyHooks();
-
         PossessionHooks.ApplyHooks();
 
         TelekineticsHooks.ApplyHooks();
@@ -99,8 +93,6 @@ public class Main : ModPlugin
     protected override void RemoveHooks()
     {
         base.RemoveHooks();
-
-        DeathProtectionHooks.RemoveHooks();
 
         PossessionHooks.RemoveHooks();
 
@@ -128,7 +120,7 @@ public class Main : ModPlugin
     }
 
     internal static bool CanUnlockAchievement(string achievementID) =>
-        HasFakeAchievements && Extras.GameSession is StoryGameSession && !unlockedAchievements.Contains(achievementID);
+        Extras.IsFakeAchievementsEnabled && Extras.GameSession is StoryGameSession && !unlockedAchievements.Contains(achievementID);
 
     private static class FakeAchievementsAccess
     {

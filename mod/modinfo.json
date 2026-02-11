@@ -1,8 +1,8 @@
 {
   "id": "ynhzrfxn.possessions",
   "name": "Possessions",
-  "version": "0.9.1",
-  "target_game_version": "v1.11.5",
+  "version": "0.9.2",
+  "target_game_version": "v1.11.6",
   "authors": "YannahTFoxx",
   "description": "Control anything*, anywhere, anytime. Supports Jolly Co-op and (partially) Rain Meadow.<LINE><LINE>Controls:<LINE>[V] Start/Stop Possession (Hold to select a target, release to confirm)<LINE>[F] Start/Stop Item Possession (Automatically targets the closest item; Prefers weapons over consumables.)<LINE><LINE>[B] Mind Blast (Requires option \"Mind Blast\"; Hold V to select the position, then hold B to charge a powerful blast; Releasing B too early may cause death of anything nearby)<LINE><LINE>For extra information, consult the mod's workshop page.<LINE><LINE>* Some creatures (mostly from The Watcher) cannot be possessed due to game limitations. Sorry!",
   "requirements": [

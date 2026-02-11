@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using ModLib.Objects;
 using Possessions.Enums;
 using Possessions.Possession;
 using Possessions.Telekinetics;
@@ -180,11 +181,9 @@ public static class Debug
         if (!ValidatePlayerIndex(playerIndex, out Player? player, out Result validationResult))
             return validationResult;
 
-        FadingMeltLights fadingMeltLights = new(player.room);
+        player.room.AddObject(new FadingMeltLights());
 
-        player.room.AddObject(fadingMeltLights);
-
-        return new Result(true, fadingMeltLights);
+        return Result.GenericSuccess;
     }
 
     /// <summary>
@@ -581,7 +580,7 @@ public static class Debug
         }
         else
         {
-            DeathProtection.CreateInstance(target, DeathProtection.NullCondition);
+            DeathProtection.CreateInstance(target, DeathProtection.FalseCondition);
         }
 
         return new Result(true, protection is null);

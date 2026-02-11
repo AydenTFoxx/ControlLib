@@ -6,6 +6,7 @@ using MoreSlugcats;
 using Noise;
 using RWCustom;
 using UnityEngine;
+using ModLib.Objects;
 
 namespace Possessions.Telekinetics;
 
@@ -139,7 +140,7 @@ public class MindBlast : CosmeticSprite
         room.AddObject(new ShockWave(pos, 275f * Power, 0.2425f * Power, (int)(200 * Power), true));
         room.AddObject(new ShockWave(pos, 1250f * Power, 0.0925f * Power, (int)(180 * Power), false));
 
-        room.AddObject(fadingMeltLights = new FadingMeltLights(room));
+        room.AddObject(fadingMeltLights = new FadingMeltLights());
 
         room.ScreenMovement(pos, Vector2.zero, 0.5f * Power);
         room.PlaySound(SoundID.SB_A14, pos, 1f, Power + Random.Range(-0.5f, 0.5f));
@@ -163,7 +164,7 @@ public class MindBlast : CosmeticSprite
         scareObj?.lifeTime = (int)(-200 * Power);
 
         if (OptionUtils.IsOptionEnabled(Options.MIND_BLAST_PROTECTION))
-            DeathProtection.CreateInstance(player, PlayerProtectionCondition, player.abstractCreature.pos);
+            DeathProtection.CreateInstance(player, PlayerProtectionCondition, DeathProtection.ProtectionMode.FullInvulnerability, player.abstractCreature.pos);
     }
 
     public override void Update(bool eu)

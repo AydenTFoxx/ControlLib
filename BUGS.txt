@@ -4,17 +4,18 @@ TODO: Disable MindBlast unconditionally when in a Rain Meadow lobby;
 
 TODO: Reduce speed of possessed items and give the player better control of their trajectories. Also give them *some* friction for heavens' sake.
     Work-in-progress; Needs testing.
+    Done ig? Mostly fine with the current system, even if it's by no means "perfect".
 
 Possessing the same item twice causes it to be thrown from the player's position, sometimes with an arbitrary offset.
 
 Possessing a spear stuck in a wall/ceiling leaves behind an invisible beam, which can still be climbed by Slugcat.
+    Fixed! Finally, the invisible spear is gone for good.
 
 TargetSelector sometimes fails to query for targets, as if the player had just queried beforehand. Reusing TargetCursor multiple times eventually fixes the issue.
+    Never replicated this one again, assuming to be fixed or invalid.
 
 PossessionTimer lerps kinda funny when changing screens, swiftly jumping between the last position and the new one.
-
-Rarely, starting an item possession breaks the player's graphics module, causing water to disappear and rendering on the entire room to not work at all. Other rooms are unaffected by this bug.
-    Fixed! Silly BodyChunk physics when mass is zero.
+    *Mostly* fixed by mere lerping shenanigans, which are ironically enough the very cause of this issue.
 
 TODO: Add support for possessing items with TargetSelector, instead of using the Debug class.
 
@@ -35,13 +36,6 @@ TODO: Add support for possessing items with TargetSelector, instead of using the
 //       The tutorial for the ascension attack is replaced by a new tutorial for reviving a creature. When triggered while in a shelter, a dead Batfly is spawned on the next room. Otherwise, it spawns at Saint's position.
 
 TODO: (ModLib) Make ModPlugin mode stable at startup and deactivation; Exceptions should be gracefully handled instead of causing undefined behavior.
-
-TODO: Overhaul PossessionTimePotential by setting a BasePossessionTime, which is multiplied by AttunedSlugcatFactor and/or HardmodeSlugcatFactor (if applicable),
-      then further modified with user-defined modifiers (e.g. "+5*10" would add 50 to the total value)
-    Reworked with SlugcatPotential; Should make a REMIX page for this tho
-
-TODO: Add helper methods to ControlLib.Main to aid in the addition of custom slugcats' PossessionTimePotential, as well as default modifiers for them. Possibly store these multipliers in the user's settings.
-    Would this still be necessary with the above change?
 
 TODO: Divine Slugcat Blast
 

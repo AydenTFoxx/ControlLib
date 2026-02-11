@@ -131,8 +131,16 @@ public static class MyRPCs
     }
 
     [RPCMethod]
-    public static void SerializePossessionHolders(RPCEvent _, OnlinePossessionHoldersList possessionHolders)
+    public static void SerializePossessionHolders(RPCEvent rpcEvent, OnlinePossessionHoldersList possessionHolders)
     {
+        if (OnlineManager.lobby.isOwner)
+        {
+            Main.Logger.LogWarning("Player is owner of the current lobby; Will not sync possession holders list.");
+
+            rpcEvent.Resolve(new GenericResult.Fail(rpcEvent));
+            return;
+        }
+
         foreach (KeyValuePair<Player, PossessionManager> kvp in possessionHolders.LocalDict)
         {
             PossessionExts.PossessionHolders.Add(kvp);
@@ -192,7 +200,7 @@ public static class MyRPCs
 
     private static void SyncLocalPossessions(GameSession _)
     {
-        if (OnlineManager.lobby.isOwner) return;
+        if (OnlineManager.lobby is null or { isOwner: true }) return;
 
         OnlineManager.lobby.owner.SendRPCEvent(RequestPossessionsSync, OnlineManager.mePlayer);
     }

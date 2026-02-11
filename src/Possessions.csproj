@@ -1,5 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+
+	<!-- Assembly metadata -->
+	<PropertyGroup>
+		<Title>Possessions Mod</Title>
+		<Company>YNHZRFXN</Company>
+		<AssemblyVersion>0.9.2.1</AssemblyVersion>
+		<FileVersion>0.9.2.1</FileVersion>
+		<PathMap>$(MSBuildProjectDirectory)=/$(TargetName)</PathMap>
+	</PropertyGroup>
+
 	<!-- .NET options -->
 	<PropertyGroup>
 		<TargetFramework>net481</TargetFramework>
